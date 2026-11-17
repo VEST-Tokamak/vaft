@@ -1,4 +1,4 @@
-"""Contract for Tutorial 05: MHD stability and perturbed equilibria (#1023, #2278).
+"""Contract for Tutorial 05: MHD stability and perturbed equilibria.
 
 The session follows EFIT -> CHEASE -> DCON/RDCON -> GPEC -> IMAS -> VAFT plots.
 Offline (the default) every solver stage loads a precomputed, validated IMAS
@@ -176,7 +176,7 @@ def test_every_solver_launch_is_gated_by_the_mode_and_the_preflight(book):
 
 
 def test_solver_workdirs_are_short_temporary_directories(book):
-    """The GPEC suite reads paths into fixed-length Fortran strings (#1239)."""
+    """The GPEC suite reads paths into fixed-length Fortran strings."""
     executable = _executable(book)
     assert 'LAB_ROOT = Path(tempfile.mkdtemp(prefix="vaft-t05-"))' in executable
     for cell in _code_cells(book):

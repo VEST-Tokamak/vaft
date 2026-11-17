@@ -1,4 +1,4 @@
-"""Fixed-boundary CHEASE equilibria synthesized from 0D descriptors (#120).
+"""Fixed-boundary CHEASE equilibria synthesized from 0D descriptors.
 
 A fixed-boundary Grad-Shafranov solution is fixed by the boundary, the two
 source functions and one normalization.  So the specification here is exactly
@@ -9,8 +9,8 @@ that and nothing more:
 * **sources** -- the *shapes* of ``p'(psi_N)`` and ``FF'(psi_N)`` as
   generalized-parabolic kernels, plus ``pressure_fraction``, the share of the
   on-axis Grad-Shafranov source carried by the pressure term; or, for either
-  source, a #1045 barrier profile (edge pedestal, ITB, or both) whose analytic
-  ``psi_N`` derivative is the shape (#1166 scope B);
+  source, a barrier profile (edge pedestal, ITB, or both) whose analytic
+  ``psi_N`` derivative is the shape;
 * **normalization** -- the one quantity CHEASE can impose: the plasma current
   (``NCSCAL = 2``) *or* the safety factor at ``psi_N = 0.95`` (``NCSCAL = 1``).
 
@@ -75,7 +75,7 @@ class ZeroDimensionalEquilibriumSpec:
     of the on-axis source ``mu0 R0**2 p' + FF'`` carried by the pressure.  Their
     common amplitude is not an input: CHEASE sets it to meet the target.
 
-    Barrier-profile sources (#1166 scope B).  ``pressure_profile`` -- an
+    Barrier-profile sources.  ``pressure_profile`` -- an
     :class:`~vaft.data.AnalyticProfile` (e.g. from
     :func:`vaft.process.profile.compose_analytic_profile`) or an
     :class:`~vaft.data.AnalyticPlasmaState`, whose ``p_total`` is used --
@@ -490,7 +490,7 @@ def synthesize_equilibrium_from_0d(
         chease=run, refined_geqdsk=run.refined_geqdsk, refined_ods=run.refined_ods,
     )
     if run.timed_out:
-        # Stopped by a time limit (#1016): not a solve that failed to converge.
+        # Stopped by a time limit: not a solve that failed to converge.
         reason = (run.stderr or "").strip().splitlines()[-1:] or [run.runtime_status]
         result.status, result.reason = "timeout", reason[0]
         return result

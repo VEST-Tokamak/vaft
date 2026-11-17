@@ -1,4 +1,4 @@
-"""EFIT's Picard trajectory as a typed history (issue #1038, phase 1)."""
+"""EFIT's Picard trajectory as a typed history."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def test_log_only_history_keeps_every_step_and_the_termination():
     assert first.exit_path == "iconvr=2" and first.sources == ("log",)
     # A starred chi2 and a NaN axis are still steps, not a lost slice.
     assert math.isnan(second.chi2[0]) and math.isnan(second.axis_z[1])
-    # No exit line at all: not an exhausted cap (#1038), just no message.
+    # No exit line at all: not an exhausted cap, just no message.
     assert second.exit_path == "no_exit_message"
     # The slice that failed before its first step is its own, empty slice.
     assert collapsed.iterations_n == 0 and collapsed.exit_path == "solver_error"
@@ -295,7 +295,7 @@ def test_summary_writes_the_sidecar_and_only_a_pointer_into_the_ods(tmp_path):
     assert str(result.iteration_history_file) in result.artifact_hashes
     assert result.iteration_history.at_time(0.319).iterations_n == 3
     # One flat JSON-string leaf: a nested code.parameters path would not
-    # survive the Access Layer (#561).
+    # survive the Access Layer.
     pointer = json.loads(result.ods["equilibrium.code.parameters.iteration_history"])
     assert pointer["path"] == str(result.iteration_history_file)
     assert pointer["level"] == "summary" and pointer["schema_version"] == 1

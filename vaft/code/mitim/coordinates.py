@@ -1,4 +1,4 @@
-"""The radial coordinate bridge between VAFT and MITIM (#1588 stage A2).
+"""The radial coordinate bridge between VAFT and MITIM.
 
 VAFT's TGLF/NEO adapters address a surface by ``r/a`` (``rmin/rmin[-1]``), the
 coordinate GACODE's local codes take. MITIM's ``TGLF(rhos=...)``/``NEO(rhos=...)``

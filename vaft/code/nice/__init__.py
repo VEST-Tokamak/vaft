@@ -1,10 +1,10 @@
-"""NICE free-boundary magnetic-reconstruction adapter (experimental, #666).
+"""NICE free-boundary magnetic-reconstruction adapter (experimental; Open: #666, cross-validation against EFIT).
 
 Preparation and collection are pure Python and do not require NICE.  Only
 ``run_nice`` resolves and executes the standalone ``nice_recon`` program.
 
 Experimental: no VEST reference slice reconstructs yet (0 of 34 in the
-issue #666 study), and ``NiceResult.scientifically_usable`` means numerical
+validation study ``vaft/validation/studies/nice_issue_666``), and ``NiceResult.scientifically_usable`` means numerical
 stage success only.  Nothing in the routine pipeline calls this adapter and
 no production default depends on it.
 """

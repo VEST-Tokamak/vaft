@@ -6,8 +6,8 @@ ensemble member, denormalise with ``y * ysigma + ym``, and take the mean.  The s
 across members is kept, because it is the one quantity that moves when the input leaves
 the training set.
 
-``onnxruntime`` is imported lazily and never at package import: issue #553 section 11
-keeps the ML runtime optional, and the native GACODE adapter must stay importable
+``onnxruntime`` is imported lazily and never at package import: the ML runtime is
+optional, and the native GACODE adapter must stay importable
 without it.  Nothing here touches the network -- see
 :mod:`~vaft.code.gacode.tglf.surrogate.resolver`.
 """
@@ -124,20 +124,21 @@ def run_surrogate(
     at all: a model asked about a plasma outside its training distribution raises
     :class:`TrainingDomainError` naming the offending inputs.  Pass
     ``allow_extrapolation=True`` to get the numbers anyway -- they are returned with
-    ``qualified`` False and the audit attached, because the point of issue #553 section
-    12 is that an extrapolated prediction and an in-domain one must not be
-    interchangeable downstream.
+    ``qualified`` False and the audit attached, because an extrapolated prediction and
+    an in-domain one must not be interchangeable downstream.
 
-    That default is not caution for its own sake.  No public TGLF-NN family has VEST
-    in domain: every one of them was trained where the ions are about as hot as the
-    electrons, and VEST's ohmic plasma runs at ``T_i/T_e`` near 0.1, which lands
-    ``TAUS`` four to ten sigma out with nothing in the returned fluxes to show it.
+    The refusal uses :attr:`DomainAudit.applicable`: the z-score distance and, when an
+    exported ``xbounds.txt`` makes them known, the true training min/max.  It is not
+    caution for its own sake.  Every public family was trained where the ions are about
+    as hot as the electrons; on VEST whether an input applies is decided by the ion
+    temperature it is given (``T_i/T_e`` near 0.1 lands ``TAUS`` outside every family,
+    ``T_i = T_e`` does not; #2272), with nothing in the returned fluxes to show it.
     """
     identity = resolve_model(model, model_dir=model_dir, env=env)
     metadata = load_metadata(identity)
     features, assumed = build_features(local, metadata, config=config)
     audit = audit_features(features, assumed, identity, metadata, threshold=threshold)
-    if not audit.in_domain and not allow_extrapolation:
+    if not audit.applicable and not allow_extrapolation:
         raise TrainingDomainError(
             f"refusing to predict outside the training distribution -- {audit.summary()}. "
             f"The network will return finite numbers for this input; they are not "
@@ -147,7 +148,7 @@ def run_surrogate(
         )
 
     outputs, uncertainty = ensemble_predict(features, identity, metadata)
-    # Surrogate fidelity (issue #553 sections 12-13): a SAT3-trained network standing
+    # Surrogate fidelity: a SAT3-trained network standing
     # in for a SAT1 run is a mismatch, but SAT_RULE is not one of the model's input
     # channels, so the audit cannot see it. It is recorded rather than refused because
     # `TGLFConfig.sat_rule` has a default -- a caller who passed a config for some
@@ -183,11 +184,14 @@ def run_surrogate(
             "domain_measure": DOMAIN_MEASURE,
             "domain_threshold": float(threshold),
             "training_bounds_available": audit.bounds_available,
+            "contained": audit.contained,
+            "bound_violations": audit.bound_violations,
+            "bound_violations_at_data_edge": audit.bound_violations_at_data_edge,
             "extrapolation_allowed": bool(allow_extrapolation),
             "assumed_features": audit.assumed,
             "rho": float(local.rho),
             # The TGLF variant the network reproduces, realized by a learned surrogate
-            # (#1735): its physics fields come from the model identity, not the request.
+            # its physics fields come from the model identity, not the request.
             "plasma_formalism": tglf_surrogate_plasma_formalism(
                 sat_rule=identity.sat_rule, electromagnetic=identity.electromagnetic, model=identity.name,
                 parameters={"GEOMETRY_FLAG": int(requested.geometry_flag),

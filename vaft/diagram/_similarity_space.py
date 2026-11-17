@@ -1,4 +1,4 @@
-"""Global dimensionless-similarity projections (#1624, Phase A).
+"""Global dimensionless-similarity projections.
 
 Three zero-dimensional spaces from the ARC physics-basis comparison
 (Hillesheim et al. 2026, Fig. 6): $\\nu_*$, $\\beta_N$ and
@@ -13,9 +13,9 @@ Conventions
 The $\\rho_*$ and $\\nu_*$ axes are the ITPA confinement-database convention
 of Verdoolaege et al. (2021), Eqs. (1a) and (1c), which Hillesheim et al.
 (2026, Sec. 4) state they use. VAFT has other $\\nu_*$ and $\\rho_*$
-definitions (#353); each is a different axis quantity, so a Sauter, pedestal
-or separatrix collisionality column cannot be drawn on these axes. #353 still
-decides VAFT's default definitions; nothing here makes one canonical.
+definitions; each is a different axis quantity, so a Sauter, pedestal
+or separatrix collisionality column cannot be drawn on these axes. VAFT's
+default definitions are still undecided (open: #353); nothing here makes one canonical.
 
 Reference points are only those whose numbers a source states in its text.
 The SPARC, ITER and EU-DEMO points and the DB5.2.3-STD5 population of

@@ -1,4 +1,4 @@
-"""Locality QA for local CGYRO runs: box adequacy vs the local approximation (#1354)."""
+"""Locality QA for local CGYRO runs: box adequacy vs the local approximation."""
 
 from __future__ import annotations
 
@@ -134,7 +134,7 @@ def test_build_nonlinear_rebuilds_the_local_input_from_its_summary(tmp_path):
 
 
 def test_an_electrostatic_low_ky_nonlinear_run_is_refused_before_anything_runs(tmp_path):
-    """#1484: the ES omega_H branch grew alone at k_y=0.1 and drove the whole ES run."""
+    """Regression guard for #1484: the ES omega_H branch grew alone at k_y=0.1 and drove the whole ES run."""
     import importlib.util
     from pathlib import Path
 
@@ -198,7 +198,7 @@ def test_the_zonal_fraction_is_one_when_only_n0_carries_power(tmp_path):
 
 def test_a_requeued_restart_leaves_stray_records_that_are_dropped_everywhere(tmp_path):
     """A node failure + requeue can interleave a few out-of-order print records and
-    leave one flux record past the last time line (#1484, job 771927): the run must
+    leave one flux record past the last time line (job 771927): the run must
     still parse, with time strictly increasing and every time-history array aligned."""
     from pathlib import Path
 

@@ -1,4 +1,4 @@
-"""The pieces Tutorial 05 runs on (#2278), tested without any solver.
+"""The pieces Tutorial 05 runs on, tested without any solver.
 
 * ``vaft.code.stage_status``: the four facts of a run-or-load stage stay apart.
 * ``GPECSuiteConfig.mpsi`` / ``DCONOptions.termbycross_flag`` reach the prepared namelists.

@@ -17,8 +17,8 @@ After a local gyrokinetic or reduced turbulent-transport calculation, a plasma p
 inspects the same few things: linear growth rates and frequencies, where in $k_y$ the flux
 is carried and by which field, the fluctuation amplitudes and cross phases, the mode
 structure, and the local plasma state that produced all of it. Then they look at the
-fluxes as radial profiles and compare models. This page maps those quantities onto VAFT
-(issue #1591). MITIM's `TGLF.plot` answers the same questions and is used here as a
+fluxes as radial profiles and compare models. This page maps those quantities onto VAFT.
+MITIM's `TGLF.plot` answers the same questions and is used here as a
 *benchmark* of what is worth showing. MITIM is not imported, and its layout is not copied.
 
 ## Two families, two layers
@@ -34,7 +34,7 @@ local calculation, not a radial collection of them.
 
 Each family has two layers:
 
-- **Native** (`vaft.plot.gyrokinetics`). These are solver diagnostics in GACODE units: $k_y\rho_s$, $\gamma$ and $\omega$ in $c_s/a$, $\omega$ with the ion diamagnetic direction negative. That is TGLF's own sign. CGYRO's native sign depends on the field orientation, so it is converted using the ion direction CGYRO reports for each run (`CgyroOutputs.frequency_ion_negative`). On the #1482 surfaces the two codes agree on the branch at 78 of 82 converged points. Matched TGLF–CGYRO validation uses this layer, because both codes share the normalization.
+- **Native** (`vaft.plot.gyrokinetics`). These are solver diagnostics in GACODE units: $k_y\rho_s$, $\gamma$ and $\omega$ in $c_s/a$, $\omega$ with the ion diamagnetic direction negative. That is TGLF's own sign. CGYRO's native sign depends on the field orientation, so it is converted using the ion direction CGYRO reports for each run (`CgyroOutputs.frequency_ion_negative`). On the surfaces of the CGYRO–TGLF linear validation (five Tier A VEST states at r/a 0.6, 0.7 and 0.8; provenance: #1484) the two codes agree on the branch at 78 of 82 converged points. Matched TGLF–CGYRO validation uses this layer, because both codes share the normalization.
 - **Standardized**. These are registered plots that read the IMAS IDS in its GKDB normalization: `binormal_wavevector_norm`, `growth_rate_norm`, lengths in units of $R_0$, $v_{th,ref}=\sqrt{2T_e/m_D}$.
 
 A native quantity is never fed to a standardized plot, nor the reverse. Conversions live in the mapping layer (`vaft.machine_mapping.gyrokinetics.conversion_factors`), not in renderers.
@@ -110,7 +110,7 @@ vaft.omas.plot_turbulent_transport_overview({f"TGLF SAT{n}": ct for n, ct in sat
 
 ![CGYRO and TGLF growth rates]({{ site.baseurl }}/assets/images/gyrokinetics/gk_growth_cgyro_tglf_39915_r0.70.png)
 
-**Matched comparison.** Both IDS describe the same surface, species, field model, normalization and sign convention, so the overlay carries no "unmatched" note. The TGLF SAT2-preset growth rate lies above CGYRO's converged points, as in the #1484 validation.
+**Matched comparison.** Both IDS describe the same surface, species, field model, normalization and sign convention, so the overlay carries no "unmatched" note. The TGLF SAT2-preset growth rate lies above CGYRO's converged points, as in the CGYRO–TGLF linear validation (provenance: #1484).
 
 ![Turbulent transport, TGLF SAT0-3]({{ site.baseurl }}/assets/images/gyrokinetics/turbulent_transport_overview_39915.png)
 
@@ -118,7 +118,7 @@ vaft.omas.plot_turbulent_transport_overview({f"TGLF SAT{n}": ct for n, ct in sat
 
 ## Turbulence–zonal-flow (predator–prey) views
 
-Three native views in `vaft.plot.gyrokinetics` (#1820) draw what `vaft.process.gyrokinetics` derived from a nonlinear run. They do not detect peaks, correlate or fit anything themselves.
+Three native views in `vaft.plot.gyrokinetics` draw what `vaft.process.gyrokinetics` derived from a nonlinear run. They do not detect peaks, correlate or fit anything themselves.
 
 | view | draws | takes |
 | --- | --- | --- |

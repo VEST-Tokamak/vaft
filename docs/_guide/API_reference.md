@@ -75,7 +75,7 @@ flowchart TD
 | `vaft.gui` | Browser GUI over the plot catalog and interactive controls | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
 | `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` (deprecated alias of `vaft.data.atomic`/`vaft.data.spectroscopy`, removed in 0.10.0) | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
 
-Atomic and spectroscopic concerns follow the same layering as the rest of the package (#1711).
+Atomic and spectroscopic concerns follow the same layering as the rest of the package.
 Identity is data: `vaft.data.atomic` owns elements, isotopes, charge states and species notation
 (`AtomicSpecies`, `parse_species`), and `vaft.data.spectroscopy` owns spectral-line identity and the
 IMAS `processed_line.label` codec (`SpectralLineIdentity`, `parse_line_label`, `parse_emission_term`).
@@ -279,7 +279,7 @@ vaft.omas.compute_magnetic_shear(ods, time_slice)
 ```
 
 `compute_tau_E_exp` and `compute_power_balance` are the legacy *modelled* budget (Spitzer heating,
-modelled radiation). The experimental Ohmic chain is a submodule of its own (#1905):
+modelled radiation). The experimental Ohmic chain is a submodule of its own:
 
 <!-- docs-snippet: skip fragment (needs an ODS with equilibrium and measured magnetics) -->
 ```python
@@ -550,26 +550,26 @@ result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
 | Name | Role |
 | --- | --- |
 | `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
-| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, `runtime_status` (`completed`, `timeout`, `queue_timeout`), elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
+| `ExecutionResult` | return code (`None` when stopped), captured output, `timed_out`, `runtime_status` (`completed`, `timeout`, `queue_timeout`, `memory_limit`, `cancelled`, `node_fail`), elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends), `usage` (`ResourceUsage`: CPU seconds, utilization, peak memory, when measured) |
 | `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
 | `ExecutionBackend`, `LocalBackend`, `SlurmBackend`, `RemoteHost`, `RemoteSlurmBackend`, `resolve_backend` | the protocol, the local, Slurm and ssh+Slurm implementations, and the config lookup (falls back to `$VAFT_EXECUTION_BACKEND`: `local`, `slurm` or `remote`) |
 | `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
 
 A timeout is returned (`timed_out=True`), not raised. A program the operating system refuses to
 start raises `ExecutableNotLaunchable`; a missing working directory stays a `FileNotFoundError`.
-A timeout, a `KeyboardInterrupt` or a `SIGTERM`/`SIGHUP` stops the program's whole process tree
-(#1016); the interrupt and the signal are then raised again rather than turned into a result.
+A timeout, a `KeyboardInterrupt` or a `SIGTERM`/`SIGHUP` stops the program's whole process tree,
+so no orphaned solver rank keeps running; the interrupt and the signal are then raised again rather than turned into a result.
 
-**Timeout results (#1016).** Every adapter below returns its own result object on a timeout; none
+**Timeout results.** Every adapter below returns its own result object on a timeout; none
 raises. The result says:
 
 | Field | On a timeout |
 | --- | --- |
 | `status` | `"failed"` (a property: `"completed"` when `ok`, else `"failed"`) |
-| `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started |
+| `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started. `"memory_limit"`: the memory limit stopped it (locally, or a job that ended `OUT_OF_MEMORY`). `"cancelled"`: someone else `scancel`led the job. `"node_fail"`: `NODE_FAIL`, `PREEMPTED` or `BOOT_FAIL` |
 | `returncode` | `None` |
 | `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout); for a Slurm batch job, from submission, queue wait included |
-| `timed_out` | `True` for either timeout kind (a property) |
+| `timed_out` | `True` for every status but `completed`: the program did not exit on its own (a property) |
 
 A stop well short of `timeout` (a scheduler's `max_wait` cancelling a running job) reports the time
 actually run: a batch job's own start and termination stamps (`ExecutionResult.run_s`), so a long
@@ -614,7 +614,7 @@ launchers still start the ranks themselves. TokaMaker runs in-process and has no
 
 ### Python tasks
 
-`python_task_request(module, args, workdir=..., ...)` (#1147) builds the request for an in-repo Python
+`python_task_request(module, args, workdir=..., ...)` builds the request for an in-repo Python
 task, `<python> -m <module> <args...>`, that runs the same way under `LocalBackend` and under
 `SlurmBackend` on a shared filesystem. The interpreter is `interpreter=`, else `$VAFT_PYTHON` (for a
 batch node that sees the environment at another path), else `sys.executable`. `spec=` is written as
@@ -640,7 +640,7 @@ with tempfile.TemporaryDirectory() as unit_dir:
     print(result.returncode, result.stdout.strip())  # 0 {"shot":39915}
 ```
 
-**Overriding resources (#1016).** Every configuration with a `backend` also takes
+**Overriding resources.** Every configuration with a `backend` also takes
 `resources: ResourceRequest | None`. `None` keeps the adapter's own declaration above; a value
 replaces it whole (threads, tasks and memory, so a scheduler sizes the job from it). The thread
 count follows one precedence:
@@ -671,7 +671,7 @@ result = run_efit(inputs, EFITConfig(resources=ResourceRequest(threads_per_task=
 
 ### Running under Slurm
 
-`SlurmBackend` (#1017) runs the same adapter call as a cluster job. Only the `backend=` argument
+`SlurmBackend` runs the same adapter call as a cluster job. Only the `backend=` argument
 changes:
 
 <!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
@@ -739,7 +739,7 @@ such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those
 ### Submitting without waiting
 
 `run` blocks. For a scan or campaign that should keep many cases in flight, every backend also
-accepts `submit` (#1018), through `submit_request(backend, request)`, which falls back to running
+accepts `submit`, through `submit_request(backend, request)`, which falls back to running
 eagerly for a backend that only has `run`:
 
 | Call | What it does |
@@ -800,6 +800,22 @@ result is the one a local run returns: the same timeout and `queue_timeout` stat
 `ExecutableNotLaunchable` for a refused submission, and `run_s` taken from the scheduler's start and
 end stamps. `KeyboardInterrupt`, `SIGTERM` and `SIGHUP` `scancel` the job and are then raised again.
 
+**Resource usage and submission policy.** Both Slurm backends' job script samples the job's own cgroup
+(`cpu.stat`, `memory.peak`) as the program starts and ends, also at the TERM of a cancel or a time
+limit, so `ExecutionResult.usage` (`vaft.code.accounting.ResourceUsage`) carries the CPU seconds,
+`utilization` (CPU-seconds / (wall × booked CPUs)) and peak memory even of a job that `sacct`'s
+`TotalCPU` reports as 0 after a cancel. With `VAFT_EXECUTION_POLICY` naming a policy file
+(`vaft.code.policy`), every `sbatch` is checked first against the cluster's limits (CPUs, memory,
+partitions, concurrent jobs) and, where the cluster requires it, a recorded approval
+(`VAFT_EXECUTION_APPROVAL` or `approval=`; the tighter of the two limits applies); a refusal raises
+`SubmissionRefused` before anything reaches the scheduler, and every refusal and submission is appended
+to the policy's audit log with the requester, the approval and the job id. Backends name the cluster
+with `cluster=` (default `$VAFT_SLURM_CLUSTER`, then `$SLURM_CLUSTER_NAME`, or the remote host).
+`memory.peak` counts page cache: on a node that does not constrain RAM it can exceed the booked
+memory while resident memory stays far below it. `UsageMeter` measures any command this process
+launches and waits for, with or without a scheduler: the job cgroup inside a Slurm job, else
+`getrusage` of the children; both report the largest single process's resident peak.
+
 **Paths.** The two machines share no filesystem, so the working directory, `log_path`, every
 `command` argument (`--home=/opt/gpec` included) and every path-valued `env` entry go through
 `path_maps`. A working directory that no pair covers is staged into a fresh directory under
@@ -835,7 +851,7 @@ two ssh round trips and two rsyncs, so keep short runs (EFUND, one EFIT slice) o
 
 `ResourceRequest.memory_mb` only asks a scheduler for memory, and `LocalBackend` ignores it. When a
 long Python loop outgrows its allocation, the kernel's or Slurm's OOM killer ends the process with no
-traceback and no status record. `vaft.code.resources` (#1146) lets the loop notice first and stop at a
+traceback and no status record. `vaft.code.resources` lets the loop notice first and stop at a
 point of its own choosing:
 
 ```python
@@ -891,7 +907,8 @@ saw, a lower bound on the true peak inside the block; `peak_rss_mb()` is the pro
 `task_info` and the peak with `getrusage`, whose `ru_maxrss` is in bytes there and in KiB on Linux.
 Windows reads `GetProcessMemoryInfo`. `psutil` is used when it is installed and no native reading is
 available, and `ps -o rss=` is the last resort; psutil is never required. The guard stops the Python
-process only; it does not limit `LocalBackend` children (see #1016).
+process only; it does not limit `LocalBackend` children, which the request's timeout bounds by stopping
+their whole process tree.
 
 # `vaft.data`
 

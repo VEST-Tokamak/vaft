@@ -8,7 +8,7 @@ from omas import *
 import vaft
 
 # The names defined here.  What this module imports (``omas``, NumPy, other
-# VAFT modules) is not re-exported through it (#1382).
+# VAFT modules) is not re-exported through it.
 __all__ = [
     "COCOS_PARAMETER_PATH",
     "ONSET_METHOD",
@@ -688,7 +688,7 @@ def ods_cocos(ods, *, default=None):
 
     for path in ("equilibrium.ids_properties.cocos", COCOS_PARAMETER_PATH):
         # A non-mutating read: a plain ``ods[path]`` of a missing path creates
-        # an empty node that ``flat()`` hides but ``save`` writes (issue #478).
+        # an empty node that ``flat()`` hides but ``save`` writes.
         value = path_value(ods, path)
         if value is None:
             continue
@@ -729,7 +729,7 @@ def _dd_defines(ods, path):
 
     An ODS with consistency checks off accepts any path, so the DD itself has
     to be asked; otherwise a DD 3 artifact ends up carrying a DD 4 leaf that
-    its native serializers cannot write (issue #478).
+    its native serializers cannot write.
     """
     from omas.omas_utils import omas_info_node
 
@@ -855,8 +855,8 @@ def equilibrium_psi_to_weber(ods, *, source=None):
     """Rewrite a per-radian equilibrium in place to COCOS 11, the DD's weber.
 
     The IMAS Data Dictionary stores ``equilibrium.*.psi`` in Wb (COCOS 11);
-    artifacts written before issue #236 hold the g-file's Wb/rad verbatim and
-    declare nothing.  After this call the ODS holds and declares
+    older VAFT artifacts (written before psi was stored in Wb) hold the
+    g-file's Wb/rad verbatim and declare nothing.  After this call the ODS holds and declares
     :data:`~vaft.data.cocos.VAFT_INTERNAL_COCOS` (11) through
     :func:`set_ods_cocos`, so no reader has to guess again.
 
@@ -871,7 +871,7 @@ def equilibrium_psi_to_weber(ods, *, source=None):
       nothing but ``2*pi``; for 2-8 the flux, ``ip``, ``b0``/``f``, ``q`` and
       ``b_field_tor`` also change sign as the index requires.  Scaling by
       ``2*pi`` alone would turn COCOS k into k+10, not 11, and relabelling that
-      as 11 inverts the poloidal field (issue #1371).
+      as 11 inverts the poloidal field.
       ``equilibrium.time_slice.*.constraints`` is never touched: VAFT copies
       it from the DD-conformant magnetics and pf_active IDSs.
     * A declared COCOS 11-18 already stores psi in weber and is left alone:
@@ -885,7 +885,7 @@ def equilibrium_psi_to_weber(ods, *, source=None):
       file come out the same.  ``ValueError`` is raised when the slices that
       tier decided disagree about their storage family or when no tier
       settles it -- guessing would silently corrupt the flux by 2*pi, which
-      is what this function exists to end (issue #478).
+      is what this function exists to prevent.
 
     Returns ``True`` when a conversion was applied and ``False`` when the ODS
     already declares a weber convention, is found to hold weber (it is then

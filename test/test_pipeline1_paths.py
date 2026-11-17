@@ -108,14 +108,14 @@ def test_filedb_layout_matches_the_canonical_resolver():
     # a fourth spelling of a product name gets into circulation.
     assert paths.diagnostics_ods(SHOT) == str(filedb.omas_product("diagnostics", shot=SHOT))
     assert paths.eddy_ods(SHOT) == str(filedb.omas_product("eddy", shot=SHOT))
-    # Issue #77: EFIT constraints live under omas/efit/{shot}/work.
+    # EFIT constraints live under omas/efit/{shot}/work.
     assert paths.constraints_ods(SHOT) == str(
         filedb.omas("efit", shot=SHOT, family=FAMILY, artifact="work") / "constraints.json"
     )
     assert paths.efit_ods(SHOT) == str(
         filedb.omas_product("efit", shot=SHOT, family=FAMILY)
     )
-    # Issue #139: validation plots are a canonical `plot/` artifact, resolved
+    # Validation plots are a canonical `plot/` artifact, resolved
     # beside the stage output they validate.
     assert paths.stage_plot(SHOT, "efit", "equilibrium_overview_verification.png") == str(
         filedb.omas("efit", shot=SHOT, family=FAMILY, artifact="plot")
@@ -480,7 +480,7 @@ class _Workflow:
 
 
 def test_a_complete_run_config_file_passes_even_when_snakemake_does_not_merge_it(tmp_path):
-    """Snakemake 9 leaves overwrite_config empty for --configfile; the file itself is read (#1530)."""
+    """Snakemake 9 leaves overwrite_config empty for --configfile; the file itself is read."""
     run = tmp_path / "run.json"
     run.write_text('{"base_dir": "/tmp/filedb", "shots": [39915]}', encoding="utf-8")
     MODULE.require_run_config_keys(_Workflow([run]))  # Snakemake 9: nothing merged
@@ -534,7 +534,7 @@ def test_config_expansion_keeps_the_shell_meaning_of_an_empty_variable(monkeypat
 
     `EFIT="" snakemake ...` used to keep `executable: ""` under
     `os.path.expandvars`; the first expander of this function reported it as
-    missing (PR #1926 review F2).
+    missing.
     """
     monkeypatch.setenv("VAFT_EMPTY_VAR", "")
     assert MODULE.expand_config_environment("${VAFT_EMPTY_VAR}") == ""

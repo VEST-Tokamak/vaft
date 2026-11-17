@@ -1,6 +1,6 @@
 """The stored probe orientation must mean, to a DD reader, what the probes measure.
 
-Issue #288. VEST's poloidal probes measure ``+Bz``. The IMAS DD defines
+Regression guard for #288. VEST's poloidal probes measure ``+Bz``. The IMAS DD defines
 ``poloidal_angle`` as a **clockwise** angle from ``+R``, so the sensitive axis is
 ``(cos, -sin)`` and ``+Bz`` must be stored as ``3*pi/2``.
 

@@ -1,4 +1,4 @@
-"""Size cap and housekeeping for the local HSDS domain cache (#1759, #964).
+"""Size cap and housekeeping for the local HSDS domain cache.
 
 ``vaft.database.load(..., cache="auto")`` keeps every validated HSDS domain it
 downloads (:class:`vaft.database.staging.HSDSDomainCache`). Cached domains are

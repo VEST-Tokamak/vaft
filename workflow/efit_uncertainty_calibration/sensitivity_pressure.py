@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Integrated pressure and profile shape of every ``weight_scan`` member against Thomson (#579).
+"""Integrated pressure and profile shape of every ``weight_scan`` member against Thomson.
 
     python workflow/efit_uncertainty_calibration/sensitivity_pressure.py \\
         --tables table_42962.json ... --scan-dirs shot_42962 ... \\

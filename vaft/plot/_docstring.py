@@ -1,4 +1,4 @@
-"""The plot docstring contract (issue #1505).
+"""The plot docstring contract.
 
 A formula answers *what is this quantity?*, a processing routine *how is this
 input turned into this output?*  A plot answers a third question: *what does
@@ -85,7 +85,7 @@ SECTION_VOCABULARY: tuple[str, ...] = (
     "Warnings",
 )
 
-#: The sections issue #1505 adds on top of numpydoc.
+#: The sections the plot contract adds on top of numpydoc.
 CUSTOM_SECTIONS: tuple[str, ...] = (
     "Interpretation",
     "Options",

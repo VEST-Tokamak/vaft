@@ -1,7 +1,7 @@
 # Legacy VEST reference validation
 
 This directory contains the reproducible capture and comparison procedure for
-GitHub issue #88. The legacy server and `/srv/vest.filedb/public` are reference
+the legacy VEST reference fixtures and the ODS parity comparator. The legacy server and `/srv/vest.filedb/public` are reference
 sources only; neither is required by CI or the production workflow.
 
 ## Repository fixtures
@@ -29,8 +29,8 @@ assert all(item.valid for item in results)
 Download the full reference artifact to a temporary location. Do not commit it:
 
 ```bash
-scp -P 2222 \
-  user1@147.46.36.244:/srv/vest.filedb/public/39915/omas/39915_combined.json \
+# vaft-server: a Host entry in your ~/.ssh/config (HostName, Port, User of the production server)
+scp vaft-server:/srv/vest.filedb/public/39915/omas/39915_combined.json \
   /tmp/vaft-legacy-39915-combined.json
 ```
 
@@ -72,7 +72,7 @@ The active workflow snapshot was captured independently of the historical
 artifact creation times because the legacy workflow does not record a commit
 identifier in its ODS products. This limitation is explicit in the manifest.
 
-## Reference-portfolio audit (#1712)
+## Reference-portfolio audit
 
 `audit_portfolio.py` reports which canonical FileDB products exist for each
 reference shot, and whether each is usable, before any sample is refreshed.
@@ -80,8 +80,9 @@ The scan half uses only the standard library and is read-only, so it can be pipe
 server's `python3` without touching the production checkout:
 
 ```bash
-ssh -p 2222 user1@147.46.36.244 \
-  python3 - scan --root /srv/vest.filedb --root /home/user1/runs/campaign/filedb \
+# vaft-server: a Host entry in your ~/.ssh/config (HostName, Port, User of the production server)
+ssh vaft-server \
+  python3 - scan --root /srv/vest.filedb --root '~/runs/campaign/filedb' \
   --shot 39915 --shot 48224 \
   < workflow/reference_validation/audit_portfolio.py > server_scan.json
 python workflow/reference_validation/audit_portfolio.py report server_scan.json \

@@ -1,4 +1,4 @@
-"""Concurrent writes of one shot keep every IDS linked from its master (#913).
+"""Concurrent writes of one shot keep every IDS linked from its master.
 
 The remote side is an in-memory HSDS: a folder per ``(source, shot)`` holding
 file bytes. Everything between the replication call and the upload of each
@@ -152,7 +152,7 @@ def _replicate_concurrently(db):
 # the race and its fix
 # --------------------------------------------------------------------------- #
 def test_without_the_fix_concurrent_stages_lose_a_link(hsds, two_stages, monkeypatch, tmp_path):
-    """The control: the pre-#913 path (no lock, no re-read) reproduces the loss."""
+    """The control: the unlocked path (no lock, no re-read) reproduces the loss."""
     monkeypatch.setattr(replication, "shot_master_lock", lambda *a, **k: nullcontext())
     monkeypatch.setattr(_master_lock, "shot_master_lock", lambda *a, **k: nullcontext())
     monkeypatch.setattr(ods_module, "_merge_current_master", lambda source, shot, then=None: then or (lambda m: None))

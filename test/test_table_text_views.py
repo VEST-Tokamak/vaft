@@ -1,4 +1,4 @@
-"""Table and text-summary views are first-class canonical views (issue #1180).
+"""Table and text-summary views are first-class canonical views.
 
 A ``table`` or ``text`` view is built like any plot -- the adapter selects and
 reduces the data into a typed model -- and presented by a renderer that returns

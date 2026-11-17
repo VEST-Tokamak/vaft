@@ -1,4 +1,4 @@
-"""Issue #236: equilibrium psi is stored in Wb (IMAS DD), not the g-file's Wb/rad.
+"""Equilibrium psi is stored in Wb (IMAS DD), not the g-file's Wb/rad.
 
 ``to_omas`` multiplies psi-like leaves by 2*pi and divides the psi-derivative
 profiles by it; ``from_omas`` inverts using
@@ -30,7 +30,7 @@ def gfile():
 
 
 def _legacy_style(ods):
-    """Rewrite a DD-correct ODS the way the pre-#236 writer did (Wb/rad)."""
+    """Rewrite a DD-correct ODS the way the old per-radian writer did (Wb/rad)."""
     import copy
 
     legacy = copy.deepcopy(ods)
@@ -153,7 +153,7 @@ def test_loop_voltage_is_correct_and_storage_invariant(gfile):
 
 
 def test_real_vest_shot_loop_voltage_consumption():
-    """Issue #652: Real-data regression test for the voltage consumption path.
+    """Regression guard for #652: real-data test of the voltage consumption path.
 
     Validates that compute_voltage_consumption correctly handles real VEST EFIT
     reconstructions (shot 39915), automatically detects the DD Weber flux convention,
@@ -217,7 +217,7 @@ def _strip_phi(ods):
 
 def test_storage_family_is_detected_without_phi():
     """The slope test needs ``profiles_1d.phi``; the EFIT-pipeline ODS written
-    before issue #236 holds Wb/rad and carries none, so the DD default used to
+    by the old per-radian writer holds Wb/rad and carries none, so the DD default used to
     rescale it by 2*pi. Ampere's law round the LCFS answers without phi."""
     import copy
 
@@ -248,7 +248,7 @@ def test_storage_family_survives_a_degenerate_slice():
 
 
 def test_virial_quantities_are_physical_on_the_packaged_sample():
-    """Regression for the issue #278 default: on sample 39915 (Wb/rad, no phi)
+    """Regression guard for #278: on sample 39915 (Wb/rad, no phi)
     the virial path returned B_pa 2*pi too small and beta_p = 30.5."""
     from vaft.omas.sample import sample_ods
 
@@ -314,7 +314,7 @@ def test_legacy_artifact_without_phi_is_detected_by_ampere_law():
     ods = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
     assert "phi" not in ods["equilibrium.time_slice.0.profiles_1d"]
 
-    # Since issue #478 the packaged sample ships in DD weber and declares
+    # The packaged sample ships in DD weber and declares
     # COCOS 11; strip the declaration so Ampere's law alone must answer.
     del ods["equilibrium.code.parameters"]
     assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0 / TWO_PI)
@@ -324,7 +324,7 @@ def test_legacy_artifact_without_phi_is_detected_by_ampere_law():
     simag = (recovered.data if hasattr(recovered, "data") else recovered)["SIMAG"]
     assert float(simag) == pytest.approx(stored_axis / TWO_PI, rel=1e-9)
 
-    # And the pre-#478 artifact, rebuilt from the sample, is still detected.
+    # And the old Wb/rad artifact, rebuilt from the sample, is still detected.
     legacy = _legacy_style(ods)
     assert ods_psi_to_wb_per_radian_factor(legacy, 0) == pytest.approx(1.0)
 
@@ -335,7 +335,7 @@ def test_ampere_law_fallback_still_reports_weber_for_dd_conformant_data():
 
     import vaft
 
-    # Rebuild the undeclared Wb/rad artifact the sample used to be (#478).
+    # Rebuild the undeclared Wb/rad artifact the sample used to be.
     ods = _legacy_style(vaft.omas.load(vaft.data.sample(39915, representation="omas")))
     del ods["equilibrium.code.parameters"]
     weber = copy.deepcopy(ods)
@@ -366,7 +366,7 @@ def test_detector_accepts_a_bare_time_slice_as_its_docstring_promises():
 
     import vaft
 
-    # The packaged sample is DD weber since #478; its legacy form is Wb/rad.
+    # The packaged sample is DD weber; its legacy form is Wb/rad.
     ods = _legacy_style(vaft.omas.load(vaft.data.sample(39915, representation="omas")))
     del ods["equilibrium.code.parameters"]
     assert ods_psi_to_wb_per_radian_factor(ods, 0) == pytest.approx(1.0)
@@ -399,7 +399,7 @@ _WINDOWS = {39915: (0.316, 0.326), 41672: (0.322, 0.341)}
 
 @pytest.mark.parametrize("shot, per_radian", [(39915, False), (41672, True)])
 def test_real_shots_on_both_storage_branches_match_the_inboard_flux_loop(shot, per_radian):
-    """Issue #652: the voltage-consumption path on two real shots that take
+    """Regression guard for #652: the voltage-consumption path on two real shots that take
     different branches of ods_psi_to_wb_per_radian_factor, checked against an
     independent measurement -- the inboard midplane flux loop -- rather than
     against a parity.  A 2 pi misclassification on either branch would put the

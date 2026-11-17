@@ -1,4 +1,4 @@
-"""Every stage product is written through `vaft.omas.save` (#813).
+"""Every stage product is written through `vaft.omas.save`.
 
 The container a stage product is stored in is declared once, in
 `vaft.database.filedb.OMAS_PRODUCT_SUFFIX` / `OMAS_PRODUCT_SUFFIXES`, and

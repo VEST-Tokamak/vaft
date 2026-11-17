@@ -1,7 +1,7 @@
-"""Build the impurity Z_eff(rho) atlas (#1565 Sec. 8, Lane L) on the #1331 Tier A states.
+"""Build the impurity Z_eff(rho) atlas (Lane L) on the EFIT campaign's Tier A states.
 
-Reads, never writes, the campaign FileDB and the Lane K state table (contract
-#1454); writes into ``--out``:
+Reads, never writes, the campaign FileDB and the Lane K state table (Lane K's state
+key contract v1); writes into ``--out``:
 
 * ``zeff_profile.csv`` -- one row per (state, model, rho): Z_eff, S1, S2,
   Z_I,eff, dilution, n_s/n_e, <Z>_s, <Z^2>_s, the coronal <Z>_s and
@@ -12,17 +12,17 @@ Reads, never writes, the campaign FileDB and the Lane K state table (contract
 * ``MANIFEST.json`` -- code version, inputs and their hashes, ADF11 files,
   arguments and the column dictionary.
 
-The state key is ``(shot, time_efit_s, efit_lineage, efit_quality)`` (#1454 v1);
+The state key is ``(shot, time_efit_s, efit_lineage, efit_quality)`` (contract v1);
 only ``magnetics`` rows graded ``good`` or ``admissible`` are used.  T_e and
 n_e are the FileDB ``core_profiles`` slice nearest the EFIT time within
-``--tolerance`` -- the slice the transport resolver (#1428) pairs -- matched by
+``--tolerance`` -- the slice the transport resolver (``resolve_transport_state``) pairs -- matched by
 time, never by index.  The n_e-weighted mean uses the EFIT volume of that
 time; the plasma age is the EFIT time minus the plasma onset of
 :func:`vaft.omas.plasma_timing.plasma_timing` on the diagnostics product.
 
 Models: ``coronal`` and ``transient`` (ionisation age = plasma age) charge
-states, each normalised ``ne_weighted_mean`` (Z_eff = 2, the VEST default,
-#1569) and ``fixed`` (n_C/n_e = n_O/n_e = 1/86, the fully stripped preset).
+states, each normalised ``ne_weighted_mean`` (Z_eff = 2, the VEST default)
+and ``fixed`` (n_C/n_e = n_O/n_e = 1/86, the fully stripped preset).
 The elemental composition is the VEST ``impurity_model`` (C:O = 1:1).
 
 Usage (vestserver, with the lane's sitecustomize shim on PYTHONPATH)::

@@ -1,4 +1,4 @@
-"""The controlled vocabulary of reduced physical representations (#1626).
+"""The controlled vocabulary of reduced physical representations.
 
 A formula that turns one representation of the plasma into a more reduced one
 -- a field into a profile, a profile into a scalar, a dimensional quantity
@@ -168,7 +168,7 @@ class Quantity:
     ``concept`` names the quantity in the plotting vocabulary
     (:mod:`vaft.plot.taxonomy`) when the key is that quantity in some
     representation (``j_phi`` and ``j_phi_field`` are both ``j_tor``), so the
-    generated ontology (#1702) connects the reduction to it.  It stays
+    generated ontology connects the reduction to it.  It stays
     ``None`` for a composite (``q_features``, ``engineering``) or a quantity
     the vocabulary does not define; ``vaft.formula`` never imports
     ``vaft.plot``, so the ontology's tests check that every name resolves.
@@ -208,7 +208,8 @@ QUANTITIES = {
     "l_i": Quantity("$l_i$", "scalar_0d", True),
     "q": Quantity("$q(\\rho)$", "profile_1d", True, concept="q"),
     "s_hat": Quantity("$\\hat s(\\rho)$", "profile_1d", True, concept="magnetic_shear"),
-    "q_features": Quantity("$q_0$, $q_{min}$, $q_{95}$, $r_s$", "scalar_0d"),
+    "q95": Quantity("$q_{95}$", "scalar_0d", True, concept="q95"),
+    "q_features": Quantity("$q_0$, $q_{min}$, $r_s$", "scalar_0d"),
     "I_enc": Quantity("$I(r)$ enclosed", "profile_1d"),
     "r_mix": Quantity("$r_{mix}$", "scalar_0d", concept="mixing_radius"),
     "p_profile": Quantity("$p(\\rho)$", "profile_1d"),
@@ -247,7 +248,8 @@ REDUCTION_FAMILIES = {
         Relation(("B_theta",), "q", "geometry.cylindrical_safety_factor_from_r_B"),
         Relation(("I_enc",), "I_p", kind="feature_extraction", note="the boundary value"),
         Relation(("q",), "s_hat", "equilibrium.shear_from_r_q"),
-        Relation(("q",), "q_features", kind="feature_extraction", note="axis, minimum, $\\psi_N = 0.95$, $q = m/n$"),
+        Relation(("q",), "q95", kind="feature_extraction", note="$q$ at $\\psi_N = 0.95$"),
+        Relation(("q",), "q_features", kind="feature_extraction", note="axis, minimum, $q = m/n$; $q_{95}$ is its own quantity"),
         Relation(("q",), "r_mix", "stability.kadomtsev_mixing_radius"),
     ),
     "pressure_energy": (

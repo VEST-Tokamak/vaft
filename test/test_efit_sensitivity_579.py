@@ -1,4 +1,4 @@
-"""The #579 sensitivity-study scripts: report, model spread, products, Thomson peaking band."""
+"""The profile-model sensitivity-study scripts: report, model spread, products, Thomson peaking band."""
 
 from __future__ import annotations
 

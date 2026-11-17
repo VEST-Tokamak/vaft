@@ -1,4 +1,4 @@
-"""The inlined regression metrics reproduce what scikit-learn reported (#426).
+"""The inlined regression metrics reproduce what scikit-learn reported.
 
 `compute_metrics` used to import scikit-learn for two one-line metrics, which
 made an optional dependency a hard one.  Replacing a metric is only defensible

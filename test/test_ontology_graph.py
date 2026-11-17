@@ -1,4 +1,4 @@
-"""The generated scientific ontology behind /reference/ontology/ (#1702).
+"""The generated scientific ontology behind /reference/ontology/.
 
 These pin the ontology's contract rather than its current coverage: identity
 is strict (aliases resolve, families never merge, unknown terms are audited,
@@ -205,8 +205,8 @@ def test_dd_paths_are_canonical_and_carry_the_dd_resolvers_metadata(snapshot):
         info = dd.resolve(path, cross_check=False)
         assert node["facets"].get("units", "") == info.units
         assert node["facets"].get("data_type", "") == info.data_type
-    represented = _edges(snapshot, "represented_by")
-    assert ("concept:plasma_current", "dd:magnetics/ip(:)/data") in represented
+    measured = _edges(snapshot, "measured_by")
+    assert ("concept:plasma_current", "dd:magnetics/ip(:)/data") in measured
 
 
 def test_validation_and_conventions_come_from_their_registries(snapshot):
@@ -462,3 +462,175 @@ def test_every_declared_reduction_concept_is_a_quantity_of_the_vocabulary():
     # a key that is a different definition of a vocabulary quantity is not mapped onto it:
     # the virial l_i is the Lao/EFIT normalisation, concept:li is the IMAS li_3
     assert _taxonomy.QUANTITIES["l_i"].concept is None
+
+
+# ---------------------------------------------------------------------------
+# representations as stored, data routines and operational boundaries
+# ---------------------------------------------------------------------------
+
+
+def test_a_path_a_plot_rescales_is_not_a_representation_of_the_plotted_quantity(snapshot):
+    """tf.b_field_tor_vacuum_r is R0 B0 [T m]; the b_t plot divides it by tf.r0."""
+    represented = _edges(snapshot, "represented_by")
+    assert ("concept:b_t", "dd:tf/b_field_tor_vacuum_r/data") not in represented
+    assert ("concept:b_t_vacuum_r", "dd:tf/b_field_tor_vacuum_r/data") in _edges(snapshot, "measured_by")
+    assert ("concept:b_t", "concept:b_t_vacuum_r") in _edges(snapshot, "derived_from")
+
+
+def test_every_data_routine_declares_its_semantics_and_reaches_the_vocabulary(snapshot):
+    consumes, produces = _edges(snapshot, "consumes"), _edges(snapshot, "produces")
+    for dotted in ontology.DATA_ROUTINES:
+        api = f"api:{dotted}"
+        assert any(source == api for source, _ in produces), dotted
+    routine = "api:vaft.omas.edge_q.edge_q_estimate"
+    assert {target for source, target in consumes if source == routine} == {
+        "concept:plasma_current", "concept:b_t", "concept:minor_radius", "concept:major_radius",
+        "concept:elongation", "concept:triangularity"}
+    # the routine returns the equilibrium q95 beside the estimate; it does not produce it
+    assert (routine, "concept:estimated_q95") in produces
+    assert (routine, "concept:q95") not in produces
+
+
+def test_a_data_routine_without_a_semantics_section_fails_generation(monkeypatch):
+    monkeypatch.setattr(ontology, "DATA_ROUTINES", {"vaft.omas.edge_q.EdgeQEstimate": {"applies": (), "reads": ()}})
+    with pytest.raises(ontology.OntologyError, match="Semantics section is missing"):
+        ontology.ontology_snapshot(PROVENANCE)
+
+
+def test_boundaries_bound_only_the_concept_their_quantity_declares(snapshot):
+    from vaft.formula import boundaries
+
+    nodes, bounds = _nodes(snapshot), _edges(snapshot, "bounds")
+    for key in boundaries.list_boundaries():
+        entry = boundaries.get_boundary(key)
+        node = nodes[f"boundary:{key}"]
+        assert node["facets"]["references"], key
+        targets = {target for source, target in bounds if source == node["id"]}
+        if entry.target.concept is None:
+            assert not targets
+        else:
+            assert targets == {f"concept:{entry.target.concept}"}
+    # the scaling estimate and the equilibrium q95 carry different guidelines
+    assert ("boundary:akers_2000_q95_estimate_min", "concept:estimated_q95") in bounds
+    assert ("boundary:iter_1991_q95_estimate_min", "concept:estimated_q95") in bounds
+    assert ("boundary:iter_1991_q95_min", "concept:q95") in bounds
+    assert ("boundary:akers_2000_q95_estimate_min", "concept:q95") not in bounds
+    start = nodes["boundary:akers_2000_q95_estimate_min"]["facets"]
+    assert start["machine_class"].startswith("spherical tokamak") and start["assumptions"]
+
+
+def test_a_boundary_magnitude_is_not_the_signed_concept(snapshot):
+    """|I_p| in MA declares no concept: no edge to plasma_current, and the boundary says so."""
+    assert not any(source.startswith("boundary:") and target == "concept:plasma_current"
+                   for source, target in _edges(snapshot, "consumes") | _edges(snapshot, "bounds"))
+    current = _nodes(snapshot)["boundary:akers_2000_q95_current"]["facets"]
+    assert "plasma_current" in current["unlinked"] and "toroidal_field" in current["unlinked"]
+
+
+def test_a_proxy_approximates_its_quantity_and_is_never_its_alias(snapshot):
+    from vaft.plot import taxonomy
+
+    approximates = _edges(snapshot, "approximates")
+    assert ("concept:estimated_q95", "concept:q95") in approximates
+    assert ontology.resolve_term("estimated_q95") != ontology.resolve_term("q95")
+    for proxy, quantity in taxonomy.APPROXIMATIONS.items():
+        assert proxy not in taxonomy.QUANTITY_ALIASES and quantity not in taxonomy.QUANTITY_ALIASES
+        assert (f"concept:{proxy}", f"concept:{quantity}") in approximates
+    # an approximation is not a representation: the estimate has no Data Dictionary path of q95
+    assert ("concept:estimated_q95", "dd:equilibrium/time_slice(:)/global_quantities/q_95") not in \
+        _edges(snapshot, "represented_by")
+
+
+def test_q95_is_reached_from_the_reconstructed_flux_through_the_q_profile(snapshot):
+    produces, consumes = _edges(snapshot, "produces"), _edges(snapshot, "consumes")
+    routine = "api:vaft.process.equilibrium.calculate_q_profile_from_psi"
+    assert (routine, "concept:psi") in consumes
+    # q needs F = R B_phi as well as psi (q = F/(2 pi) oint dl_p / (R^2 B_p))
+    assert (routine, "concept:poloidal_current_function") in consumes
+    assert ("concept:poloidal_current_function", "dd:equilibrium/time_slice(:)/profiles_1d/f") in \
+        _edges(snapshot, "represented_by")
+    assert {(routine, "concept:q"), (routine, "concept:q95")} <= produces
+    assert ("concept:q95", "concept:q") in _edges(snapshot, "derived_from")
+    assert ("concept:q", "validation:physical_validity.q_profile") in _edges(snapshot, "assessed_by")
+
+
+def test_a_data_routine_applies_exactly_the_formulas_it_calls(snapshot):
+    import importlib
+    import inspect
+
+    from vaft.formula.catalog import describe
+
+    applies = _edges(snapshot, "applies")
+    reads = _edges(snapshot, "reads")
+    for dotted, declared in ontology.DATA_ROUTINES.items():
+        module, _, name = dotted.rpartition(".")
+        source = inspect.getsource(importlib.import_module(module))
+        for path in declared["reads"]:
+            # the routine spells the path the omas way: equilibrium.time_slice.{i}.boundary + .elongation
+            leaf = path.rsplit("/", 1)[-1]
+            parent = path.split("/")[-2].replace("(:)", "")
+            assert f".{leaf}" in source and parent in source, f"{dotted} lists {path} but never reads it"
+            assert (f"api:{dotted}", f"dd:{path}") in reads
+        for key in declared["applies"]:
+            spec = describe(key)
+            function = spec.qualname.rsplit(".", 1)[-1]
+            assert f"{function}(" in source, f"{dotted} lists {key} but never calls it"
+            assert (f"api:{dotted}", f"api:{spec.module}.{function}") in applies
+    assert ("api:vaft.omas.edge_q.edge_q_estimate", "api:vaft.formula.equilibrium.estimated_q95") in applies
+
+
+def test_a_declared_representation_matches_the_data_dictionary(snapshot):
+    from vaft.plot.backend import dd
+
+    represented = _edges(snapshot, "represented_by")
+    assert ("concept:b_t", "dd:equilibrium/vacuum_toroidal_field/b0") in represented
+    for quantity, paths in ontology.DECLARED_REPRESENTATIONS.items():
+        for path in paths:
+            info = dd.resolve(path, cross_check=False)
+            assert (f"concept:{quantity}", f"dd:{path}") in represented
+            if quantity == "b_t":
+                assert info.units == "T" and info.documentation.startswith("Vacuum toroidal field at R0")
+    # the stored product R0 B0 is still not b_t
+    assert ("concept:b_t", "dd:tf/b_field_tor_vacuum_r/data") not in represented
+
+
+def test_efit_is_constrained_by_the_measured_paths_its_kfile_reads(snapshot):
+    """Meaning, not lineage: the measured paths EFIT fits, declared in _ecosystem and held to the k-file."""
+    import inspect
+
+    from vaft import _ecosystem
+    from vaft.code.efit import kfile
+
+    constrained = {target for source, target in _edges(snapshot, "constrained_by") if source == "code:efit"}
+    efit = next(code for code in _ecosystem.EXTERNAL_CODES if code.id == "efit")
+    assert constrained == {f"dd:{path}" for path in efit.constrained_by}
+    for path in kfile.REQUIRED_CONSTRAINT_INPUTS:  # "magnetics.ip.0.data" -> magnetics/ip(:)/data
+        canonical = ontology.canonical_dd(path.replace(".", "/").replace("/0/", "(0)/"))
+        canonical = canonical.replace("(0)", "(:)")
+        assert f"dd:{canonical}" in constrained, path
+    source = inspect.getsource(kfile)
+    for path in efit.constrained_by:
+        parts = [p.replace("(:)", "") for p in path.split("/")[1:]]
+        assert all(p in source for p in parts), f"{path} is declared but the k-file never reads it"
+    # the measured current and the reconstructed current stay distinct paths of one concept
+    assert ("concept:plasma_current", "dd:magnetics/ip(:)/data") in _edges(snapshot, "measured_by")
+
+
+def test_a_measured_value_and_a_reconstructed_value_of_one_quantity_are_told_apart(snapshot):
+    """One quantity, two sources: the diagnostic's path is measured_by, the equilibrium's represented_by."""
+    measured, represented = _edges(snapshot, "measured_by"), _edges(snapshot, "represented_by")
+    ip = "concept:plasma_current"
+    assert (ip, "dd:magnetics/ip(:)/data") in measured and (ip, "dd:magnetics/ip(:)/data") not in represented
+    assert (ip, "dd:equilibrium/time_slice(:)/global_quantities/ip") in represented
+    assert ("concept:electron_density", "dd:thomson_scattering/channel(:)/n_e/data") in measured
+    assert ("concept:electron_density", "dd:core_profiles/profiles_1d(:)/electrons/density") in represented
+    # every measured_by path lies under the IDS entry of a system that measures or derives the quantity
+    nodes = _nodes(snapshot)
+    systems = {}
+    for source, target in _edges(snapshot, "measures") | _edges(snapshot, "derives"):
+        ids_path = nodes[source]["facets"].get("ids_path")
+        if ids_path:
+            systems.setdefault(target, set()).add(ids_path.replace(".", "/"))
+    for quantity, path in measured:
+        plain = path[3:].replace("(:)", "")
+        assert any(plain == p or plain.startswith(p + "/") for p in systems[quantity]), (quantity, path)

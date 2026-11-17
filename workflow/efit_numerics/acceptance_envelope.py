@@ -1,4 +1,4 @@
-"""What EFIT will accept, against what VEST actually produces (#171).
+"""What EFIT will accept, against what VEST actually produces.
 
     PYTHONPATH=$PWD python workflow/efit_numerics/acceptance_envelope.py \\
         --table test/data/efit_acceptance_envelope.json --markdown /tmp/envelope.md
@@ -10,7 +10,8 @@ bounds are dimensioned for a machine, and EFIT's built-in ones are DIII-D's:
 ``aminor_min = 30 cm``, ``rcntr_min = 90 cm``. The packaged VEST table softens
 them part-way, to 25 cm and 30 cm, which is still above what VEST produces.
 
-So this audit asks one question the #171 baseline could not: **of the failures
+So this audit asks one question the termination baseline
+(``baseline_termination.py``) could not: **of the failures
 that reject every VEST slice, which are statements about the fit and which are
 statements about the machine the bounds were written for?** It runs nothing --
 the baseline's a-files already hold the answer.
@@ -58,7 +59,7 @@ EFIT_BUILTIN = {"aminor_min": 30.0, "rcntr_min": 90.0}
 def plasma_slices(baseline_dir: Path) -> dict[int, set[int]]:
     """``{shot: {time_ms}}`` of the baseline's plasma-phase, non-collapsed slices.
 
-    Read from the ``baseline.json`` the #171 baseline writes beside its
+    Read from the ``baseline.json`` that ``baseline_termination.py`` writes beside its
     a-files. An a-file alone does not say whether EFIT was solving a plasma:
     the vacuum stretch before breakdown converges with zero current, and a
     flagged or collapsed slice still writes a file, so its scalars are not a

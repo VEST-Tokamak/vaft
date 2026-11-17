@@ -1,4 +1,4 @@
-"""Independent Lorentz/GC limits, field geometry and failure contracts (#2003)."""
+"""Independent Lorentz/GC limits, field geometry and failure contracts."""
 
 import numpy as np
 import pytest

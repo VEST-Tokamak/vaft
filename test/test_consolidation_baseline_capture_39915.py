@@ -1,4 +1,4 @@
-"""End-to-end baseline capture of shot 39915 into a scratch root (issue #2166).
+"""End-to-end baseline capture of shot 39915 into a scratch root.
 
 Runs the four offline stages twice (~1 min) and checks the record is complete,
 traceable and reproducible: every stage captured, the raw input's and config's

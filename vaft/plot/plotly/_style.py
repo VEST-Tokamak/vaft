@@ -76,7 +76,7 @@ def color(value: Any) -> Any:
     if value is None:
         return None
     # A colour intent resolves to what it means without a theme: Plotly
-    # draws the default look (issue #709).
+    # draws the default look.
     value = resolve_color(value, theme=None)
     text = str(value)
     if re.fullmatch(r"C\d+", text):

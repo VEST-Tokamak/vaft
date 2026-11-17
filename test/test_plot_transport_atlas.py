@@ -1,4 +1,4 @@
-"""The transport-atlas renderers (#1427): labels, renderer contract, colour scale, mode branch.
+"""The transport-atlas renderers: labels, renderer contract, colour scale, mode branch.
 
 Synthetic atlas tables only; no solver, ODS or file is read.
 """

@@ -1,4 +1,4 @@
-"""Replicating finalized canonical FileDB products into named HSDS sources (#94).
+"""Replicating finalized canonical FileDB products into named HSDS sources.
 
 The invariant under test throughout: a FileDB product existing on disk never
 implies it reached HSDS, and one stage's replication never disturbs another's.
@@ -279,7 +279,7 @@ def _tree(root: Path) -> list[tuple[str, int]]:
 def test_a_validated_replication_leaves_the_hsds_cache_untouched(
     staged, monkeypatch, tmp_path
 ):
-    """The round trip reads the server, not a cache it fills (#1758).
+    """The round trip reads the server, not a cache it fills.
 
     With the default ``cache="auto"`` every validated replica was copied into
     ``~/.cache/vaft/hsds``; on vestserver that copy reached 539 GiB. The fake
@@ -753,11 +753,12 @@ def test_per_code_and_mode_stability_detail_travels_in_the_shapes_that_exist(
 
     This test used to assert a nested ``code.parameters.cases.N.status`` shape
     that no producer writes and that would not survive an IMAS entry
-    (#561; the measurement is in ``test_code_parameters_contract.py``).  The
+    (the measurement is in ``test_code_parameters_contract.py``).  The
     per-(code, mode) status it was reaching for lives in the stage manifest,
     which `replicate_stage` reads for eligibility only -- so it is checked here
     where it exists, and the fact that it does not reach the replica is stated
-    rather than implied.  Closing that gap is #527's business.
+    rather than implied.  Closing that gap means carrying the status in
+    mhd_linear itself.
     """
     import xml.etree.ElementTree as ET
 
@@ -1133,7 +1134,7 @@ _NOTHING_BY_DESIGN = [
     ("chease", "skipped: no EFIT gfiles; input_gfiles=0"),
     ("chease", "skipped: chease.run=false; input_gfiles=3"),
     ("chease", "failed: refined_gfiles=0; failed=3"),
-    # The shot's data lacks an eddy input: an unrecorded PF circuit (#1568).
+    # The shot's data lacks an eddy input: an unrecorded PF circuit.
     ("eddy", "skipped: required input unavailable: PF5 current was not acquired (NaN in pf_active)"),
 ]
 _FAULTS = [
@@ -1273,7 +1274,7 @@ def test_only_no_output_is_recorded_for_a_required_stage(tmp_path, monkeypatch, 
 
 
 # --------------------------------------------------------------------------- #
-# optional stages (issue #305)
+# optional stages
 # --------------------------------------------------------------------------- #
 
 

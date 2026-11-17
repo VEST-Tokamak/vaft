@@ -1,4 +1,4 @@
-"""Population V&V of the kinetic-state atlas: input contract and evidence tables (#1835 A/B)."""
+"""Population V&V of the kinetic-state atlas: input contract and evidence tables."""
 
 from __future__ import annotations
 

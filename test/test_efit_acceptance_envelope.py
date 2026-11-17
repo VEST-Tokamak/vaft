@@ -1,4 +1,4 @@
-"""EFIT's acceptance envelope, and the VEST one derived from the machine (#171).
+"""EFIT's acceptance envelope, and the VEST one derived from the machine.
 
 The claim being pinned is narrow and it is the one that matters: the geometric
 bounds are derived from the limiter, never fitted to a discharge. A test that
@@ -57,11 +57,9 @@ def table():
 def test_the_defaults_are_the_legacy_bounds_not_something_new():
     """The type describes what EFIT read before VEST had an envelope of its own.
 
-    This used to compare the class defaults with the shipped `mhdin.dat`, and
-    that was right until #649: the packaged `&incheck` *was* these defaults.
-    #649 replaced the shipped block with the envelope derived from the limiter
-    and deliberately left the class alone, so `--no-acceptance-envelope` still
-    means EFIT's legacy bounds. The claim worth keeping is that the defaults
+    The packaged `&incheck` once *was* these defaults.  The shipped block is
+    now the envelope derived from the limiter, and the class was deliberately
+    left alone, so `--no-acceptance-envelope` still means EFIT's legacy bounds. The claim worth keeping is that the defaults
     were not invented, so they are checked against the legacy namelist the
     table directory preserves for exactly this kind of reference. That the
     shipped block is the derived envelope is
@@ -76,7 +74,7 @@ def test_the_defaults_are_the_legacy_bounds_not_something_new():
 
 
 def test_the_legacy_defaults_are_no_longer_what_ships():
-    """#649's split, stated so nothing quietly couples the two again.
+    """The class/shipped split, stated so nothing quietly couples the two again.
 
     If the class defaults and the shipped block ever agree on the minor radius
     again, either the defaults were changed to VEST's -- and the legacy path
@@ -133,7 +131,7 @@ def test_the_physics_bounds_are_left_alone(static):
 
 
 def test_the_virial_checks_do_not_gate_vest_acceptance(static):
-    """Issue #649, and a policy decision rather than a derivation.
+    """A policy decision rather than a derivation.
 
     At A ~ 1.45 `sbpp` is a difference of two terms near 0.8 that leaves 0.01
     to 0.2 and goes negative, and `sbli` divides by `alpha - 1`. A gate that
@@ -227,7 +225,7 @@ def test_write_mhdin_emits_the_envelope_and_leaves_the_geometry_alone(static, tm
 
 
 def test_the_audit_reads_only_the_baseline_s_plasma_slices(module, tmp_path, monkeypatch):
-    """Cold review 0.7.0 efit-workflows F11 (#1888).
+    """Cold review 0.7.0 efit-workflows F11.
 
     A vacuum-phase or collapsed slice still writes an a-file, and its scalars
     need not be zero. Counted as a real equilibrium, a 5 cm garbage minor

@@ -1,4 +1,4 @@
-"""How MHD mode families map across slab, cylindrical and toroidal geometry (#1574).
+"""How MHD mode families map across slab, cylindrical and toroidal geometry.
 
 ``mhd_mode_geometry_map``
     one map of the pressure-driven, current-driven, resonant and axisymmetric

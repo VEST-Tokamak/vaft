@@ -1,4 +1,4 @@
-"""Summing a straight-field-line spectrum back to real space (Tutorial 05, #2278).
+"""Summing a straight-field-line spectrum back to real space (Tutorial 05).
 
 The sign convention was fixed against GPEC's own real-space normal field
 ``b_n_fun`` on the Tutorial 05 VEST case (MID, n=1, 2026-11-12):

@@ -1,4 +1,4 @@
-"""Responsive layout of ``vaft gui`` (#1865): one page for phones, tablets and desktops."""
+"""Responsive layout of ``vaft gui``: one page for phones, tablets and desktops."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def test_page_carries_the_rules_the_script_and_the_branding():
     uri = built.config.js_files["vaft_phone_start"]
     assert uri.startswith("data:text/javascript") and "//" in uri, "Panel must not prefix a relative path"
     assert built.sidebar_width == layout.SIDEBAR_WIDTH and built.logo == "x.png"
-    # a phone renders at its own width only when told to (#1866)
+    # a phone renders at its own width only when told to
     assert built.meta_viewport == layout.VIEWPORT == "width=device-width, initial-scale=1"
 
 

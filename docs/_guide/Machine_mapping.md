@@ -204,7 +204,7 @@ inverted, that switch is the first thing to check.
 ### Plasma timing policy
 
 Where the plasma is in a discharge is decided once, in the `plasma_timing` block of `vest.yaml`, and read by
-every consumer (issue #409). Its `window` names a `diagnostics_time_policies` window — `plasma_analysis`,
+every consumer. Its `window` names a `diagnostics_time_policies` window — `plasma_analysis`,
 0.28–0.36 s, which no diagnostic maps onto and the stage's `tstart`/`tend` never retune — and `baseline_lead_s`
 the stretch before it, `[tstart − lead, tstart)`, whose samples are the **baseline** the detectors measure
 their noise on. The block then carries the detector recipes, keyed by the signal they were tuned on: `h_alpha`
@@ -225,10 +225,10 @@ policy.h_alpha, policy.ip                                          # keyword arg
 ```
 
 Both detector rules are **principal-pulse** rules: each keeps only the segment holding its own maximum, so a
-window is one run and the two sources answer the same question — *where is the one main discharge*. The light
-rule was an envelope rule until [#842](https://github.com/VEST-Tokamak/vaft/issues/842), which meant a record
-of scattered flashes reported a window spanning all of them and opened it at the first, and a record whose
-brightest feature is a refused spike now yields no light window rather than one built from lesser bursts.
+window is one run and the two sources answer the same question — *where is the one main discharge*. An envelope
+rule — which the light rule once was — reports, for a record of scattered flashes, a window spanning all of
+them and opens it at the first; under the principal-pulse rule a record whose brightest feature is a refused
+spike yields no light window rather than one built from lesser bursts.
 
 The rules were tuned on a scan of the raw database, and that scan is reproducible:
 `workflow/plasma_onset/scan_corpus.py --shots 39900-41700` runs the raw-side detector over every shot in the
@@ -268,7 +268,7 @@ See [Signal processing]({{ site.baseurl }}/guide/Processing/) for what those kno
 ### Discharge timing policy
 
 The actuator events are a separate concept from the plasma window and sit in their own `discharge_timing`
-block of `vest.yaml`, read by `vaft.omas.discharge_timing.discharge_timing(ods)` (issue #409). It shares the
+block of `vest.yaml`, read by `vaft.omas.discharge_timing.discharge_timing(ods)`. It shares the
 `plasma_analysis` window and `baseline_lead_s` with the plasma policy, names the `ohmic_coil` (`PF1`) whose
 onset anchors the loop-voltage excursion, selects the loop (`loop_voltage.selection: inboard_midplane` —
 the `inboard_flux_loop` family member nearest the midplane, Flux Loop #10 on VEST — with a stored
@@ -292,8 +292,8 @@ events.oh_onset, events.vloop.zero_crossing, events.vloop.flags
 ### Plasma features policy
 
 The representative peaks of the plasma phase are a third concept beside the timing and the actuator events,
-configured in the `plasma_features` block of `vest.yaml` and read by `vaft.omas.plasma_features.plasma_features(ods)`
-(issue #409). Its `window` is `plasma_timing` — the only value: every peak is measured strictly inside the
+configured in the `plasma_features` block of `vest.yaml` and read by `vaft.omas.plasma_features.plasma_features(ods)`.
+Its `window` is `plasma_timing` — the only value: every peak is measured strictly inside the
 window the timing found, and when the timing found no plasma nothing is measured (`computed = False` with the
 timing's `fallback_reason`; the analysis range is never reinterpreted as a window). The rule blocks `ip`,
 `h_alpha`, each `lines[label]` and `diamagnetic` are keyword arguments of `vaft.process.onset.robust_peak`,
@@ -305,7 +305,7 @@ optical feature notes what the mapper did to its channel (`resampled`, `native_r
 the fast filterscope) and whether the channel's digitizer clipped inside the window (`railed`, judged on the
 raw maximum against `spectrometer_uv.CHANNEL_RAIL_LEVEL`; `None` for a channel with no documented rail). The
 diamagnetic value is the signed sample at the largest |deviation| (`polarity: absolute`): the stored flux
-is positive for a paramagnetic plasma (#1196), so a diamagnetic shot would come back negative. `ip_ramp_end`
+is positive for a paramagnetic plasma, so a diamagnetic shot would come back negative. `ip_ramp_end`
 is reserved and never required.
 
 ```python
@@ -515,7 +515,7 @@ vfit_dataset_description(ods, shot=39915, run=0, machine="VEST", pulse_type="pul
 Machine mapping is only as good as its geometry tables.
 
 The 75 equilibrium magnetic sensors (64 B-pol probes, then 11 flux loops) are not a file under
-`vaft/data/geometry/`: since #2158 they are one registry in `vaft/machine_mapping/vest.yaml`,
+`vaft/data/geometry/`: they are one registry in `vaft/machine_mapping/vest.yaml`,
 `0.diagnostics.equilibrium_magnetics.sensors`. Each record carries a stable physical `id` (independent of
 the DAQ field), `kind`, canonical `index` (= list position = ODS/EFUND/EFIT order), `name` (the DAQ label),
 `aliases` (labels the position carries under other eras' wiring), `r`, `z`, the 2409 `field_code` and
@@ -539,8 +539,8 @@ YAMLs the registry replaced (`MD.yaml`, `VEST_MagneticsGeometry_Full_ver_2302.ya
 frozen, non-runtime fixtures in `test/data/legacy_magnetics/`; `test/test_magnetics_registry.py` checks the
 registry against them field by field. The static product manifest (and so the `! static input` header of a
 newly generated EFUND `mhdin.dat`) records the sensors as `magnetics_registry` with the registry fingerprint;
-EFUND table manifests made before #2158 keep the `magnetics_geometry` / `magnetics_calibration` file hashes as
-their historical identity, and the projected `rsi`/`zsi`/`xmp2`/`ymp2`/`amp2`/`smp2` and names are unchanged.
+EFUND table manifests made while the sensors were still separate geometry and calibration files keep the
+`magnetics_geometry` / `magnetics_calibration` file hashes as their historical identity, and the projected `rsi`/`zsi`/`xmp2`/`ymp2`/`amp2`/`smp2` and names are unchanged.
 The other geometry assets live under `vaft/data/geometry/` and are
 resolved through `resolve_data_root()`:
 
@@ -643,7 +643,7 @@ Database access itself is documented in
 
 # Configuration loading and shot-era revisions
 
-Every resolver that reads `vest.yaml` takes an optional `info_file` (#2159):
+Every resolver that reads `vest.yaml` takes an optional `info_file`:
 
 - omitted (`None`): the packaged `vaft/machine_mapping/vest.yaml`;
 - an existing path, absolute or relative to the working directory: that file; a bare packaged name such as
@@ -731,7 +731,9 @@ checked with `vaft.process.acquisition.check_declared_sample_rate(time, declared
 
 The diagnostics manifest carries the probe summary under `channel_status.magnetics.acquisition` (counts per
 status, observed-rate range, and every channel that is not `consistent`); the IMPA manifest carries its check
-under `acquisition` (#432). `mirnov_preprocess_signal(..., report={})` records each band edge as `applied`,
+under `acquisition`, because its anti-alias filters are designed against the configured `sample_rate`
+(default 25 kHz) rather than the loaded channels' own timebase (Open: #432, derive the rate from the data).
+`mirnov_preprocess_signal(..., report={})` records each band edge as `applied`,
 `skipped` (outside `(0, Nyquist)`, with the reason) or `not_requested`; without a `report` a skipped edge
 is a `RuntimeWarning`, never silent. The Ip reference comparison (`vfit_plasma_current(shot, ref, acquisition_report={})`)
 is checked the same way; the production stage does not use a reference shot.

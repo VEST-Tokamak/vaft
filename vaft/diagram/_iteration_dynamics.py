@@ -1,4 +1,4 @@
-"""Iteration behaviour, branch bifurcation and branch selection: why a solver does not converge (#1093).
+"""Iteration behaviour, branch bifurcation and branch selection: why a solver does not converge.
 
 ``iteration_behavior``
     fixed-point convergence, divergence, a 2-cycle and a period-4 limit cycle

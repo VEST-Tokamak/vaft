@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 REPLICATION_SCHEMA_VERSION = 1
 
 #: Manifest statuses whose product is finished enough to replicate. A stage that
-#: was skipped or blocked (#205) has no product to send, and a failed one must
+#: was skipped or blocked has no product to send, and a failed one must
 #: not have its partial output mistaken for a result.
 REPLICABLE_STATUSES = frozenset({"success", "partial", "completed"})
 #: The stage status a solver stage records when it finished and produced
@@ -67,7 +67,7 @@ NOTHING_TO_REPLICATE_STATUSES = frozenset({"no_output"})
 #: the solver ran and no slice survived, there was no upstream equilibrium to
 #: refine, the stage is switched off in the configuration, or (eddy) a PF
 #: circuit the solve needs was never recorded for the shot -- a property of the
-#: data that no rerun changes (#1568). Anything else -- an executable that is
+#: data that no rerun changes. Anything else -- an executable that is
 #: not there, any other missing input, an error -- is a fault a person has to
 #: see, and still fails the replication. In particular an EFIT
 #: ``completed: returncode=0; gfiles=N`` that still ended ``no_output`` wrote
@@ -76,8 +76,8 @@ _NOTHING_BY_DESIGN = re.compile(
     r"^(completed_no_gfiles\b"      # EFIT ran: no slice produced a g-file
     r"|failed: refined_gfiles=0\b"  # CHEASE ran: every slice a solver verdict
     r"|skipped: no EFIT gfiles\b"   # CHEASE: nothing upstream to refine
-    r"|skipped: required input unavailable\b"  # eddy: a PF circuit was never recorded (#1568)
-    r"|skipped: not applicable: "  # EFIT: a vacuum / BD-failure shot has no plasma current (#205)
+    r"|skipped: required input unavailable\b"  # eddy: a PF circuit was never recorded
+    r"|skipped: not applicable: "  # EFIT: a vacuum / BD-failure shot has no plasma current
     r"|skipped: \w+\.run=false\b)"   # switched off on purpose
 )
 
@@ -125,7 +125,8 @@ class ReplicationRecord:
     product_sha256: str
     #: ``replicated``, ``validated``, ``failed``, or ``skipped``: nothing was
     #: published, and the record says why -- an optional stage with nothing
-    #: accepted (issue #305), or a solver stage that finished ``no_output``.
+    #: accepted (e.g. no IMPA product for the sparse `impa` source), or a solver
+    #: stage that finished ``no_output``.
     state: str
     attempts: int
     started_at: str
@@ -657,7 +658,7 @@ def _round_trip(sent, *, shot: int, source: str, ids: tuple[str, ...], occurrenc
 
     # cache="off": the check must read the server, and a copy of what was just
     # uploaded is never read again -- with "auto" every validated replica
-    # piled up in ~/.cache/vaft/hsds (539 GiB on vestserver, #1758).
+    # piled up in ~/.cache/vaft/hsds (539 GiB on vestserver).
     replica = load_remote(
         shot,
         source=source,
@@ -892,7 +893,8 @@ def replicate_stage(
                 # other transient remote failure.
                 require_source_exists(source)
                 # One writer of this shot's master at a time on this host
-                # (#913), from the capture below through the safety-net merge.
+                # (vaft.database._master_lock), from the capture below through
+                # the safety-net merge.
                 # The write path takes the same lock again (it is re-entrant)
                 # and re-reads the stored master right before replacing it.
                 with shot_master_lock(source, shot):

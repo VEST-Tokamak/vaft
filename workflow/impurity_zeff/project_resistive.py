@@ -1,4 +1,4 @@
-"""Project composition Z_eff(rho) onto Lane Z's resistive windows (#1566, Lane L).
+"""Project composition Z_eff(rho) onto Lane Z's resistive windows (Lane L).
 
 For every ``ok`` window of the Lane Z atlas (``atlas/zeff/zeff.csv``), rebuild
 Lane Z's own flux-surface states -- same EFIT product, same Lane K
@@ -16,7 +16,7 @@ states).  Profiles:
 
 ``resistive_closure`` then asks the inverse question: what one impurity
 amplitude, common to the window, makes the transient profiles reproduce the
-observed scalar under the same window objective (#1566, closure of
+observed scalar under the same window objective (the closure of
 composition and resistance)?  The
 residual is reported, never forced.  Writes ``resistive_projection.csv`` and
 ``resistive_projection.MANIFEST.json`` into ``--out``.

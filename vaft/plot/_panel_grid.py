@@ -1,4 +1,4 @@
-"""Grid facts of a :class:`~vaft.plot.models.Panels`, shared by both backends (#1467).
+"""Grid facts of a :class:`~vaft.plot.models.Panels`, shared by both backends.
 
 Where each panel sits, which x-linked panels have another linked panel
 below them, and how panels are marked.  Kept free of pyplot so the Plotly

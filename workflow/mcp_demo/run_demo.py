@@ -1,4 +1,4 @@
-"""Replay the VAFT MCP conference scenarios through a real stdio session (#188, #1532).
+"""Replay the VAFT MCP conference scenarios through a real stdio session.
 
 Starts ``python -m vaft.mcp`` as an MCP client would, calls the tools each
 scenario needs, and writes every request and response to ``--out`` as JSON,

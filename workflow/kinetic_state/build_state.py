@@ -1,8 +1,9 @@
-"""Build the #1430 matched TS-EFIT state tables for the #1331 Tier A campaign.
+"""Build the matched TS-EFIT state tables for the Tier A shots of the EFIT campaign.
 
 Reads, never writes, the campaign FileDB and the slice grades
 ``analyze_tierA.py`` produced; writes ``state.csv``, ``profiles.csv``, their
-JSON Schemas and a manifest into one versioned atlas directory (contract #1454).
+JSON Schemas and a manifest into one versioned atlas directory (state key contract
+``vaft.validation.kinetic_state.CONTRACT_VERSION``).
 
 Rows
 ----

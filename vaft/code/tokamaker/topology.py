@@ -1,14 +1,14 @@
-"""Scan-grade topology classification on top of the #65 boundary descriptors.
+"""Scan-grade topology classification on top of the boundary descriptors.
 
-``vaft.process.equilibrium.derive_boundary_representation`` (issue #65 / PR
-#204) finds X-points, dRsep, gaps, and strike points for one equilibrium, but
+``vaft.process.equilibrium.derive_boundary_representation`` finds X-points,
+dRsep, gaps, and strike points for one equilibrium, but
 its topology enum has no *near-null* state, classifies "limited" only when no
 X-point exists anywhere, and hinges on a single ``flux_tolerance``. Free-
-boundary scans (issue #67) need to walk ``limited -> near-null -> diverted``
+boundary scans need to walk ``limited -> near-null -> diverted``
 robustly, so this module derives the classification directly from the found
 X-points' ``psi_n`` with two explicit thresholds, adds limiter-contact
 detection for non-diverted states, and returns a JSON-safe report suitable
-for per-case scan manifests. The #65 machinery itself is not modified.
+for per-case scan manifests. ``derive_boundary_representation`` itself is not modified.
 
 Classification rules (``axis_z`` = magnetic-axis height, fallback 0):
 
@@ -152,7 +152,7 @@ def classify_boundary(
 
     ``contact_tolerance`` [m] is how close the LCFS must come to the limiter to
     count as limited. The default is ``max(finest grid cell, 2 % of the minor
-    radius)``. That is tighter than the #65 descriptor rule (3 of the coarsest
+    radius)``. That is tighter than the ``derive_boundary_representation`` rule (3 of the coarsest
     cells) on purpose: a solver's exported boundary (gEQDSK RBBBS) rests on the
     wall to within its own trace, while a 129-point gEQDSK spanning the VEST
     chambers has 2 cm Z cells, and 3 of those would call a plasma 6 cm off the

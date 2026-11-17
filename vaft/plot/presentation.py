@@ -1,9 +1,9 @@
-"""Graphical presentation of a canonical figure: geometry, format and theme (issue #689).
+"""Graphical presentation of a canonical figure: geometry, format and theme.
 
 Three independent choices decide how a scientific view occupies a canvas,
 none of them a scientific one (the unit, scale, notation, validity and
-uncertainty of a quantity are the display policy's, issue #256; which series
-go on which axes is the semantic layout's, issue #260):
+uncertainty of a quantity are the display policy's, :mod:`vaft.plot.display`;
+which series go on which axes is the semantic layout's):
 
 ``geometry policy``
     how a *kind* of plot occupies a canvas -- a time trace is a landscape
@@ -18,7 +18,7 @@ go on which axes is the semantic layout's, issue #260):
     ``screen``, ``single_column`` and ``double_column`` generalise the
     recurring physical constraints of scientific journals; no publisher is
     named.  ``slide`` and ``poster`` do the same for a projected 16:9 slide
-    and a printed poster panel, read from across a room (issue #1421).
+    and a printed poster panel, read from across a room.
 
 ``theme``
     which visual grammar is used: font family, tick direction, grid and
@@ -31,8 +31,7 @@ go on which axes is the semantic layout's, issue #260):
     absent from a plain Linux host).  No font file ships with VAFT.
 
 ``format=None`` means :data:`DEFAULT_FORMAT` -- ``screen`` -- for a figure
-the renderer creates on its own (issue #712, the presentation contract's
-last phase); the default yields to a caller's ``ax=`` and to an explicit
+the renderer creates on its own; the default yields to a caller's ``ax=`` and to an explicit
 ``figsize=``, which decide the canvas themselves.  ``format="legacy"``
 names the sizes the renderers had before this module existed (they were
 never one width), so a workflow whose reference images predate it can pin
@@ -183,7 +182,7 @@ class Theme:
     line_pt: float = 1.2
     marker_pt: float = 4.0
     #: The distinguishing colours ``palette:<n>`` tokens take; ``None`` uses
-    #: ``colors`` (issue #709).
+    #: ``colors``.
     palette: tuple[str, ...] | None = None
     #: Colour intent tokens this theme overrides (``role:``, ``feature:``,
     #: ``state:``, ``emphasis:``): a colour, or a style patch when colour
@@ -192,7 +191,7 @@ class Theme:
     intents: Mapping[str, Any] = field(default_factory=dict, hash=False, compare=False)
     #: The MathText font set (``mathtext.fontset``) that matches the text
     #: face, so ``$\\psi_N$`` in a label is set in the same family as the
-    #: words around it (issue #1421); ``None`` leaves Matplotlib's.
+    #: words around it; ``None`` leaves Matplotlib's.
     math_fontset: str | None = None
 
     def __post_init__(self) -> None:
@@ -379,7 +378,7 @@ EQUILIBRIUM_ROLE = "equilibrium"
 def rz_extent(model: Any) -> tuple[float, float] | None:
     """``(delta R, delta Z)`` of what an R-Z view displays, or ``None``.
 
-    Priority follows issue #689 section 7: the machine geometry drawn over
+    Priority: the machine geometry drawn over
     the view (wall, coils, sensors -- every layer that is not the plasma's
     and not a text annotation), then the field's own grid, and nothing
     otherwise -- a boundary alone returns ``None`` so the fallback ratio is
@@ -470,7 +469,7 @@ class Presentation:
         if policy.kind == "native":
             return _snug(width, _native_ratio(model), _RZ_AXES_FRACTION, ceiling)
         # grid: one width whatever the column count; the rows add height,
-        # each as tall as the members standing in it ask (issue #711).
+        # each as tall as the members standing in it ask.
         return (width, min(max(sum(self.row_heights(model)), 0.5 * width), ceiling))
 
     def row_heights(self, model: Any) -> list[float]:
@@ -478,8 +477,7 @@ class Presentation:
 
         What :meth:`figsize` sums for a ``Panels`` model; a renderer takes
         them as ``row_heights`` so the grid divides the canvas the way the
-        members asked rather than equally (issue #711).  Empty without a
-        format.
+        members asked rather than equally.  Empty without a format.
         """
         if self.format is None:
             return []
@@ -829,7 +827,8 @@ def resolve_presentation(
 
     ``format=`` sets the canvas, so it is refused beside the two things that
     already decide one: a caller's ``ax=`` and an explicit ``figsize=``.
-    Refusing rather than ignoring is the contract (issue #689 section 11);
+    Refusing rather than ignoring is the contract, so a ``format=`` the
+    canvas cannot honour is never silently dropped;
     a ``theme=`` alone is fine with either, it changes artists, not canvases.
     """
     # A control spells "no theme" as the ``"none"`` sentinel every choice
@@ -916,7 +915,7 @@ def presented(default_figsize: tuple[float, float] | None = None) -> Callable:
             presentation = resolve_presentation(format, theme, ax=ax, figsize=figsize)
             from .figure_options import figure_options_rc
 
-            # Explicit figure options (#1421) layer over the format and theme:
+            # Explicit figure options (vaft.plot.figure_options) layer over the format and theme:
             # their type sizes and faces are entered inside the presentation
             # context, so they win over it while the figure is drawn -- once,
             # at the outermost renderer.

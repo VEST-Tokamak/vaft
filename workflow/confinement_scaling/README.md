@@ -1,19 +1,19 @@
-# Confinement scaling (lane D, #548)
+# Confinement scaling (lane D)
 
-This directory builds the VEST Tier A confinement table on a validated ohmic power balance (layer A of the #548 hierarchy) and fits it (layers B and C). It also runs errors in variables, Kadomtsev completion, the dimensionless form and the Bohm / −2.5 / gyro-Bohm comparison (layers D–F), with NSTX as an explicit comparison. Progress and decisions are recorded in the Lane D log on GitHub.
+This directory builds the VEST Tier A confinement table on a validated ohmic power balance (layer A of the study's analysis hierarchy: data and power-balance qualification) and fits it (layers B and C: the primary fit and the density sensitivity). The study plan is #548 (open). It also runs errors in variables, Kadomtsev completion, the dimensionless form and the Bohm / −2.5 / gyro-Bohm comparison (layers D–F), with NSTX as an explicit comparison. Progress and decisions are recorded in the Lane D log on GitHub.
 
 | script | what it does |
 |---|---|
-| `build_table.py` | One row per magnetics state key of Lane K's state key contract v1 (#1454). It writes Lane M's `CONFINEMENT_COLUMNS` (`vaft.data.public.schema`) followed by Lane D extension columns: three stored energies, every power-balance term, slice-quality evidence and rule flags. |
+| `build_table.py` | One row per magnetics state key of Lane K's state key contract v1 (`vaft.validation.kinetic_state`: rows keyed by `(shot, time_efit_s, efit_lineage)`). It writes Lane M's `CONFINEMENT_COLUMNS` (`vaft.data.public.schema`) followed by Lane D extension columns: three stored energies, every power-balance term, slice-quality evidence and rule flags. |
 | `closures.py` | Runs four analyses: an errors-in-variables fit of W against P_OH (independent of W) and P_net (for comparison; it carries W noise through dW/dt), over a grid of the assumed equation error of W and measurement error of P; the Kadomtsev-completed size exponent and dimensionless indices, with the cluster covariance propagated and the size exponent labelled `assumed_not_measured`; closures μ_ρ = −2, −2.5 and −3 as linear constraints, compared by RMS, AIC/BIC, a cluster Wald test, leave-one-shot-out error and bootstrap spread; and NSTX (Buxton 2019, Kaye 2006) as a comparison, never a prior. |
 | `figures.py` | Figure functions for Lane V's conference notebook (`vaft.plot` is frozen). Each returns `(fig, axes)`: VEST over the ITPA DB5.2.3 standard set with the spherical tokamaks broken out; τ_E measured against IPB98(y,2) and NSTX2006L; the H-factor distributions; and the exponent comparison with the Kadomtsev-completed μ_ρ, marked as assumed and as undetermined where (1+α_P)/σ < 2. The CLI renders PNG and PDF. |
-| `extra_scalings.py` | Maps the table columns onto the ohmic and L-mode scalings of `vaft.formula` (moved there in #670), row by row with NaN for missing inputs: neo-Alcator (Goldston 1984 eq. 3), Goldston 1984 L-mode (eq. 6), their eq. (11) quadrature, and ITER97-L (Kaye 1997, a `_SCALING_COEFS` entry). |
+| `extra_scalings.py` | Maps the table columns onto the ohmic and L-mode scalings of `vaft.formula`, row by row with NaN for missing inputs: neo-Alcator (Goldston 1984 eq. 3), Goldston 1984 L-mode (eq. 6), their eq. (11) quadrature, and ITER97-L (Kaye 1997, a `_SCALING_COEFS` entry). |
 | `extensions.py` | Tests what the exponents measure: B_T split into TF current (B0R0) and plasma position (R_geo); shot fixed effects (within-shot) against shot means (between-shot); a campaign offset for the two Tier A shot blocks; and a direct dimensionless regression on the Thomson subset (no T elimination through P). |
 | `fit.py` | Fits τ_E = C I_p^aI B_T^aB P_net^aP, density-free (A, primary) and with the Thomson line density (B) on the same subset. It reports errors clustered by shot, a shot bootstrap, leave-one-shot-out refits, influence, a Huber fit and identifiability (VIF, condition number, correlations, log spread). Each fit runs on the primary and the sensitivity selection. |
 
 ## Inputs (read only)
 
-- `~/runs/campaign/atlas/v1/state.csv`, Lane K: the #1331 Tier A good + admissible EFIT slices.
+- `~/runs/campaign/atlas/v1/state.csv`, Lane K: the good + admissible EFIT slices of the Tier A campaign (campaign record: #1331).
 - `~/runs/campaign/filedb`, the campaign FileDB:
   - `omas/efit/magnetic/<shot>`: W_mhd, li_3 and geometry;
   - `omas/diagnostics/<shot>`: measured Ip and the inboard flux-loop voltage;
@@ -24,7 +24,7 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 
 - **P_OH** = I_p,meas · V_res. V_res is the measured inboard-midplane loop voltage minus the internal inductive voltage (1/I_p) dW_int/dt, with W_int = μ0 R0 li_3 I_p²/4 (Romero 2010 eq. 24). The function is `vaft.process.confinement.resistive_loop_voltage`, which also returns R_p.
 - **The EFIT boundary-flux path** (`compute_voltage_consumption`) is kept only as a comparison column. The Tier A products store ψ in Wb, and their early slices jump by tens of volts.
-- **The Spitzer path** is a comparison only, and runs only with `--spitzer` and an explicit Z_eff and ln Λ (#1188).
+- **The Spitzer path** is a comparison only, and runs only with `--spitzer`. Z_eff and ln Λ are passed to the formula explicitly (`--z-eff`, default 2.0; `--ln-lambda`, default 17.0) and recorded in `MANIFEST.json`.
 - **dW/dt and dli_3/dt** are computed only over the shot's labelled (good/admissible) slices, using a local linear fit over 3 ms. The other slices of a product are unreconstructed, with W down to −75 kJ.
 - **Stored energy, three columns:**
   - `w_mhd_J` = 1.5∫p dV of the magnetics EFIT. This is `w_th_J`, the energy τ_E uses.
@@ -33,8 +33,8 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 - **P_net** = P_OH − dW/dt. This is `p_loss_W`; radiation is not subtracted, as in DB5 `PLTH`.
 - **P_transport** is NaN: VEST maps no bolometer.
 - **τ_E** = W_mhd / P_net. The kinetic counterpart is `tau_e_kin_s`, which uses the magnetics dW/dt.
-- **H factors** (`figures.h_factor_of`, `vaft.data.public.h_factor`) compare each scaling on its declared energy basis (#1713): a thermal scaling (IPB98(y,2), ITPA20, ITER97-L, NSTX 2006 H) against `tau_e_th_s`, a global or unaudited one (ITER89-P, NSTX 2006 L, Kurskiev 2022, Goldston 1984) against `tau_e_global_s`. Where no global time exists the public `h_factor` returns NaN and warns, naming the scaling and the gate; `thermal_as_global=True` (or the machine names, here `{"VEST"}`: ohmic, no fast ions) uses the thermal time instead and records the approximation in `attrs`. `h_factor_of` applies that substitution for `OHMIC_MACHINES` by itself. The two paths feed ITER97-L (and the Goldston 1984 forms) different elongations: `h_factor_of` the boundary `kappa` (`extra_scalings.py`), the public `h_factor` the area elongation `kappa_area` by default, so their H97 differ by $(\kappa/\kappa_a)^{0.64}$ (about 6 % on Tier A); which one Kaye 1997 regressed on is not settled (`elongation_note` in `vaft.formula.constants`), and each result records its choice in `attrs["kappa_definition"]`. ITPA20 (Verdoolaege et al., Nucl. Fusion 61 (2021) 076006) takes `kappa_area` (the paper's $\kappa_a = V/(2\pi R\,\pi a^2)$) and the average triangularity `delta` as $(1+\delta)$; a row without `delta` is NaN. ITPA20-IL is available in `vaft.formula` (`"ITPA20_IL"`) but not in `ALL_SCALINGS`: it was fitted on the paper's ITER-like subset (Sec. 2.1: eight conventional tokamaks, no spherical tokamak, constraints including $\epsilon < 0.5$), and VEST is a spherical tokamak at $\epsilon \approx 0.72$.
-- **EFIT verdicts** come from Lane K's state table under criteria v2 (#1521), as two separate columns:
+- **H factors** (`figures.h_factor_of`, `vaft.data.public.h_factor`) compare each scaling on its declared energy basis: a thermal scaling (IPB98(y,2), ITPA20, ITER97-L, NSTX 2006 H) against `tau_e_th_s`, a global or unaudited one (ITER89-P, NSTX 2006 L, Kurskiev 2022, Goldston 1984) against `tau_e_global_s`. Where no global time exists the public `h_factor` returns NaN and warns, naming the scaling and the gate; `thermal_as_global=True` (or the machine names, here `{"VEST"}`: ohmic, no fast ions) uses the thermal time instead and records the approximation in `attrs`. `h_factor_of` applies that substitution for `OHMIC_MACHINES` by itself. The two paths feed ITER97-L (and the Goldston 1984 forms) different elongations: `h_factor_of` the boundary `kappa` (`extra_scalings.py`), the public `h_factor` the area elongation `kappa_area` by default, so their H97 differ by $(\kappa/\kappa_a)^{0.64}$ (about 6 % on Tier A); which one Kaye 1997 regressed on is not settled (`elongation_note` in `vaft.formula.constants`), and each result records its choice in `attrs["kappa_definition"]`. ITPA20 (Verdoolaege et al., Nucl. Fusion 61 (2021) 076006) takes `kappa_area` (the paper's $\kappa_a = V/(2\pi R\,\pi a^2)$) and the average triangularity `delta` as $(1+\delta)$; a row without `delta` is NaN. ITPA20-IL is available in `vaft.formula` (`"ITPA20_IL"`) but not in `ALL_SCALINGS`: it was fitted on the paper's ITER-like subset (Sec. 2.1: eight conventional tokamaks, no spherical tokamak, constraints including $\epsilon < 0.5$), and VEST is a spherical tokamak at $\epsilon \approx 0.72$.
+- **EFIT verdicts** come from Lane K's state table under criteria v2 (the Thomson pressure-consistency verdict kept beside fit quality), as two separate columns:
   - `efit_quality` (good / admissible / ...) grades the fit alone;
   - `thomson_consistent` is True when the EFIT pressure lies within [1, 2]·p_e of the Thomson fit, False outside, and NaN where no Thomson profile was matched.
 
@@ -49,7 +49,7 @@ Every row carries its evidence:
 
 The `rule_*`, `accepted` and `selected` columns apply the primary selection below (`PRIMARY_THRESHOLDS` in `build_table.py`, recorded in `MANIFEST.json` as `selection_thresholds`). `threshold_sweep.csv` gives the accepted count and the number of shots on a threshold grid. VEST discharges have no flat top, so stationarity is judged by rate, not by phase.
 
-## Selections (decided 2026-10-02 on #1490)
+## Selections (decided 2026-10-02; record: Lane D log #1490)
 
 | | \|ΔI_p\| per τ_E | \|dW/dt\|/P_OH | \|I_p\| |
 |---|---|---|---|
@@ -85,7 +85,7 @@ This writes `coefficients.csv`, `summary.csv`, `influence.csv`, `identifiability
 python closures.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/runs/campaign/atlas/confinement/closures
 ```
 
-This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. With `--model-spread ~/runs/campaign/atlas/efit_model_spread/model_spread.csv` (the #579 ensemble) it also writes `odr_model_spread.csv`: the ODR of W with the per-state EFIT model-form spread as the per-row W error (unimodal and all rows, with 0 and 0.1 intrinsic scatter in quadrature, and the tight 'viable' spread), against the constant 0.2 of the scan, on the rows the ensemble covers. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
+This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. With `--model-spread ~/runs/campaign/atlas/efit_model_spread/model_spread.csv` (the 120-setting EFIT profile-model ensemble summarised by `workflow/efit_uncertainty_calibration/model_spread.py`) it also writes `odr_model_spread.csv`: the ODR of W with the per-state EFIT model-form spread as the per-row W error (unimodal and all rows, with 0 and 0.1 intrinsic scatter in quadrature, and the tight 'viable' spread), against the constant 0.2 of the scan, on the rows the ensemble covers. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
 
 Then the extensions:
 
@@ -99,7 +99,7 @@ Then the figures:
 python figures.py --atlas ~/runs/campaign/atlas/confinement --out ~/runs/campaign/atlas/confinement/figures
 ```
 
-The TGLF saturation-rule link (#1482) reads Lane T's `transport/` and `transport_sensitivity/` products beside the table:
+The TGLF saturation-rule link reads Lane T's `transport/` and `transport_sensitivity/` products beside the table:
 
 ```bash
 python tglf_link.py --atlas ~/runs/campaign/atlas --out ~/runs/campaign/atlas/confinement/tglf_link

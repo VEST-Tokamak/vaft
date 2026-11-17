@@ -1,4 +1,4 @@
-"""Small solver-free checks of the fixed-boundary PF inverse problem (#1608)."""
+"""Small solver-free checks of the fixed-boundary PF inverse problem."""
 
 from __future__ import annotations
 

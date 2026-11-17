@@ -1,4 +1,4 @@
-"""Build the n-resolved Tier A stability atlas from the batch run directories (#1429).
+"""Build the n-resolved Tier A stability atlas from the batch run directories.
 
 Reads what ``run_batch.py`` left under ``OUT/<lineage>/<shot>.<time_ms>/`` and writes:
 
@@ -14,7 +14,7 @@ Reads what ``run_batch.py`` left under ``OUT/<lineage>/<shot>.<time_ms>/`` and w
 ``schema.json``
     The column dictionary, units, and the rules a consumer must keep.
 
-Atlas v2 (#1429 comment of 2026-10-02, maintainer-approved): physical
+Atlas v2 (maintainer-approved 2026-10-02; record: #1429): physical
 quantities are judged by universal criteria, and numerical QA only annotates
 how far a result can be trusted. QA never redefines a quantity or removes a
 solver result. Four layers, never overwriting each other:
@@ -28,13 +28,14 @@ solver result. Four layers, never overwriting each other:
    ``ordinal_position``, local shear, distance to q_min and to the edge; and
    QA-filtered summaries under their own names (``*_qa``, ``*_qa_interior``).
 3. **Universal physical criteria**: ideal stability is the sign of W_t (no
-   magnitude band; #142); classical tearing drive is Δ′ > 0 at *any* rational
+   magnitude band); classical tearing drive is Δ′ > 0 at *any* rational
    surface; D_I > 0, D_R > 0, C_A < 0.
-4. **Interpretation** (#939): Δ′ is an outer-region quantity. A tearing
-   verdict needs an inner-layer treatment (RMATCH, #797), so this layer is
-   not written here.
+4. **Interpretation**: Δ′ is an outer-region quantity. A tearing verdict
+   needs an inner-layer treatment (RMATCH), so this layer is not written here.
+   Open: #797 (rmatch never writes its inner-layer solution, globalsol.bin).
 
-Conventions (decided in #141, #792 and #1429):
+Conventions (from the numerical control scan, the DCON edge-treatment comparison
+and the atlas design):
 
 * DCON energies are DCON's normalized least-stable eigenvalues, not Joules.
   The ideal criterion is the sign of W_t. It is *robust* when the mpsi 256
@@ -71,7 +72,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from select_slices import read as read_slices  # noqa: E402
 
 #: Heuristic: 20 % is the *median* relative change between mpsi 256 and 512
-#: of #141's 64 mid-radius RDCON surfaces (0.19; 90th percentile 0.72), so
+#: of the control scan's 64 mid-radius RDCON surfaces (0.19; 90th percentile
+#: 0.72; record: #141), so
 #: about half of ordinary interior surfaces fail it. It labels; it does not
 #: define the quantity.
 DELTA_PRIME_RTOL = 0.20
@@ -82,8 +84,9 @@ ATLAS_VERSION = 2
 
 ZERO_CROSSING = re.compile(r"Zero crossing at psi =\s*([-+0-9.Ee]+), q =\s*([-+0-9.Ee]+)")
 
-#: #142's enum, as used here. MARGINAL is reserved and never produced: no
-#: tolerance band around W_t = 0 has been derived yet (#141 follow-up).
+#: The routine DCON/RDCON validation status enum, as used here. MARGINAL is
+#: reserved and never produced. Open: #141 (no tolerance band around W_t = 0
+#: has been derived).
 STATUS_VALUES = (
     "VALID_STABLE",
     "VALID_UNSTABLE",
@@ -96,7 +99,7 @@ STATUS_VALUES = (
 #: Atlas extensions. NOT_CHECKED: the mpsi 512 check run is missing or
 #: failed, so the QA check is unavailable (not "unresolved"). RESOLVED: a Δ′
 #: column has at least one two-resolution-consistent surface, at any
-#: position. Δ′ never gets a stable/unstable label (#939).
+#: position. Δ′ never gets a stable/unstable label.
 EXTENSION_VALUES = ("NOT_CHECKED", "RESOLVED")
 
 #: QA classes of the sign of W_t (layer 2).
@@ -181,7 +184,7 @@ def dcon_columns(result: Optional[dict], prefix: str) -> dict[str, Any]:
                 "ballooning_evaluated": None
                 if evaluated is None or out.evaluation is None
                 else bool(out.evaluation.ballooning and evaluated.any()),
-                # Sign rules from #142: D_I > 0 is ideal-interchange unstable,
+                # Sign rules: D_I > 0 is ideal-interchange unstable,
                 # D_R > 0 resistive-interchange unstable, C_A < 0 ballooning unstable.
                 "ideal_interchange_unstable": None
                 if max_di is None or not (out.evaluation and out.evaluation.mercier)
@@ -198,7 +201,7 @@ def dcon_columns(result: Optional[dict], prefix: str) -> dict[str, Any]:
 def dcon_status(
     w_256: Optional[float], w_512: Optional[float], raw_256: Optional[str], raw_512: Optional[str]
 ) -> str:
-    """#142 status of one DCON treatment from its mpsi 256 run and mpsi 512 check."""
+    """Validation status of one DCON treatment from its mpsi 256 run and mpsi 512 check."""
     if w_256 is None:
         return "SOLVER_FAILURE" if raw_256 is not None else "NOT_APPLICABLE"
     if w_512 is None:
@@ -209,7 +212,7 @@ def dcon_status(
 
 
 def dcon_sign_class(w_256: Optional[float], w_512: Optional[float]) -> str:
-    """Layer-2 QA of the sign of W_t across mpsi 256 and 512; no magnitude band (#142)."""
+    """Layer-2 QA of the sign of W_t across mpsi 256 and 512; no magnitude band."""
     if w_256 is None or not np.isfinite(w_256):
         return "unavailable"
     if w_512 is None or not np.isfinite(w_512):
@@ -349,7 +352,7 @@ def matching_summary(
       ``*_classical_tearing_drive_qa`` restricts that to consistent surfaces.
 
     The status says whether the QA check was possible and found a consistent
-    surface. It is not a tearing verdict (#939).
+    surface. It is not a tearing verdict.
     """
     consistent = [s for s in surfaces if s["two_resolution_consistent"]]
     interior = [s for s in consistent if s["position"] == "interior"]

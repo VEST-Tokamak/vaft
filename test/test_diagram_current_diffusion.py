@@ -1,4 +1,4 @@
-"""Current diffusion and current drive (#1605): the evolution is the formula's, the claims are the physics'."""
+"""Current diffusion and current drive: the evolution is the formula's, the claims are the physics'."""
 
 import math
 

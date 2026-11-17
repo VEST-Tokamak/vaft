@@ -1,4 +1,4 @@
-"""A current pulse that is pickup is not a plasma (issue #1733).
+"""A current pulse that is pickup is not a plasma.
 
 48927 was labelled ``Plasma`` from 3.3 kA that started at 0.296 s and never
 ended, with a dark H-alpha and a responding gauge: PF pickup on the Rogowski,
@@ -50,7 +50,7 @@ def test_48927_pickup_with_dark_light_is_a_breakdown_failure():
 
 
 def test_a_large_dark_drift_that_never_ends_is_not_a_plasma():
-    """43690/45780: a drifting Rogowski reads hundreds of kA with no light (#1373)."""
+    """43690/45780: a drifting Rogowski reads hundreds of kA with no light."""
     record = shot_class(_shot(_unended(100e3), lit=False))
     assert record.label != "Plasma"
     assert "ip_pulse_dark_unended" in record.flags

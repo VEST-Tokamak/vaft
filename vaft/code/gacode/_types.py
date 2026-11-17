@@ -30,8 +30,8 @@ GACODE_PLATFORM_ENV = "GACODE_PLATFORM"
 
 GACODE_COMPATIBILITY_ENVS: tuple[str, ...] = (GACODE_ROOT_ENV,)
 
-#: Suite members that build from this tree.  Each has a VAFT adapter: NEO
-#: (#550), TGLF (#553) and CGYRO (#1354).
+#: Suite members that build from this tree.  Each has a VAFT adapter: NEO,
+#: TGLF and CGYRO.
 SUITE_CODES: tuple[str, ...] = ("neo", "tglf", "cgyro")
 
 #: Backends VAFT can actually prepare, run and parse.
@@ -87,7 +87,7 @@ class GACODEConfig(CodeConfig):
             raise TypeError(f"resources must be a ResourceRequest or None, got {type(resources).__name__}")
         if resources is not None:
             # Two knobs for one quantity: refuse a disagreement rather than
-            # pick one silently (#1016).
+            # pick one silently.
             if int(resources.ntasks) != int(self.n_mpi):
                 raise ValueError(
                     f"resources.ntasks={resources.ntasks} disagrees with n_mpi={self.n_mpi}; "

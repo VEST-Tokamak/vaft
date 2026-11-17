@@ -1,4 +1,4 @@
-"""Archive the VEST ShotLog in FileDB and extract per-shot records (#995).
+"""Archive the VEST ShotLog in FileDB and extract per-shot records.
 
 Typical sequence::
 

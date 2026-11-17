@@ -6,7 +6,7 @@ tag, and the COCOS index and toroidal Fourier convention it follows when those
 apply, together with how well that declaration is supported.
 :func:`assess_compatibility` compares two representations and says whether the
 values are directly compatible, need an explicit transformation, mean
-different things, or cannot be decided from what is declared (#2163).
+different things, or cannot be decided from what is declared.
 
 **An assessment is not a validation verdict.** ``COMPATIBLE`` says the
 declarations agree; it does not say the data conforms to them. Whether a

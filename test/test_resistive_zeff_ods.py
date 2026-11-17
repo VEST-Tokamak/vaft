@@ -1,4 +1,4 @@
-"""Resistive Z_eff on packaged VEST data: the #652 / #1214 Sec. 4 conventions and Level C-D.
+"""Resistive Z_eff on packaged VEST data: the loop-voltage conventions and Level C-D.
 
 The three multi-slice samples store psi in both conventions -- 39915 in weber,
 41524 and 41672 per radian -- so the boundary-flux reader meets both branches.
@@ -6,7 +6,7 @@ What decides a 2 pi slip is independent of the equilibrium: the boundary
 volt-seconds against the inboard midplane flux loop, where a slip on either
 branch puts the ratio near 6 or 0.16.  The Ejima loop voltage of
 ``loop_voltage_from_total_flux`` is checked against Romero's ``V_B`` on the
-same data, which closes the branch #652 left uncovered.
+same data, which covers the per-radian branch the voltage-consumption tests leave uncovered.
 
 48224 is the one kinetic sample: Spitzer/Sauter/Redl are compared on it
 (Level C), and NEO's conductivity case on it is compared at the charge NEO
@@ -78,7 +78,7 @@ def test_the_boundary_voltage_drives_the_current_and_matches_the_flux_loop(flux)
 
 
 def test_the_ejima_loop_voltage_is_minus_v_b_on_the_same_data(flux):
-    """#652's uncovered branch: +2 pi dpsi/dt on per-radian psi vs -dpsi/dt full Wb."""
+    """The per-radian branch: +2 pi dpsi/dt on per-radian psi vs -dpsi/dt full Wb."""
     from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
     from vaft.formula.equilibrium import loop_voltage_from_total_flux
 
@@ -266,7 +266,7 @@ def test_the_plot_is_not_offered_without_electron_profiles():
 
 
 def test_the_plasma_current_is_the_reconstructions(flux, state48224):
-    """#1514: R_p and <J.B> are normalised by the same (EFIT) current."""
+    """R_p and <J.B> are normalised by the same (EFIT) current."""
     _, got = flux
     assert "reconstruction" in got.source["ip_source"]
     assert "reconstruction" in state48224.source["ip_source"]

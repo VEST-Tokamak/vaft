@@ -14,13 +14,13 @@ KOREAN = ROOT / "README.ko.md"
 NOTICES = ROOT / "THIRD_PARTY_NOTICES.md"
 NOTICES_KO = ROOT / "THIRD_PARTY_NOTICES.ko.md"
 
-#: The approved brand message (#1763, "domains" wording approved in #1872) leads both language versions.
+#: The approved brand message leads both language versions.
 CORE_MESSAGES = {
     ENGLISH: "Connecting Nuclear Fusion Knowledge Across Domains for Integrated Tokamak Research",
     KOREAN: "여러 연구 영역의 핵융합 지식을 연결해 통합적인 토카막 연구를 돕습니다",
 }
 
-#: Capabilities that must not be described as current functionality (#330 §4).
+#: Capabilities that must not be described as current functionality.
 LONG_TERM_TERMS = (
     "knowledge graph",
     "digital twin",
@@ -53,7 +53,7 @@ def headings(path: Path, level: str = "## ") -> list[str]:
 
 @pytest.mark.parametrize("path", [ENGLISH, KOREAN], ids=["en", "ko"])
 def test_the_positioning_statement_leads(path):
-    """A reader must learn what VAFT is before anything else (#330 acceptance)."""
+    """A reader must learn what VAFT is before anything else."""
     text = path.read_text(encoding="utf-8")
     opening = text[: text.index("\n## ")]
     assert "VAFT" in opening
@@ -89,7 +89,7 @@ def test_the_approved_message_matches_the_homepage():
 
 
 def test_the_overview_says_what_vaft_is_then_enables_then_where_it_runs():
-    """#529: what VAFT is -> what it enables -> VEST as the reference implementation."""
+    """What VAFT is -> what it enables -> VEST as the reference implementation."""
     text = ENGLISH.read_text(encoding="utf-8")
     is_ = text.index("scientific framework")
     enables = text.index("It connects experimental data", is_)
@@ -101,7 +101,7 @@ def test_the_overview_says_what_vaft_is_then_enables_then_where_it_runs():
 
 
 def test_traceable_and_verifiable_are_not_used_as_synonyms():
-    """#529: traceable and reproducible workflows *enable* verifiable results."""
+    """Traceable and reproducible workflows *enable* verifiable results."""
     text = ENGLISH.read_text(encoding="utf-8")
     credibility = next(line for line in text.splitlines() if line.startswith("- **Credibility:**"))
     assert all(word in credibility for word in ("traceable", "reproducible", "verifiable"))
@@ -109,7 +109,7 @@ def test_traceable_and_verifiable_are_not_used_as_synonyms():
 
 @pytest.mark.parametrize("path", [ENGLISH, KOREAN], ids=["en", "ko"])
 def test_the_four_perspectives_are_present_and_ordered(path):
-    """The concise viewpoints follow #330's conceptual order."""
+    """The concise viewpoints follow the conceptual order."""
     text = path.read_text(encoding="utf-8")
     labels = (
         ("Representation", "Research infrastructure", "Credibility", "Research practice and portability")
@@ -156,7 +156,7 @@ def test_both_readmes_have_the_same_short_landing_structure():
 
 @pytest.mark.parametrize("path", [ENGLISH, KOREAN], ids=["en", "ko"])
 def test_long_term_direction_is_labelled_not_claimed(path):
-    """#330 §4: these must be visibly future, never current functionality."""
+    """These must be visibly future, never current functionality."""
     text = path.read_text(encoding="utf-8").lower()
     for term in LONG_TERM_TERMS:
         if term not in text:
@@ -196,7 +196,7 @@ def test_third_party_notices_left_the_readme_but_not_the_repository():
 
 
 def test_the_readme_routes_to_the_deeper_surfaces():
-    """#330: the README is a landing page, not the complete manual."""
+    """The README is a landing page, not the complete manual."""
     text = ENGLISH.read_text(encoding="utf-8")
     for target in ("tutorial/README.md", "notebooks/README.md",
                    "install/README.md", "vest-tokamak.github.io/vaft"):

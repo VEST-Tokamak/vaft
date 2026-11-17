@@ -1,7 +1,9 @@
-"""Lane D Tier A confinement table (#548 sections 1, 2, 5; conference 2026-10-12).
+"""Lane D Tier A confinement table (conference 2026-10-12).
 
-One row per magnetics state key of Lane K's State key contract v1 (#1454): the
-#1331 Tier A good + admissible EFIT slices. The paired electron_kinetic state at
+Covers the power and stored-energy definitions, the (shot, time) analysis unit
+and the slice-quality contract of the confinement study. One row per magnetics
+state key of Lane K's State key contract v1 (``vaft.validation.kinetic_state``):
+the good + admissible EFIT slices of the Tier A campaign. The paired electron_kinetic state at
 the same (shot, time), when it exists, contributes its stored energy as a second
 W column, so no state is lost and record_id stays unique.
 
@@ -11,8 +13,8 @@ shot's magnetics product:
     P_OH      = I_p,meas * V_res,  V_res = V_loop,meas - (1/I_p) dW_int/dt
                 V_loop,meas: the inboard-midplane flux loop (vest.yaml
                 discharge_timing.loop_voltage), averaged over --vloop-window-s;
-                W_int = mu0 R0 li_3 I_p^2 / 4 with li_3 from the post-#1477
-                update routine and dli_3/dt kept (Romero NF 2010 eq. 24)
+                W_int = mu0 R0 li_3 I_p^2 / 4 with li_3 from
+                update_equilibrium_global_quantities_beta_li and dli_3/dt kept (Romero NF 2010 eq. 24)
     dW/dt     local quadratic fit over --dwdt-window-s of W_mhd(t)
     P_net     P_OH - dW/dt                        -> p_loss_W (as DB5 PLTH)
     P_trans   P_net - P_rad,meas                   NaN: VEST maps no bolometer
@@ -20,11 +22,12 @@ shot's magnetics product:
 
 Comparison columns (never the default): P_OH from the EFIT boundary flux
 (vaft.omas.formula_wrapper.compute_voltage_consumption) and, with --spitzer,
-the Spitzer integral with Z_eff and ln Lambda stated explicitly (#1188).
+the Spitzer integral with Z_eff and ln Lambda passed explicitly
+(--z-eff, --ln-lambda) and recorded in the manifest.
 
-Slice quality (#548 section 5) is evidence plus a decision. The evidence columns
+Slice quality is evidence plus a decision. The evidence columns
 are always written; the accepted/selected columns apply the primary selection
-decided 2026-10-02 on #1490 (PRIMARY_THRESHOLDS, the same numbers as fit.py's
+decided 2026-10-02 (PRIMARY_THRESHOLDS, the same numbers as fit.py's
 SELECTIONS["primary"]), and threshold_sweep.csv reports how the accepted count
 moves with each threshold. None of the thresholds is adopted from another
 database; fit.py re-derives the primary and the sensitivity selection from the
@@ -60,7 +63,7 @@ import pandas as pd
 
 TIME_TOLERANCE_S = 5e-5
 CONTRACT_VERSION = 1
-# The #1490 primary selection (2026-10-02); fit.py's SELECTIONS["primary"] carries the same numbers
+# The primary selection (decided 2026-10-02); fit.py's SELECTIONS["primary"] carries the same numbers
 # and the sensitivity set (0.5 / 0.05) lives there only.
 PRIMARY_THRESHOLDS = {"ip_min": 30e3, "max_dwdt_fraction": 1.0, "max_ip_change_per_tau": 0.20}
 SWEEP = {
@@ -118,7 +121,7 @@ def _match(times: np.ndarray, t: float):
 
 
 def _li3_beta(efit):
-    """li_3 and beta_normal per slice from the post-#1477 update routine, on a scratch copy."""
+    """li_3 and beta_normal per slice from update_equilibrium_global_quantities_beta_li, on a scratch copy."""
     import copy
 
     from vaft.omas.update import update_equilibrium_global_quantities_beta_li
@@ -253,7 +256,7 @@ def power_balance_series(t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd, *, dwdt_win
     """
     from vaft.process.confinement import confinement_slice_evidence, ohmic_confinement_series
 
-    # The physics is vaft.process.confinement's (#1905); this keeps only the
+    # The physics is vaft.process.confinement's; this keeps only the
     # Tier A choices: the labelled slices, the window and the l_i fallback.
     chain = ohmic_confinement_series(t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd, rate_window_s=dwdt_window_s,
                                      rate_polyorder=rate_polyorder, hold_li3_where_missing=True)
@@ -283,7 +286,7 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     descriptors = [every_slice[i] for i in idx]
     w_mhd = np.array([r.get("w_th_J", np.nan) for r in descriptors], dtype=float)
 
-    # The ODS-facing chain of #1905: measured I_p and inboard loop voltage at the
+    # The ODS-facing chain (vaft.omas.confinement): measured I_p and inboard loop voltage at the
     # labelled EFIT times, l_i3, R0 and W_mhd, power balance and tau_E.
     from vaft.omas.confinement import ohmic_confinement_ods
     from vaft.process.confinement import confinement_slice_evidence
@@ -301,7 +304,7 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     li3 = split.li_3
     beta_n = _li3_beta(efit)[1][idx]
 
-    # Comparison path: the EFIT boundary flux (#652) over the labelled slices; never the default.
+    # Comparison path: P_OH from the EFIT boundary flux over the labelled slices; never the default.
     v_res_efit = np.full(t.size, np.nan)
     if t.size >= 2:
         try:
@@ -412,7 +415,7 @@ def build(args) -> int:
                 "v_res_efit_flux_V": series["v_res_efit"], "li_3": series["li3"],
                 "w_mhd_J": series["w_mhd"], "dwdt_W": pb.dwdt, "p_ohm_W": pb.p_ohmic,
                 "p_net_W": pb.p_net, "tau_e_net_s": pb.tau_e_net,
-                # after the original columns, so older series files read the same (#1905)
+                # after the original columns, so older series files read the same
                 "v_ind_current_V": series["v_ind_current"], "v_ind_profile_V": series["v_ind_profile"],
                 "li3_rate_fallback": series["li3_fallback"],
             }).to_csv(out / "series" / f"{shot}.csv", index=False)
@@ -430,7 +433,7 @@ def build(args) -> int:
                 "time_efit_s": t_state, "efit_lineage": "magnetics",
                 "efit_quality": state["efit_quality"], "efit_product_sha256": state["efit_product_sha256"],
                 "ts_status": state.get("ts_status", ""),
-                # Criteria v2 (#1521): Thomson consistency is a verdict beside fit
+                # Criteria v2: Thomson consistency is a verdict beside fit
                 # quality (p within [1, 2] p_e), never part of efit_quality.
                 "thomson_consistent": {"true": True, "false": False, "1": True, "0": False}.get(
                     str(state.get("thomson_consistent", "")).strip().lower(), np.nan),

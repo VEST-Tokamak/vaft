@@ -1,4 +1,4 @@
-"""Equilibrium-native Mercier / GGJ interchange indices against DCON (#1902).
+"""Equilibrium-native Mercier / GGJ interchange indices against DCON.
 
 ``test/data/gpec/mercier_reference_1902/dcon_di_dr.json`` holds DCON's own
 ``di`` and ``dr`` (mpsi 512, mtheta 1024, GPEC e68d7ac2) for the packaged VEST

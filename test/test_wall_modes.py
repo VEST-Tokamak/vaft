@@ -1,4 +1,4 @@
-"""The segment-wise wall eigenbasis: local eigenbasis, global dynamics (vaft #473).
+"""The segment-wise wall eigenbasis: local eigenbasis, global dynamics.
 
 Synthetic systems first -- every property the reduced-wall contract (vfit #8)
 asks the basis to guarantee is checked on matrices whose answer is known --

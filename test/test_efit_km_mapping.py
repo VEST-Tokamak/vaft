@@ -158,7 +158,7 @@ def test_mfile_kfile_input_names_are_not_accepted_as_output_aliases(tmp_path):
 
 def test_a_diamagnetic_row_switched_off_for_lack_of_data_is_not_a_measured_zero(tmp_path):
     """A shot without a usable diamagnetic loop writes DFLUX=0, SIGDLC=0,
-    FWTDLC=0 (#993) and EFIT copies the zero back. It must not come back as a
+    FWTDLC=0 and EFIT copies the zero back. It must not come back as a
     measured diamagnetic flux of exactly 0 Wb; EFIT's reconstruction and the
     zero weight still do."""
     path = tmp_path / "m039915.00319.nc"

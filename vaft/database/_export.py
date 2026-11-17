@@ -1,4 +1,4 @@
-"""Export one HSDS shot as portable local files (issue #450).
+"""Export one HSDS shot as portable local files.
 
 A shot on HSDS is a folder -- ``master.h5`` plus the IDS images it links to --
 so ``hsget`` cannot fetch it whole. :func:`export` stages the canonical IMAS
