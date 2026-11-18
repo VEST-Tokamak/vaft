@@ -14129,9 +14129,9 @@ def _build_ntms_overview_delta_prime(ods: Any, **options: Any) -> Panels:
     q_series = []
     if row.get("psi_n") is not None and row.get("q") is not None:
         q_series.append(Series(x=np.asarray(row["psi_n"], float), y=np.asarray(row["q"], float),
-                               label=f"q ({row['solver']})", style={"color": "k"}))
+                               label=f"q ({row['solver']})", style={"color": "emphasis:strong"}))
     dp_series = [Series(x=np.array([0.0, 1.0]), y=np.zeros(2), label="$\\Delta' = 0$",
-                        style={"color": "0.5", "linestyle": "--", "linewidth": 0.8})]
+                        style={"color": "emphasis:faint", "linestyle": "--", "linewidth": 0.8})]
     for color, surface in zip(colors, surfaces):
         m_value = int(surface["m"])
         label = f"m/n = {m_value}/{n_value}"

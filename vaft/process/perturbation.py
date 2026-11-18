@@ -3407,6 +3407,7 @@ def spectral_field_on_mesh(
         raise ValueError("psi_norm must be strictly increasing")
     if mesh_psi_norm.min() < psi_norm[0] - 1e-12 or mesh_psi_norm.max() > psi_norm[-1] + 1e-12:
         raise ValueError("the mesh reaches outside the spectrum's radial range")
+    # anti-alias: radial interpolation in psi_N between flux surfaces, not a time-domain resample.
     local = np.stack(
         [np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].real)
          + 1j * np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].imag) for j in range(m_pol.size)],

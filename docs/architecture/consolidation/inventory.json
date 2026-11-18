@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 385
+  "unverified": 386
  },
  "entry_modules": {
   "pipeline1": [
@@ -10896,7 +10896,8 @@
     }
    ],
    "callers": [
-    "vaft.plot.backend.recipes._build_mhd_linear_geometry_island"
+    "vaft.plot.backend.recipes._build_mhd_linear_geometry_island",
+    "vaft.process.perturbation.spectral_field_on_mesh"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -13386,6 +13387,41 @@
    "curated": false,
    "evidence": "",
    "implementation": "vaft.process.perturbation.finite_width_delta.at",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/process/perturbation.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].imag)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].real)"
+    }
+   ],
+   "callers": [],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.process.perturbation.spectral_field_on_mesh",
    "operation": [
     "resampling"
    ],
