@@ -358,7 +358,7 @@ def _is_imas_ids(obj) -> bool:
 
 
 def summary(shot_range=None, *, preset="equilibrium_global", source=None, directory=None,
-            odss=None):
+            odss=None, provenance=False):
     """Return a canonical preset summary for a range or all available shots.
 
     ``source`` names the HSDS namespace and defaults to ``main``; ``directory``
@@ -370,20 +370,28 @@ def summary(shot_range=None, *, preset="equilibrium_global", source=None, direct
     see :func:`summary_from_ods`. ``shot_range`` must then be omitted, and
     ``source`` (default ``"local"``) only labels the source columns.
     ``result.attrs["skipped"]`` lists the shots that failed, on either path.
+
+    ``provenance=True`` adds ``result.attrs["provenance"]``, a run record whose
+    ``.table`` has one row per (row key, column): ``status`` (computed, copied,
+    fallback, failed, missing, unrecorded), the ``step`` that produced the value,
+    a ``reason`` and the decisive ``inputs`` (the R0 and B0 sources for the
+    columns that depend on them); ``.code`` holds the vaft version and commit.
     """
     if odss is not None:
         if shot_range is not None or directory is not None:
             raise TypeError("odss= builds the table offline; omit shot_range and directory")
-        return summary_from_ods(odss, preset=preset, source="local" if source is None else source)
+        return summary_from_ods(odss, preset=preset, source="local" if source is None else source,
+                                provenance=provenance)
     from ._summary import summary as _summary
     from .sources import resolve
 
     # Resolve here so a deprecated alias is reported against the caller's frame
     # rather than this wrapper.
-    return _summary(shot_range, preset=preset, source=resolve(source, directory=directory))
+    return _summary(shot_range, preset=preset, source=resolve(source, directory=directory),
+                    provenance=provenance)
 
 
-def summary_from_ods(odss, *, preset="equilibrium_global", source="local"):
+def summary_from_ods(odss, *, preset="equilibrium_global", source="local", provenance=False):
     """Return the canonical preset summary of in-memory ODS (no database).
 
     The same table :func:`summary` returns for database shots holding the same
@@ -391,7 +399,7 @@ def summary_from_ods(odss, *, preset="equilibrium_global", source="local"):
     """
     from ._summary import summary_from_ods as _summary_from_ods
 
-    return _summary_from_ods(odss, preset=preset, source=source)
+    return _summary_from_ods(odss, preset=preset, source=source, provenance=provenance)
 
 
 def equilibrium_summary(shots, **kwargs):

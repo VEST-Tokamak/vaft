@@ -19,6 +19,8 @@ import pandas as pd
 
 import vaft
 
+from . import _summary_provenance as _provenance
+
 
 logger = logging.getLogger(__name__)
 
@@ -571,6 +573,10 @@ def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> t
         energy = float(compute_magnetic_energy(ods, time_slice=index, toroidal_field="equilibrium"))
     except Exception as exc:  # noqa: BLE001 - a slice without the inputs reports NaN
         logger.debug("slice %s: volume beta unavailable: %s", index, exc)
+        recorder = _provenance.active()
+        if recorder is not None:
+            recorder.note(index, ("beta_volume_B2", "beta_normal_B2"),
+                          f"volume beta raised {type(exc).__name__}: {exc}")
         return nan
     if pressure.size != volume.size or pressure.size < 2:
         return nan
@@ -585,8 +591,11 @@ def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> t
     return beta_volume, float(beta_normal_from_beta_volume(beta_volume, minor_radius, b0, ip))
 
 
-def _normalize_vacuum_field(ods, shot: int) -> None:
+def _normalize_vacuum_field(ods, shot: int) -> str | None:
     """Rebuild ``b0`` from ``profiles_1d.f``, which the database gets right.
+
+    Returns ``None`` when ``b0`` was rebuilt, otherwise why the stored ``b0``
+    was kept (the run record reports it as the fallback branch).
 
     The stored ``b0`` drifts by up to 101% within a shot while ``f`` at the
     boundary -- the vacuum ``R*B_phi``, since no poloidal current flows outside
@@ -619,13 +628,13 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
         else:
             edges.append(np.nan)
     if not any(np.isfinite(edge) and edge != 0.0 for edge in edges):
-        return
+        return "no finite profiles_1d.f at the boundary"
 
     r0 = _as_float(vaft.omas.resolve_reference_major_radius(ods))
     if not np.isfinite(r0) or r0 <= 0.0:
         r0 = _as_float(_safe_get(ods, "equilibrium.vacuum_toroidal_field.r0"))
     if not np.isfinite(r0) or r0 <= 0.0:
-        return
+        return "no usable reference radius to divide f by"
 
     stored = _safe_get(ods, "equilibrium.vacuum_toroidal_field.b0")
     # The magnitude comes from |f_edge| because the stored b0's magnitude is
@@ -684,6 +693,7 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
                 100.0 * worst,
                 r0,
             )
+    return None
 
 
 def extract_equilibrium_global(ods, shot: int) -> list[dict]:
@@ -693,24 +703,41 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
 
+    # Only when summary(..., provenance=True) asked for it; None otherwise, and
+    # then nothing below differs from a run without the record.
+    recorder = _provenance.active()
+    if recorder is not None:
+        from vaft.omas.update import reference_major_radius_source
+
+        # before the repair below writes the resolved r0 back into the ODS
+        recorder.facts["r0_value"], recorder.facts["r0_source"] = reference_major_radius_source(ods, log=False)
+        stored_r0 = "equilibrium.vacuum_toroidal_field.r0"
+        # tested first: item access would create the leaf in the ODS
+        recorder.facts["r0_stored"] = _as_float(ods[stored_r0]) if stored_r0 in ods else np.nan
+        _provenance.snapshot_equilibrium(recorder, ods, "stored")
+
     # Before anything reads b0: the stored one drifts, profiles_1d.f does not.
     try:
-        _normalize_vacuum_field(ods, shot)
+        kept = _normalize_vacuum_field(ods, shot)
     except Exception as exc:
         logger.debug("Shot %s: vacuum field normalization failed: %s", shot, exc)
+        kept = f"the rebuild raised {type(exc).__name__}: {exc}"
+    if recorder is not None:
+        recorder.facts["b0_fallback"] = kept is not None
+        recorder.facts["b0_source"] = (
+            "rebuilt as |profiles_1d.f| at the boundary / R0, with the stored b0's sign"
+            if kept is None else f"stored equilibrium.vacuum_toroidal_field.b0 ({kept})"
+        )
 
     # The flux-surface geometry comes first: an EFIT-sourced ODS stores no
     # profiles_1d.volume/area, and without them the volume, area and
     # stored-energy columns below are empty no matter what runs after. Its trace
     # is the expensive step and is handed to the beta updater rather than repeated
     # -- over a shot range that doubling is the whole equilibrium cost.
-    surfaces = None
-    try:
-        surfaces = vaft.omas.update_equilibrium_profiles_1d_geometry(
-            ods, time_slice=None, return_surfaces=True
-        )
-    except Exception as exc:
-        logger.debug("Shot %s: flux-surface geometry failed: %s", shot, exc)
+    surfaces = _run_step(
+        recorder, ods, shot, vaft.omas.update_equilibrium_profiles_1d_geometry,
+        time_slice=None, return_surfaces=True,
+    )
 
     for updater in (
         vaft.omas.update_equilibrium_boundary,
@@ -719,30 +746,18 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         vaft.omas.update_equilibrium_global_quantities_area,
         vaft.omas.update_equilibrium_stored_energy,
     ):
-        try:
-            updater(ods, time_slice=None)
-        except Exception as exc:
-            logger.debug("Shot %s: %s failed: %s", shot, updater.__name__, exc)
+        _run_step(recorder, ods, shot, updater, time_slice=None)
 
     # beta_normal reads boundary.minor_radius, so this follows the boundary updater.
-    try:
-        vaft.omas.update_equilibrium_global_quantities_beta_li(
-            ods, time_slice=None, surfaces=surfaces
-        )
-    except Exception as exc:
-        logger.debug("Shot %s: global betas failed: %s", shot, exc)
-
-    try:
-        vaft.omas.update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None)
-    except Exception as exc:
-        logger.debug("Shot %s: diamagnetic update failed: %s", shot, exc)
-    try:
-        virial_outputs = vaft.omas.compute_virial_equilibrium_quantities_ods(
-            ods, time_slice=None
-        )
-    except Exception as exc:
-        logger.debug("Shot %s: virial calculation failed: %s", shot, exc)
-        virial_outputs = {}
+    _run_step(
+        recorder, ods, shot, vaft.omas.update_equilibrium_global_quantities_beta_li,
+        time_slice=None, surfaces=surfaces,
+    )
+    _run_step(recorder, ods, shot, vaft.omas.update_equilibrium_constraints_diamagnetic_flux,
+              time_slice=None)
+    virial_outputs = _run_step(
+        recorder, ods, shot, vaft.omas.compute_virial_equilibrium_quantities_ods, time_slice=None,
+    ) or {}
     eq_times = (
         np.asarray(ods["equilibrium.time"], dtype=float)
         if "equilibrium.time" in ods
@@ -842,7 +857,41 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         row["virial_beta"] = row["virial_beta_lao"]
         row["virial_li"] = row["virial_li_lao"]
         rows.append(row)
+    if recorder is not None:
+        recorder.facts["b0"] = b0_source
+        _provenance.classify_equilibrium_rows(
+            recorder, rows, [_time_source(ods["equilibrium.time_slice"][i], eq_times, i)
+                             for i in range(len(rows))],
+        )
     return rows
+
+
+def _run_step(recorder, ods, shot: int, updater, **kwargs):
+    """One updater; a failure is logged at DEBUG and the run goes on (result ``None``).
+
+    With a run recorder active the failure, the warnings the step logs and the
+    leaves it changed are recorded too.
+    """
+    name = updater.__name__
+    with _provenance.capture_step_warnings(recorder, name):
+        try:
+            result = updater(ods, **kwargs)
+        except Exception as exc:
+            logger.debug("Shot %s: %s failed: %s", shot, name, exc)
+            if recorder is not None:
+                recorder.step_errors[name] = f"{type(exc).__name__}: {exc}"
+            result = None
+    _provenance.snapshot_equilibrium(recorder, ods, name)
+    return result
+
+
+def _time_source(eq_slice, eq_times, index: int) -> str:
+    """Where :func:`_extract_time` took the slice's time from."""
+    if "time" in eq_slice:
+        return "equilibrium.time_slice[:].time"
+    if eq_times is not None and index < len(eq_times):
+        return "equilibrium.time"
+    return "no time stored; the slice index stands in for it"
 
 
 def _producer(ods, prefix: str) -> tuple[str | None, str | None]:
@@ -2132,8 +2181,13 @@ def summary(
     preset: str = "equilibrium_global",
     source: str | None = None,
     directory: str | None = None,
+    provenance: bool = False,
 ) -> pd.DataFrame:
-    """Return a canonical preset summary for a range or every available shot."""
+    """Return a canonical preset summary for a range or every available shot.
+
+    ``provenance=True`` also records how every value was obtained (see
+    :mod:`vaft.database._summary_provenance`) in ``result.attrs["provenance"]``.
+    """
     definition = get_summary_preset(preset)
     from .sources import resolve
 
@@ -2161,13 +2215,15 @@ def summary(
         shots = list(range(start, end + 1))
     frames: list[pd.DataFrame] = []
     skipped: list[dict] = []
+    records: list[pd.DataFrame] = []
     from . import open as open_shot
 
     for shot in shots:
         try:
             paths = _preset_paths(definition)
             try:
-                with open_shot(shot, source=source, paths=paths) as ods:
+                with open_shot(shot, source=source, paths=paths) as ods, \
+                        _provenance.recording(provenance) as recorder:
                     rows = definition.extractor(ods, shot)
                     pulse_time_begin = _pulse_time_begin(ods)
             except FileNotFoundError as exc:
@@ -2176,12 +2232,17 @@ def summary(
                 if "dataset_description" not in str(exc) or "dataset_description" not in paths:
                     raise
                 remaining_paths = [path for path in paths if path != "dataset_description"]
-                with open_shot(shot, source=source, paths=remaining_paths) as ods:
+                with open_shot(shot, source=source, paths=remaining_paths) as ods, \
+                        _provenance.recording(provenance) as recorder:
                     rows = definition.extractor(ods, shot)
                 pulse_time_begin = None
             frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
             if frame is not None:
+                # built first: a record that fails must not leave the shot both kept and skipped
+                record = _shot_record(recorder, frame, definition, pulse_time_begin) if provenance else None
                 frames.append(frame)
+                if record is not None:
+                    records.append(record)
         except Exception as exc:
             if _is_connection_error(exc):
                 raise ConnectionError(
@@ -2190,7 +2251,7 @@ def summary(
                 ) from exc
             _skip(skipped, shot, preset, exc)
 
-    return _assemble(frames, definition, skipped)
+    return _assemble(frames, definition, skipped, records if provenance else None)
 
 
 def _preset_paths(definition: SummaryPreset) -> list[str]:
@@ -2230,8 +2291,29 @@ def _skip(skipped: list[dict], shot: int, preset: str, exc: BaseException) -> No
     skipped.append({"shot": int(shot), "reason": f"{type(exc).__name__}: {exc}"})
 
 
+def _shot_record(recorder, frame: pd.DataFrame, definition: SummaryPreset,
+                 pulse_time_begin) -> pd.DataFrame:
+    """One shot's run-record rows, with the columns ``_shot_frame`` fills in."""
+    if recorder is not None:
+        for position in range(len(frame)):
+            for column in ("source", "equilibrium_source"):
+                if column in definition.columns:
+                    recorder.set(position, column, "copied", reason="the source the shot was read from")
+            if "pulse_time_begin" in definition.columns:
+                if pulse_time_begin is not None:
+                    recorder.set(position, "pulse_time_begin", "copied",
+                                 reason="dataset_description.data_entry.pulse_time_begin")
+                else:
+                    recorder.set(position, "pulse_time_begin", "missing",
+                                 reason="no pulse_time_begin in dataset_description")
+    return _provenance.shot_table(recorder, frame, definition.columns, definition.key_columns)
+
+
 def _assemble(
-    frames: list[pd.DataFrame], definition: SummaryPreset, skipped: list[dict]
+    frames: list[pd.DataFrame],
+    definition: SummaryPreset,
+    skipped: list[dict],
+    records: list[pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
     """The canonical table: preset columns in order, sorted, skipped shots in ``attrs``."""
     if not frames:
@@ -2247,6 +2329,10 @@ def _assemble(
             .reset_index(drop=True)
         )
     result.attrs["skipped"] = list(skipped)
+    if records is not None:
+        result.attrs["provenance"] = _provenance.run_record(
+            records, definition.key_columns, definition.columns
+        )
     return result
 
 
@@ -2295,6 +2381,7 @@ def summary_from_ods(
     *,
     preset: str = "equilibrium_global",
     source: str = "local",
+    provenance: bool = False,
 ) -> pd.DataFrame:
     """The same canonical preset table as :func:`summary`, from in-memory ODS.
 
@@ -2311,7 +2398,8 @@ def summary_from_ods(
     path; ``result.attrs["skipped"]`` lists ``{"shot", "reason"}`` for each.
     The caller's ODS objects are not modified. A shot that cannot be
     determined, or appears twice, raises ``ValueError`` before any extractor
-    runs; ``source=None`` means ``"local"``.
+    runs; ``source=None`` means ``"local"``. ``provenance=True`` adds the run
+    record, as on :func:`summary`.
     """
     definition = get_summary_preset(preset)
     source = "local" if source is None else source
@@ -2325,17 +2413,23 @@ def summary_from_ods(
         raise ValueError(f"shot(s) given more than once: {repeated}")
     frames: list[pd.DataFrame] = []
     skipped: list[dict] = []
+    records: list[pd.DataFrame] = []
     for shot, ods in items:
         try:
             view = _preset_view(ods, definition)
-            rows = definition.extractor(view, shot)
+            with _provenance.recording(provenance) as recorder:
+                rows = definition.extractor(view, shot)
             pulse_time_begin = _pulse_time_begin(view)
             frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
             if frame is not None:
+                # built first: a record that fails must not leave the shot both kept and skipped
+                record = _shot_record(recorder, frame, definition, pulse_time_begin) if provenance else None
                 frames.append(frame)
+                if record is not None:
+                    records.append(record)
         except Exception as exc:
             _skip(skipped, shot, preset, exc)
-    return _assemble(frames, definition, skipped)
+    return _assemble(frames, definition, skipped, records if provenance else None)
 
 
 def _columns(values: Sequence[str] | None, label: str) -> tuple[str, ...]:
