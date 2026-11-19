@@ -309,6 +309,32 @@ def test_imported_records_use_the_generic_rules_and_a_declared_evidence_level():
         imported_formalism_findings(legacy, "trust_me")
 
 
+# -- named ordering limits (§13) --
+
+def test_a_named_ordering_must_match_its_governing_formulation():
+    kinetic_mhd = replace(REF["hybrid_mhd_drift_kinetic_stability"], extensions={"ordering": "kruskal_oberman"})
+    assert validate_formalism(kinetic_mhd) == ()
+    assert validate_formalism(kinetic_mhd.as_dict()) == ()
+    ideal = replace(REF["ideal_mhd_linear_stability"], extensions={"ordering": ["reduced_mhd"]})
+    assert validate_formalism(ideal) == ()
+    for name, bad in (("ideal_mhd_linear_stability", "kruskal_oberman"),
+                      ("drift_kinetic_neoclassical", "kruskal_oberman"),
+                      ("local_deltaf_continuum_gyrokinetic_linear", "reduced_mhd")):
+        findings = validate_formalism(replace(REF[name], extensions={"ordering": bad}))
+        assert findings and {f.layer for f in findings} == {"semantic"}, name
+        assert {f.field for f in findings} == {"extensions.ordering"}
+        assert bad in str(findings[0])
+    # a limit VAFT does not know is solver-specific and constrains nothing; a non-name is a schema problem
+    assert validate_formalism(replace(REF["ideal_mhd_linear_stability"], extensions={"ordering": "my_limit"})) == ()
+    odd = validate_formalism(replace(REF["ideal_mhd_linear_stability"], extensions={"ordering": [{"a": 1}]}))
+    assert [f.layer for f in odd] == ["schema"]
+
+
+def test_no_backend_infers_a_named_ordering():
+    for record in [*_registry(), *REF.values()]:
+        assert "ordering" not in (record.extensions or {}), record.solver
+
+
 # -- design guards (§21-§22, §24) --
 
 def test_no_ranking_no_selection_and_no_machine_names():

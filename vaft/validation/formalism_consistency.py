@@ -25,6 +25,9 @@ A combination that is merely *unsupported* by today's backends -- full-f or
 global gyrokinetics, gyrokinetic energetic particles in an MHD code -- is valid
 here (#1738 §5); :data:`FUTURE_FORMULATIONS` pins that.
 
+A limit named in ``extensions["ordering"]`` is held to the formulation it
+belongs to (:data:`NAMED_ORDERINGS`, #1738 §13); no backend infers one.
+
 Grouping (#1738 §25-26): :data:`COMPARISON_KEYS` are the fields two runs must
 share before their results may be aggregated as "the same model"; a learned
 surrogate is told apart from the model it emulates by its ``realization``.
@@ -35,7 +38,7 @@ and never merge (#1738 §14).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from types import SimpleNamespace
+from types import MappingProxyType, SimpleNamespace
 from typing import Any, Iterable, Mapping, Optional, Sequence
 
 __all__ = [
@@ -46,6 +49,7 @@ __all__ = [
     "FormalismFinding",
     "LAYERS",
     "MODE_KEYS",
+    "NAMED_ORDERINGS",
     "QUERIES",
     "REFERENCE_FORMULATIONS",
     "assert_comparable",
@@ -93,6 +97,17 @@ MODE_KEYS = ("scientific_operation", "bulk_description", "fluid_model", "kinetic
 
 #: Population names that mean a selected energetic population rather than the thermal bulk (#1738 §8).
 ENERGETIC_POPULATIONS = frozenset({"beam_ions", "fast_ions", "energetic_particles", "fusion_products", "alphas"})
+
+
+#: Named asymptotic limits a record may carry in ``extensions["ordering"]`` (#1738 §13), each with the fields its
+#: governing formulation must have. A named limit is never inferred from a solver flag (``kin_flag`` alone does not
+#: identify Kruskal-Oberman); a name not listed here is solver-specific and constrains nothing generically.
+NAMED_ORDERINGS: Mapping[str, Mapping[str, Any]] = MappingProxyType({
+    # The collisionless low-frequency kinetic-MHD limit: a drift-kinetic response closing an MHD energy principle.
+    "kruskal_oberman": {"bulk_description": ("hybrid",), "kinetic_equation": ("drift_kinetic",)},
+    # An ordering on a fluid model (low beta, large aspect ratio, k_par << k_perp), not a fluid model itself.
+    "reduced_mhd": {"bulk_description": ("fluid", "hybrid")},
+})
 
 
 @dataclass(frozen=True)
@@ -156,7 +171,29 @@ def validate_formalism(data: Any) -> tuple[FormalismFinding, ...]:
     findings.extend(FormalismFinding("schema", name, message) for _, name, message in _schema_problems(record))
     if not findings:
         findings.extend(FormalismFinding("semantic", name, message) for name, message in _combination_problems(record))
+        findings.extend(_ordering_problems(record))
     return tuple(findings)
+
+
+def _ordering_problems(record: Any) -> list[FormalismFinding]:
+    """A named ordering limit whose governing formulation the record does not have (#1738 §13)."""
+    extensions = getattr(record, "extensions", None) or {}
+    names = extensions.get("ordering")
+    if names is None:
+        return []
+    findings = []
+    for name in (names if isinstance(names, (list, tuple)) else (names,)):
+        if not isinstance(name, str):
+            findings.append(FormalismFinding("schema", "extensions.ordering",
+                                             f"an ordering is named by a string, got {name!r}"))
+            continue
+        for field_name, allowed in NAMED_ORDERINGS.get(name, {}).items():
+            value = getattr(record, field_name, None)
+            if value not in allowed:
+                findings.append(FormalismFinding(
+                    "semantic", "extensions.ordering",
+                    f"the {name} ordering needs {field_name} in {allowed}; the record has {value!r}"))
+    return findings
 
 
 def imported_formalism_findings(data: Any, evidence: str) -> tuple[FormalismFinding, ...]:
