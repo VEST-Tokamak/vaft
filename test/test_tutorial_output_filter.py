@@ -35,7 +35,13 @@ def _executed(text: str) -> str:
             cell["outputs"] = [{"name": "stdout", "output_type": "stream", "text": ["ψ_N = 0.5\n"]}]
             cell["metadata"]["execution"] = {"iopub.status.idle": "2026-11-19T00:00:00Z"}
             cell["metadata"]["scrolled"] = True
-    return json.dumps(notebook, indent=1, ensure_ascii=False) + "\n"
+    notebook["metadata"]["language_info"] = {
+        "codemirror_mode": {"name": "ipython", "version": 3}, "file_extension": ".py",
+        "mimetype": "text/x-python", "name": "python", "nbconvert_exporter": "python",
+        "pygments_lexer": "ipython3", "version": "3.14.0",
+    }
+    # nbformat writes sorted keys, whatever order the file had.
+    return json.dumps(notebook, indent=1, ensure_ascii=False, sort_keys=True) + "\n"
 
 
 @pytest.mark.parametrize("path", TUTORIALS, ids=lambda p: p.name[:2])
@@ -71,7 +77,7 @@ def test_stripping_keeps_sources_and_notebook_metadata():
     assert out["metadata"] == notebook["metadata"]
 
 
-@pytest.mark.parametrize("text", ["", "not json", "<<<<<<< HEAD\n{}\n", '{"no": "cells"}'])
+@pytest.mark.parametrize("text", ["", "not json", "<<<<<<< HEAD\n{}\n", '{"no": "cells"}', '{"cells": 3}'])
 def test_anything_that_is_not_a_notebook_passes_through(text):
     assert strip.strip_text(text) == text
 
@@ -121,3 +127,9 @@ def test_installed_filter_keeps_outputs_out_of_the_index(tmp_path):
     subprocess.run([sys.executable, "tutorial/_strip_outputs.py", "--uninstall"], cwd=tmp_path, check=True,
                    capture_output=True)
     assert strip.FILTER_NAME not in git("config", "--local", "--list")
+
+
+def test_the_filter_hands_back_non_utf8_input_untouched():
+    data = b"\xff\xfe{not utf-8"
+    result = subprocess.run([sys.executable, str(SCRIPT)], input=data, capture_output=True, check=True)
+    assert result.stdout == data

@@ -20,12 +20,20 @@ Three ways to use it:
   notebook JSON on stdin, the stripped notebook on stdout.
 * ``python tutorial/_strip_outputs.py NOTEBOOK...`` strips files in place.
 
-Only what Jupyter adds by running a notebook is removed: code-cell outputs and
-execution counts, plus the per-cell ``execution`` timing, ``collapsed`` and
-``scrolled`` metadata. Sources and notebook metadata are untouched. The JSON is
-written the way the committed notebooks are (key order kept, one-space indent,
-UTF-8 unescaped, trailing newline), so a stripped clean notebook is byte-identical
-to its input.
+Only what Jupyter adds by running and saving a notebook is undone: code-cell
+outputs and execution counts, the per-cell ``execution`` timing, ``collapsed``
+and ``scrolled`` metadata, and the kernel details a running kernel writes into
+``metadata.language_info`` (only its ``name`` is kept). Sources and the rest of
+the notebook metadata are untouched; in particular a different ``kernelspec``
+(running under another kernel) is a real change and still shows as one. The
+JSON is written as Jupyter writes it (sorted keys, one-space indent, UTF-8
+unescaped, trailing newline), and the committed tutorials are stored in that
+form, so a stripped clean notebook is byte-identical to its input.
+
+The installed command names the interpreter that ran ``--install``. If that
+environment is removed, git warns that the filter cannot run and stores the
+notebook unfiltered (``test/verify_tutorial.py`` then rejects it): run
+``--install`` again from the new environment.
 
 Notebooks elsewhere in the repository (``notebooks/``) keep their outputs on
 purpose and are not covered by the filter.
@@ -49,7 +57,13 @@ TRANSIENT_CELL_METADATA = ("execution", "collapsed", "scrolled")
 
 def strip_notebook(notebook: dict) -> dict:
     """Remove run results from ``notebook`` in place and return it."""
+    metadata = notebook.get("metadata")
+    if isinstance(metadata, dict) and isinstance(metadata.get("language_info"), dict):
+        language = metadata["language_info"]
+        metadata["language_info"] = {"name": language["name"]} if "name" in language else {}
     for cell in notebook.get("cells", []):
+        if not isinstance(cell, dict):
+            continue
         if cell.get("cell_type") == "code":
             cell["outputs"] = []
             cell["execution_count"] = None
@@ -67,9 +81,9 @@ def strip_text(text: str) -> str:
     except json.JSONDecodeError:
         # A half-resolved merge or a non-notebook file: never lose content in a filter.
         return text
-    if not isinstance(notebook, dict) or "cells" not in notebook:
+    if not isinstance(notebook, dict) or not isinstance(notebook.get("cells"), list):
         return text
-    return json.dumps(strip_notebook(notebook), indent=1, ensure_ascii=False) + "\n"
+    return json.dumps(strip_notebook(notebook), indent=1, ensure_ascii=False, sort_keys=True) + "\n"
 
 
 def _git(*args: str) -> subprocess.CompletedProcess:
@@ -117,8 +131,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.uninstall:
         return uninstall()
     if not args.notebooks:
-        data = sys.stdin.buffer.read().decode("utf-8")
-        sys.stdout.buffer.write(strip_text(data).encode("utf-8"))
+        data = sys.stdin.buffer.read()
+        try:
+            out = strip_text(data.decode("utf-8")).encode("utf-8")
+        except UnicodeDecodeError:
+            out = data  # not a UTF-8 notebook: hand it back to git untouched
+        sys.stdout.buffer.write(out)
         return 0
     for path in args.notebooks:
         text = path.read_text(encoding="utf-8")
