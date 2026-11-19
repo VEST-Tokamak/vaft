@@ -19,6 +19,8 @@ import pandas as pd
 
 import vaft
 
+from ._summary_contract import PresetContract, TimeAxis, contract_attrs
+
 
 logger = logging.getLogger(__name__)
 
@@ -373,6 +375,9 @@ class SummaryPreset:
     replace_groups: tuple[str, ...]
     sort_columns: tuple[str, ...]
     extractor: Callable[[object, int], list[dict]]
+    #: The declared row contract (grain, identity, time axis, column meaning);
+    #: see :mod:`vaft.database._summary_contract`. It changes no value.
+    contract: PresetContract | None = None
 
 
 def _safe_get(container, key: str, default=np.nan):
@@ -2080,6 +2085,73 @@ PRESETS = {
 }
 
 
+def _attach_contracts() -> None:
+    """Give every preset its declared row contract (no value or column changes)."""
+    from dataclasses import replace
+
+    from ._summary_specs import CORE_PROFILES_SPECS, EQUILIBRIUM_GLOBAL_SPECS, SHOT_OVERVIEW_SPECS
+
+    contracts = {
+        "shot_overview": PresetContract(
+            name="shot_overview", version=1, grain="shot", identity=("shot",), time=None,
+            columns=SHOT_OVERVIEW_SPECS,
+        ),
+        "equilibrium_global": PresetContract(
+            name="equilibrium_global", version=1, grain="slice", identity=("shot",),
+            time=TimeAxis("time_s", "equilibrium.time"), columns=EQUILIBRIUM_GLOBAL_SPECS,
+            notes=("rows carry no source or EFIT lineage column: main and public, magnetics-only and kinetic "
+                   "reconstructions of one shot share a key",),
+        ),
+        "core_profiles": PresetContract(
+            name="core_profiles", version=1, grain="slice", identity=("shot",),
+            time=TimeAxis("time_s", "core_profiles.time", tolerance_s=1e-9), columns=CORE_PROFILES_SPECS,  # enforced by compute_tau_E_engineering_parameters
+            notes=("each row is a core_profiles slice matched by time to the equilibrium slice eq_index",),
+        ),
+    }
+    from ._summary_specs import PULSE_TIME_BEGIN
+    from ._summary_specs_transport import (
+        CLASSICAL_TRANSPORT_SPECS,
+        EFIT_RELIABILITY_SPECS,
+        NEOCLASSICAL_SPECS,
+        TURBULENT_TRANSPORT_SPECS,
+        VOLUME_AVERAGED_SPECS,
+    )
+
+    def with_pulse_time(specs):
+        # the preset columns are ("shot", "pulse_time_begin", ...): see _summary_columns
+        return (specs[0], PULSE_TIME_BEGIN, *specs[1:])
+
+    contracts["volume_averaged"] = PresetContract(
+        name="volume_averaged", version=1, grain="slice", identity=("shot",),
+        time=TimeAxis("time_core_s", "core_profiles.time"), columns=with_pulse_time(VOLUME_AVERAGED_SPECS),
+        notes=("eq_index is the nearest equilibrium slice in time, with no tolerance; time_diff_s says how far",),
+    )
+    for name in ("efit_magnetic_reliability", "efit_kinetic_reliability", "efit_reliability"):
+        contracts[name] = PresetContract(
+            name=name, version=1, grain="measurement", identity=("shot", "measurement_type", "measurement_index"),
+            time=TimeAxis("time_s", "equilibrium.time"), columns=with_pulse_time(EFIT_RELIABILITY_SPECS),
+            notes=("the unit of measured, reconstructed, residual and uncertainty is that of measurement_type",),
+        )
+    contracts["neoclassical"] = PresetContract(
+        name="neoclassical", version=1, grain="model_output", identity=("shot",),
+        time=TimeAxis("time_s", "core_profiles.time"), columns=with_pulse_time(NEOCLASSICAL_SPECS),
+        notes=("the export key (shot, cp_index) has no time column",),
+    )
+    for name, specs in (("turbulent_transport", TURBULENT_TRANSPORT_SPECS),
+                        ("classical_transport", CLASSICAL_TRANSPORT_SPECS)):
+        contracts[name] = PresetContract(
+            name=name, version=1, grain="model_output",
+            identity=("source", "shot", "model_index", "profile_index"),
+            time=TimeAxis("time_s", "core_transport.model[:].profiles_1d[:].time"),
+            columns=with_pulse_time(specs),
+        )
+    for name, contract in contracts.items():
+        PRESETS[name] = replace(PRESETS[name], contract=contract)
+
+
+_attach_contracts()
+
+
 def get_summary_preset(name: str) -> SummaryPreset:
     if name == "efit_reliability":
         warnings.warn(
@@ -2095,6 +2167,40 @@ def get_summary_preset(name: str) -> SummaryPreset:
         raise ValueError(
             f"unknown summary preset {name!r}; available presets: {available}"
         ) from exc
+
+
+def summary_contract(preset: str | None = None) -> pd.DataFrame:
+    """The declared row contract of one preset, or an overview of all of them.
+
+    With ``preset``, one row per column: ``column``, ``unit`` (``"-"``
+    dimensionless, ``""`` not a physical quantity), ``quantity`` (the
+    :mod:`vaft.formula.boundaries` identity, when the column is exactly it),
+    ``definition``, ``formula`` and ``ids_path``. Without it, one row per
+    preset: grain, identity, time column and its IDS time base, the number of
+    columns and of columns that declare a quantity, and notes. The deprecated
+    ``efit_reliability`` alias is left out of the overview.
+    """
+    from ._summary_contract import contract_table
+
+    if preset is not None:
+        return contract_table(get_summary_preset(preset).contract)
+    rows = []
+    for name, definition in PRESETS.items():
+        if name == "efit_reliability":
+            continue
+        contract = definition.contract
+        rows.append({
+            "preset": name,
+            "version": contract.version,
+            "grain": contract.grain,
+            "identity": ", ".join(contract.identity),
+            "time": contract.time.column if contract.time else "",
+            "time_reference": contract.time.reference if contract.time else "",
+            "columns": len(contract.columns),
+            "with_quantity": sum(spec.quantity is not None for spec in contract.columns),
+            "notes": "; ".join(contract.notes),
+        })
+    return pd.DataFrame(rows)
 
 
 #: Exception families raised by the transport under the HSDS client (requests,
@@ -2246,6 +2352,8 @@ def _assemble(
             .sort_values(list(definition.sort_columns), kind="stable")
             .reset_index(drop=True)
         )
+    if definition.contract is not None:
+        result.attrs.update(contract_attrs(definition.contract))
     result.attrs["skipped"] = list(skipped)
     return result
 
