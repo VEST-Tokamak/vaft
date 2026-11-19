@@ -46,6 +46,7 @@ __all__ = [
     "equilibrium_summary",
     "export_summary",
     "get_summary_preset",
+    "summary_contract",
     "export",
 ]
 
@@ -423,6 +424,17 @@ def get_summary_preset(name):
     from ._summary import get_summary_preset as _get_summary_preset
 
     return _get_summary_preset(name)
+
+
+def summary_contract(preset=None):
+    """A preset's declared row contract as a table (unit, quantity, definition per column).
+
+    Without ``preset``, one row per preset: grain, identity and time axis. See
+    :func:`vaft.database._summary.summary_contract`.
+    """
+    from ._summary import summary_contract as _summary_contract
+
+    return _summary_contract(preset)
 
 
 def export(shot, source=None, *, backend, output=None, overwrite=False, occurrence=0,

@@ -97,6 +97,45 @@ column that depends on them. The other presets report `unrecorded`/`missing` unt
 record. `record` compares by identity, so `concat` and `merge` of the table work as usual; a shot
 in `attrs["skipped"]` has no record rows.
 
+## Preset row contracts
+
+Every preset declares what one row is and what each column measures. The contract changes no value
+and no column name; it is carried with the table:
+
+<!-- preset-contract-table: generated from vaft.database.summary_contract(); test_summary_preset_contract checks it -->
+| preset | grain | identity | time (IDS time base) | columns | with quantity |
+|---|---|---|---|---|---|
+| `equilibrium_global` | slice | `shot` | `time_s` (`equilibrium.time`) | 69 | 11 |
+| `core_profiles` | slice | `shot` | `time_s` (`core_profiles.time`) | 25 | 3 |
+| `volume_averaged` | slice | `shot` | `time_core_s` (`core_profiles.time`) | 12 | 0 |
+| `efit_magnetic_reliability` | measurement | `shot`, `measurement_type`, `measurement_index` | `time_s` (`equilibrium.time`) | 25 | 0 |
+| `efit_kinetic_reliability` | measurement | `shot`, `measurement_type`, `measurement_index` | `time_s` (`equilibrium.time`) | 25 | 0 |
+| `neoclassical` | model_output | `shot` | `time_s` (`core_profiles.time`) | 32 | 0 |
+| `turbulent_transport` | model_output | `source`, `shot`, `model_index`, `profile_index` | `time_s` (`core_transport.model[:].profiles_1d[:].time`) | 27 | 0 |
+| `classical_transport` | model_output | `source`, `shot`, `model_index`, `profile_index` | `time_s` (`core_transport.model[:].profiles_1d[:].time`) | 28 | 0 |
+| `shot_overview` | shot | `shot` | — | 9 | 0 |
+<!-- /preset-contract-table -->
+
+```python
+vaft.database.summary_contract()                       # the overview above
+vaft.database.summary_contract("equilibrium_global")   # column, unit, quantity, definition, formula, ids_path
+slices.attrs["units"]["beta_normal"]                   # '% m T/MA'
+slices.attrs["quantities"]["li_3"]                     # 'internal_inductance_li3'
+vaft.database.summary_contract(slices.attrs["preset"])   # definitions travel with the contract, not the frame
+```
+
+- `unit` is `-` for a dimensionless column and empty for one that is not a physical quantity
+  (an index, a label, a flag, a timestamp). A unit in a column name can be wrong; the declared unit
+  is read from the extractor (`ne_volume_m3` holds m^-3).
+- `quantity` names a `vaft.formula.boundaries` quantity only where the column *is* that quantity in
+  the same unit: `li_3` is `internal_inductance_li3`, `virial_li_volume` is `internal_inductance_li1`,
+  `beta_normal` is `normalized_beta`. `beta_tor` declares none: it is a fraction, the registered
+  toroidal beta is in percent. Same-named columns of different definitions (`beta_pol` and
+  `beta_pol_circumference`) stay distinct quantities.
+- `vaft.plot.operational_space` reads `attrs["quantities"]` and `attrs["units"]`, so a summary table
+  draws its reference boundaries without renaming columns:
+  `operational_space_population(slices, "beta_n_li")` plots `beta_normal` against `li_3` with Troyon.
+
 ## Transport summary hierarchy
 
 `equilibrium_global` and `core_profiles` describe their respective time
