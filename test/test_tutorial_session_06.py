@@ -5,9 +5,10 @@ The session runs offline from the repository-only sample collections
 (read through ``vaft.data.data_path``) and from the packaged sample shots, and in
 lab mode rebuilds the population with ``vaft.database.summary``. The tests pin
 the spine (A: database -> summary row and its physics chain; B: the MHD
-parameters recomputed from their integrals; C: the registered stability limits
-with their sources and schematics; D: the summary tables; E: operating space,
-stability join, classification, distributions) and the honesty rules: only the three in-scope presets, skipped
+parameters recomputed from their integrals; C: the summary tables; D: each
+registered stability limit with its source and schematic, followed by the VEST
+states on its own plane; E: solver criteria, stability join, classification,
+distributions) and the honesty rules: only the three in-scope presets, skipped
 shots printed, file hashes checked against the manifest, joins validated at
 their grain, no boundary drawn on a foreign quantity, ideal/resistive/local
 layers and their QA kept separate, and database access only in lab mode.
@@ -113,10 +114,12 @@ def test_notebook_runs_offline_and_draws_its_figures(executed):
 
 def test_the_spine_runs_in_order(book):
     tokens = ["vaft.database.open(", "get_summary_preset(name)", "summary(odss=samples",
-              "li_3_from_Bp2_volume_integral(", "fb.get_boundary(", "vaft.diagram.troyon()",
-              "overview_preset = ", "ip_measured_a", "h_factor(", '(axes[0], "qstar_in"', "li_qa_pair(",
+              "li_3_from_Bp2_volume_integral(", "overview_preset = ", "ip_measured_a", "h_factor(",
+              "fb.get_boundary(", "vaft.diagram.internal_external_kink()", '(axes[0], "qstar_in"',
+              "vaft.diagram.li_qa()", "li_qa_pair(", "vaft.diagram.troyon()",
               'operational_space_population(opspace, "beta_n_li"', 'operational_space_population(opspace, "troyon"',
-              '"hugill_st", color=', "stability_state = ", "stability_atlas_populations("]
+              "vaft.diagram.hugill()", '"hugill_st", color=', "vaft.diagram.dcon_rdcon_stability()",
+              "stability_state = ", "stability_atlas_populations("]
     positions = [_first_cell_with(book, token) for token in tokens]
     assert positions == sorted(positions), dict(zip(tokens, positions))
 

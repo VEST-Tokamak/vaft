@@ -17,15 +17,15 @@ Sessions 01--05 went deeper into one discharge. Session 06 asks:
 > and which statements about limits does the evidence support?
 
 A: database $\rightarrow$ summary row $\;\cdot\;$ B: equilibrium $\rightarrow \beta, l_i, q, I_N$ $\;\cdot\;$
-C: stability limits and sources $\;\cdot\;$ D: summary tables $\;\cdot\;$ E: operating space and stability
+C: summary tables $\;\cdot\;$ D: each limit on its plane $\;\cdot\;$ E: solver-derived stability
 
 ::: {.notes}
 [2 min]
 
 NARRATE:
 The session follows the order of the analysis itself: how a row is computed,
-what the physics behind each column is, which limits exist and where they come
-from, what the tables hold, and only then the synthesis on the planes.
+what the physics behind each column is, what the tables hold, then each limit
+with its source next to the VEST states on its plane, and last the solver verdicts.
 Everything runs offline from the vest_tier_a and vest_operational_history
 sample collections, whose manifests pin every file's hash.
 :::
@@ -84,7 +84,25 @@ pictures: current_profile_shapes (l_i), q_profile_landmarks (q0, qmin, q95, qa),
 shaping_family (kappa, delta).
 :::
 
-# C. Stability limits
+# C. Summary tables
+
+## History, presets and the Tier A population
+
+- archive: 2257 shots, 38000--45767; no date, no `shot_class` --- shot number $\neq$ time
+- presets on the samples: one row per shot / EFIT slice / profile slice
+- Tier A: 150 states from 32 shots (133 magnetics + 17 electron-kinetic), good or admissible
+- stored `li` is $l_i(1)$ and `betap` the boundary-averaged $\beta_p$ ($B_{pa}=\mu_0 I_p/L_{pol}$): DD axes use $l_i(3)$, $\beta_p^{DD}$
+- `efit_quality` $\neq$ `selected`; Thomson density on 64/133 states
+
+::: {.notes}
+[5 min]
+
+NARRATE:
+Five tables, five grains; uniqueness is checked at each one before any join.
+The 32 Tier A shots sit in two narrow bands of shot numbers.
+:::
+
+# D. Stability limits on the operating space
 
 ## Every limit has a kind, a basis and a source
 
@@ -104,31 +122,10 @@ shaping_family (kappa, delta).
 
 NARRATE:
 The notebook reads this table from vaft.formula.boundaries, with the equation
-number of each source and the machine class it was derived for. Walk through
-the schematics: stability_diagnostic_taxonomy, internal_external_kink, li_qa
-(both sources), troyon, hugill and hugill_st, then dcon_rdcon_stability,
-delta_prime and interchange_criteria for the solver-derived classification.
+number of each source and the machine class it was derived for. Each limit is
+then taken in turn: equation, schematic (internal_external_kink, li_qa, troyon,
+hugill / hugill_st), the VEST states on that limit's own plane, and how to read it.
 :::
-
-# D. Summary tables
-
-## History, presets and the Tier A population
-
-- archive: 2257 shots, 38000--45767; no date, no `shot_class` --- shot number $\neq$ time
-- presets on the samples: one row per shot / EFIT slice / profile slice
-- Tier A: 150 states from 32 shots (133 magnetics + 17 electron-kinetic), good or admissible
-- stored `li` is $l_i(1)$ and `betap` the boundary-averaged $\beta_p$ ($B_{pa}=\mu_0 I_p/L_{pol}$): DD axes use $l_i(3)$, $\beta_p^{DD}$
-- `efit_quality` $\neq$ `selected`; Thomson density on 64/133 states
-
-::: {.notes}
-[5 min]
-
-NARRATE:
-Five tables, five grains; uniqueness is checked at each one before any join.
-The 32 Tier A shots sit in two narrow bands of shot numbers.
-:::
-
-# E. Operating space and stability
 
 ## The planes
 
@@ -146,6 +143,8 @@ Read the applicability line before the boundary. Unless a boundary is
 SUPPORTED, it is a reference, not a VEST limit.
 :::
 
+# E. Solver-derived stability
+
 ## Layers stay separate
 
 - DCON full edge: 129 stable / 13 unstable / 8 unresolved; truncated edge: 146 / 3 / 1
@@ -157,6 +156,7 @@ SUPPORTED, it is a reference, not a VEST limit.
 [5 min]
 
 NARRATE:
+Schematics first: dcon_rdcon_stability, delta_prime, interchange_criteria.
 Join on (shot, EFIT time in microseconds, lineage), one-to-one: 150/0/0. The
 edge treatment moves about one state in ten, and most full-edge instabilities
 vanish with the truncated edge; report both. Magnitudes are not
