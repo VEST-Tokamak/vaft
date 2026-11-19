@@ -1,4 +1,4 @@
-"""Where should a VEST EFIT solve start, and how far can that move? (#588)
+"""Where should a VEST EFIT solve start, and how far can that move?
 
     PYTHONPATH=$PWD EFITHOME=~/git/efit/vaft-install \\
         python workflow/efit_numerics/seed_basin.py --output /scratch/seed \\
@@ -10,8 +10,8 @@ plasma slices in the reference set collapse to a null solution and fail in ``bou
 producing nothing at all. A 0.3 m minor radius is most of the machine, seeded
 into a discharge that is 7 kA and small when the collapse block begins.
 
-This study varies **the seed and nothing else**. Issue #588 is explicit that
-seed geometry, temporal continuation (#196) and termination (#171) must stay
+This study varies **the seed and nothing else** (study record: #588). Seed
+geometry, temporal continuation (``ICINIT``) and termination must stay
 separate studies, because scanning them together makes any change
 unattributable. So there is no ``ICINIT`` here and no numerics setting.
 
@@ -140,7 +140,8 @@ def prepare_shot(shot: int, product: Path, *, workdir: Path, tables: str, tstep:
     source["equilibrium.time"] = times
 
     # These products carry no stored validity for any channel EFIT sees, so
-    # assess and gate rather than trusting what we are handed (#189, #296).
+    # assess and gate with the magnetics quality gate, then decide the EFIT
+    # channels on the gated copy, rather than trusting what we are handed.
     gated, _ = quality_gate(source, window=(float(times[0]), float(times[-1])))
     decisions = decide_efit_channels(gated, times, nbprobe=efit_probe_count(gated))
 

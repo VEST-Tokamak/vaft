@@ -1,7 +1,7 @@
 # Legacy VEST reference validation
 
 This directory contains the reproducible capture and comparison procedure for
-GitHub issue #88. The legacy server and `/srv/vest.filedb/public` are reference
+the legacy VEST reference fixtures and the ODS parity comparator. The legacy server and `/srv/vest.filedb/public` are reference
 sources only; neither is required by CI or the production workflow.
 
 ## Repository fixtures
@@ -72,7 +72,7 @@ The active workflow snapshot was captured independently of the historical
 artifact creation times because the legacy workflow does not record a commit
 identifier in its ODS products. This limitation is explicit in the manifest.
 
-## Reference-portfolio audit (#1712)
+## Reference-portfolio audit
 
 `audit_portfolio.py` reports which canonical FileDB products exist for each
 reference shot, and whether each is usable, before any sample is refreshed.

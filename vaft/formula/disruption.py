@@ -34,7 +34,7 @@ the induced field has the sign that opposes the current's decay, so a
 falling current drives electrons that carry it. Every Coulomb logarithm is an
 explicit argument -- the relativistic one ($\\approx 15$-$20$) belongs in
 $E_c$ and the avalanche rate, the thermal one in $E_D$ and the Dreicer rate;
-no default is hidden (#1188).
+no default is hidden.
 
 References
 ----------

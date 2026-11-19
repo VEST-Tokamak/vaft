@@ -1,4 +1,4 @@
-"""Alternative TGLF configurations of one state coexist (#1900, item 2).
+"""Alternative TGLF configurations of one state coexist.
 
 Each SAT/field configuration is persisted as its own *transitional* HSDS source,
 ``{family root}/tglf-sat<n>-<field>``, until the #1128/#1129 occurrence model
@@ -109,7 +109,7 @@ def test_the_catalog_holds_36_transitional_sparse_writable_sources():
         family = next(f for f, root in sources.FAMILY_SOURCES.items() if root == entry.parent)
         config = entry.name.split("/")[-1]
         assert sources.turbulent_transport_occurrence_name(family, config) in entry.purpose
-    # Nothing that predates #1900 is marked transitional.
+    # Nothing that predates the per-configuration sources is marked transitional.
     assert not sources.describe("main").transitional_until
 
 

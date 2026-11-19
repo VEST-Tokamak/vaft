@@ -13,7 +13,7 @@ related:
   api: [diagram, formula]
 ---
 {%- assign catalog = site.data.diagram_catalog -%}
-{%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch (#1069).{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
+{%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch, so a link shows the code the entry was generated from.{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
 
 <p class="ref-intro">Generated from <code>vaft.diagram.build.CANONICAL</code> and
 the build record in each committed SVG by <code>python -m vaft.diagram.docs_catalog</code>:

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Summarize a ``weight_scan.py --stage 6`` ensemble (#579) on three separate axes.
+"""Summarize a ``weight_scan.py --stage 6`` ensemble on three separate axes.
 
     python workflow/efit_uncertainty_calibration/sensitivity_report.py \\
         --tables pilot/table_42962.json pilot/v2_table_39915.json ... --output report.json
 
-The axes are kept apart, as #579 asks.  None of them selects a configuration.
+The axes are kept apart on purpose: none of them selects a configuration.
 
 1. **Residual credibility** -- fit quality (``criteria.evaluate``'s ``good``:
    admissible, measurement, virial, Grad-Shafranov) and each family's reduced
@@ -39,7 +39,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 QUANTITIES = ("wmhd", "betap", "li", "q95")
-#: The working setting (#891 stage 4, the library default since #1440).
+#: The working setting (sigma-calibration stage 4; the library's default EFIT preset, ``statistical_891``).
 WORKING = {"basis": (2, 1), "dia": 16.0, "probe": 3.62, "loop": 2.15}
 NAME = re.compile(r"^p(?P<p>\d)f(?P<f>\d)_probe_x(?P<probe>[\d.]+)_loop_x(?P<loop>[\d.]+)_dia_(?P<dia>off|x[\d.]+)")
 

@@ -1,7 +1,7 @@
 r"""Impurity-mixture algebra: moments, target-Z_eff densities, the reduced pseudo-impurity and main-ion dilution.
 
-A plasma of electrons, one main ion and any number of impurity species
-(issue #1565, Stage A).  Each impurity species is an element in one stated
+A plasma of electrons, one main ion and any number of impurity species.
+Each impurity species is an element in one stated
 charge state with a relative particle density $w_i$; the functions here turn
 that composition and a target plasma effective charge into absolute density
 fractions, collapse the mixture onto one pseudo-impurity that keeps the

@@ -1,4 +1,4 @@
-"""EFIT goodness-of-fit and numerical-convergence metrics (issue #139).
+"""EFIT goodness-of-fit and numerical-convergence metrics.
 
 Everything here is computed from quantities that were either **submitted to
 EFIT** or **produced by the EFIT run** -- no independent experimental
@@ -28,8 +28,8 @@ convention, since the ODS stores flux in Wb while the k-file writer divides by
 and the normalized residual ``z_i = (m_i - r_i) * weight_i / k`` is the residual
 in units of that uncertainty, directly comparable across diagnostic families.
 
-One canonical channel convention (issue #186)
----------------------------------------------
+One canonical channel convention
+--------------------------------
 Every EFIT statistic in this package -- whether reached through
 :func:`efit_quality_metrics`, through ``vaft.validation``, or through a plot
 recipe -- uses the same three definitions, exported here as
@@ -119,7 +119,7 @@ FAMILIES = (
     ("pf_current", "PF currents", "kA", 1e-3, True),
 )
 
-#: The kinetic constraint families a kinetic EFIT adds (issue #952): the
+#: The kinetic constraint families a kinetic EFIT adds: the
 #: pressure points of ``KPRFIT``, stored under ``constraints.pressure`` with
 #: their ``position.psi``/``rho_tor_norm``.  They enter the goodness of fit
 #: like any family when present, and are simply absent from a magnetics-only
@@ -171,7 +171,7 @@ IP_CHI_SQUARED_CONVENTION = "plasma_only_inner_rogowski"
 #: the measurement.  Under ``legacy_weight`` the submitted sigma is the
 #: reciprocal of a hand-chosen weight -- a 0.05 T probe carries a 1000 T sigma --
 #: so a chi-square or a z is small by construction and grading it would report a
-#: pass that means nothing (issue #891).  Anything not recorded is unknown and
+#: pass that means nothing.  Anything not recorded is unknown and
 #: is treated the same way.
 STATISTICAL_UNCERTAINTY_MODELS = frozenset({"standard_deviation"})
 
@@ -184,7 +184,7 @@ def _get(ods: Any, path: str, default: Any = None) -> Any:
     """Read one leaf, treating a container-valued path as absent.
 
     :func:`~vaft.ods_access.path_value` already reports a missing path and an
-    empty branch as absent without materializing either (issue #118).  The extra
+    empty branch as absent without materializing either.  The extra
     condition here is EFIT-specific: a populated container is not a leaf, and
     reading one where a number was expected means the caller asked for the wrong
     node rather than that the run omitted a value.
@@ -712,8 +712,8 @@ def iteration_cap_reached(
     ended on) is what excludes those: above both, the slice cannot have
     stopped and so ran out; otherwise the answer is ``None``, and EFIT's log
     (``not converged, reached max iterations``,
-    :func:`vaft.code.efit.parse_slices`) is what decides. The #171 scan has a
-    301-step ``NXITER = 3`` slice with no such line, which is why 301 is not
+    :func:`vaft.code.efit.parse_slices`) is what decides. The VEST EFIT
+    solver-configuration scan (provenance: #171) has a 301-step ``NXITER = 3`` slice with no such line, which is why 301 is not
     taken as proof. ``ICONVR = 3`` runs a single pass that ``MXITER`` does not
     cap.
 
@@ -821,7 +821,7 @@ def convergence_metrics(ods: Any, *, time_slice: int) -> dict[str, Any]:
     final_error_source = "aeqdsk.terror"
     if not np.isfinite(final_error):
         # EFIT's `cerror`, an iteration increment, under the IMAS name of a
-        # Grad-Shafranov deviation (see `vaft.data.meqdsk`, #924); it is the
+        # Grad-Shafranov deviation (see `vaft.data.meqdsk`); it is the
         # same quantity as `terror`, so the fallback compares like with like.
         final_error = _scalar(
             _get(ods, f"{root}.convergence.grad_shafranov_deviation_value")

@@ -1,4 +1,4 @@
-"""Plotly drawing of :class:`~vaft.plot.models.Geometry3DLayers` (issue #1087).
+"""Plotly drawing of :class:`~vaft.plot.models.Geometry3DLayers`.
 
 Each layer is one ``Scatter3d`` trace, a polyline or a point cloud.  A
 labelled layer opens a legend group and the unlabelled layers after it join

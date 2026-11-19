@@ -1,4 +1,4 @@
-"""OMAS-bound computed views on inputs that cannot hand over a whole ODS (#434).
+"""OMAS-bound computed views on inputs that cannot hand over a whole ODS.
 
 A lazily loaded IMAS handle cannot convert an IDS, and a lazy OMAS store's
 unfetched leaves are lost by the deep copy an OMAS-bound builder takes; for

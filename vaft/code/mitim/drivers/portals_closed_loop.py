@@ -1,4 +1,4 @@
-"""PORTALS/powertorch synthetic closed loop with a manufactured source (#1588 C1).
+"""PORTALS/powertorch synthetic closed loop with a manufactured source.
 
 Runs in the MITIM interpreter; imports MITIM and the standard library only.
 

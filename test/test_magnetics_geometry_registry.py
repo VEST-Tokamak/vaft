@@ -1,6 +1,6 @@
-"""Magnetics in the shared machine-geometry registry, and the flux-loop top view (#1829).
+"""Magnetics in the shared machine-geometry registry, and the flux-loop top view.
 
-The audit behind these records (issue #1829):
+The audit behind these records:
 
 * VEST probe and flux-loop R-Z are identical across every donor geometry
   version (``VEST_MagneticsGeometry_21193`` and ``_Full_ver_2302/2305/2306/2310/
@@ -9,7 +9,8 @@ The audit behind these records (issue #1829):
 * A flux loop is a toroidal loop: VEST stores its (R, Z) and no phi, and the
   registry keeps it as an axisymmetric ring, never a point at some angle.
 * The equilibrium B-pol probes' phi is VAFT's family-to-port-clock convention
-  (#718), not a surveyed angle; a probe without a stored phi stays unknown.
+  (``vaft.machine_mapping.port_toroidal_angle``), not a surveyed angle; a probe
+  without a stored phi stays unknown.
 * IMPA is an insertable array: its R is fitted per shot and its phi is the
   insertion port's.
 
@@ -54,7 +55,7 @@ def sample():
 
 @pytest.fixture(scope="module")
 def table():
-    # The vest.yaml sensor registry is the geometry table since #2158.
+    # The vest.yaml sensor registry is the geometry table.
     return [
         {"kind": record.kind, "r": record.r, "z": record.z}
         for record in resolve_equilibrium_magnetics_sensors()

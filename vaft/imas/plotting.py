@@ -3,8 +3,7 @@
 Each ``plot_<canonical-stem>`` here interprets its input natively -- no
 conversion to an ODS -- builds the typed view model the matching
 :mod:`vaft.plot` renderer expects, and delegates rendering.  No Matplotlib
-code lives in this namespace, and no imas-python class is ever patched
-(issues #62 and #63).
+code lives in this namespace, and no imas-python class is ever patched.
 
 Every adapter shares one signature::
 
@@ -22,7 +21,7 @@ the IDS they declare to an OMAS ODS on the way, through
 detail=True)`` marks them.  Use :func:`available_plots` to see which plots a
 particular object can produce.
 
-Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+Every ``plot_<stem>`` has two twins: ``dd_<stem>()`` lists the
 IMAS Data Dictionary paths it reads, and ``extract_<stem>(source, ...)``
 returns the view model undrawn, the same one ``vaft.omas.extract_<stem>``
 builds from an ODS.
@@ -116,7 +115,7 @@ def plot_neoclassical_profile_bootstrap_current(
 __all__ = ["available_plots", "compose", "normalize_entries", "render"]
 
 
-from .interactive import (  # noqa: E402  public entry points, issues #261 and #482
+from .interactive import (  # noqa: E402  public entry points
     plot_diagnostics_time_interactive,
     plot_equilibrium_interactive,
 )
@@ -154,7 +153,7 @@ def compose(
     label: str | Sequence[str] = "shot",
     **presentation: Any,
 ) -> Any:
-    """Draw several canonical plots of ``source`` as one figure (issue #1467).
+    """Draw several canonical plots of ``source`` as one figure.
 
     ``composition`` is a :class:`vaft.plot.FigureComposition` -- which plots,
     in which grid cells, which axes move together -- or its ``to_dict()``
@@ -264,7 +263,7 @@ def plot_camera_visible_image(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """One camera frame with optional overlays -- wall, equilibrium, field line -- through one projection (issue #261).
+    """One camera frame with optional overlays -- wall, equilibrium, field line -- through one projection.
 
     Renders with :func:`vaft.plot.camera_visible_image` from native IMAS input.
     """
@@ -549,7 +548,7 @@ def plot_diagnostics_overview(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Time histories of every diagnostic subject, one panel each; a diagnostic absent from the input is left out and the grid shrinks (issue #476), and members= picks the panels by name (issue #482). Channels the source flagged invalid are excluded by default.
+    """Time histories of every diagnostic subject, one panel each; a diagnostic absent from the input is left out and the grid shrinks, and members= picks the panels by name. Channels the source flagged invalid are excluded by default.
 
     Renders with :func:`vaft.plot.diagnostics_overview` from native IMAS input.
     """
@@ -684,7 +683,7 @@ def plot_equilibrium_field_2d(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> Any:
-    """One reconstructed 2-D equilibrium quantity on the (R, Z) grid (issue #483).
+    """One reconstructed 2-D equilibrium quantity on the (R, Z) grid.
 
     ``field=`` chooses it -- ``psi`` (default), ``j_tor``, ``pressure``,
     ``b_field_r``, ``b_field_z``, ``b_field_tor`` -- deriving what the slice
@@ -1231,11 +1230,11 @@ def plot_flux_loop_spatial_flux(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> Any:
-    """Flux-loop flux against sensor position at one time (issue #486).
+    """Flux-loop flux against sensor position at one time.
 
     ``time=`` snaps to the nearest stored sample, ``time_slice=`` maps
     through a stored equilibrium slice and ``time_index=`` names a sample of
-    the shared magnetics grid (one of the three, issue #1380); ``coordinate="z"`` (default) draws
+    the shared magnetics grid (one of the three); ``coordinate="z"`` (default) draws
     the inboard and outboard loops as two panels, ``"theta"`` one panel
     against the poloidal angle about the layout centre (``centre=``).
     Renders with :func:`vaft.plot.flux_loop_spatial_flux` from native IMAS input.
@@ -1270,7 +1269,7 @@ def plot_b_field_probe_spatial_field(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> Any:
-    """B-probe poloidal field against sensor position at one time (issue #486).
+    """B-probe poloidal field against sensor position at one time.
 
     Same options as :func:`plot_flux_loop_spatial_flux`; ``angle="stored"``
     reads each probe's IMAS ``poloidal_angle`` instead of the geometric one.
@@ -1707,7 +1706,7 @@ def plot_diagnostics_spectrum_coherence(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Coherence and relative phase of two fluctuation channels (issue #1005).
+    """Coherence and relative phase of two fluctuation channels.
 
     Renders with :func:`vaft.plot.diagnostics_spectrum_coherence` from native IMAS input.
     """
@@ -1772,7 +1771,7 @@ def plot_passive_structure_overview_wall_reduction(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Reduced-wall response error against retained order (vaft #494).
+    """Reduced-wall response error against retained order.
 
     Options: ``rows`` (precomputed convergence rows), ``drive``, ``rules``,
     ``orders``, ``metrics``, ``remap_em_coupling``.  Renders with
@@ -2353,7 +2352,7 @@ __all__ += [
     "plot_wall_geometry_poloidal",
 ]
 
-# The other two verbs of every plot (umbrella #434): ``dd_<stem>()`` and
+# The other two verbs of every plot: ``dd_<stem>()`` and
 # ``extract_<stem>(source, ...)``, generated from the registry the ``plot_*``
 # above are written against.
 from vaft.plot.backend.facade import install_facades as _install_facades  # noqa: E402

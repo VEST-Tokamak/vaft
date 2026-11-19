@@ -1,6 +1,6 @@
 """`mhd_linear`/`ntms` IDS mapping helpers for the GPEC solver suite.
 
-Architecture (issue #170): this module is the *IDS-populating* layer only.
+Architecture: this module is the *IDS-populating* layer only.
 It never re-parses DCON/RDCON/STRIDE output files itself -- it reads the
 solver-native output containers owned by :mod:`vaft.code.gpec`
 (`DconOutput` for DCON, `Pest3MatchingOutput` shared by RDCON/STRIDE), and
@@ -61,11 +61,11 @@ from vaft.ods_access import path_count
 
 #: Version of the ``<solver>`` fragment RDCON/STRIDE write into ``ntms.code.parameters``.
 #: 2 added ``time_slice``/``mode_start``/``mode_count`` and one ``<surface>`` per
-#: ``ntms.mode[]`` entry (#143 solver attribution, #939 local criteria).
+#: ``ntms.mode[]`` entry (solver attribution and local criteria at each surface).
 NTMS_FRAGMENT_VERSION = 2
 
 #: Version of the ``<solver name="dcon">`` fragment in ``mhd_linear.code.parameters``.
-#: 2 added ``time_slice``/``position`` and the native stability payload (#940):
+#: 2 added ``time_slice``/``position`` and the native stability payload:
 #: least-stable and full W_p/W_v/W_t spectra, requested vs effective edge
 #: treatment with DCON's edge scan, and the D_I/D_R/C_A profiles.
 DCON_FRAGMENT_VERSION = 2
@@ -73,7 +73,7 @@ DCON_FRAGMENT_VERSION = 2
 #: Version of the RDCON/STRIDE ``<solver>`` fragment in ``mhd_linear.code.parameters``.
 #: 2 added ``time_slice``/``position``, the solver's radial local-stability
 #: profiles (``psi_n, q, di, dr, h, ca1``) and the full complex Delta-prime
-#: matrix (#939), so the ODS alone carries what RDCON analysis reads.
+#: matrix, so the ODS alone carries what RDCON analysis reads.
 RESISTIVE_FRAGMENT_VERSION = 2
 
 __all__ = [
@@ -509,7 +509,7 @@ def _complex_attrs(prefix: str, value: Optional[complex]) -> dict[str, Optional[
 
 
 def _dcon_native_xml(result: DconOutput) -> str:
-    """DCON's stability payload with no IMAS slot (#940), as XML elements.
+    """DCON's stability payload with no IMAS slot, as XML elements.
 
     Everything is a value, not a pointer, and at the reader's full
     resolution: the 1-D profiles are small (mpsi + 1 points), about 16 kB per
@@ -605,7 +605,7 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
     """DCON's stability results from ``mhd_linear``, one dict per (time slice, n_tor).
 
     Reads the version-2 ``<solver name="dcon">`` fragments that :func:`mhd_linear`
-    writes into ``mhd_linear.code.parameters`` (#940), returning:
+    writes into ``mhd_linear.code.parameters``, returning:
 
     * ``W_t``, ``W_p``, ``W_v``: least-stable eigenvalues (complex; normalized,
       not Joules) and ``W_t_spectrum`` etc. (complex arrays);
@@ -621,7 +621,7 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
     * summaries: ``max_D_I`` / ``psi_n_at_max_D_I``, ``max_D_R`` /
       ``psi_n_at_max_D_R``, ``min_C_A`` / ``psi_n_at_min_C_A`` over evaluated
       points only;
-    * ``plasma_formalism``: the run's #1734 record
+    * ``plasma_formalism``: the run's plasma-formalism record
       (:meth:`vaft.code.formalism.PlasmaFormalism.as_dict`), ``None`` for a
       fragment written before it.
 
@@ -771,7 +771,7 @@ def _write_resistive_entry(
     # RDCON and STRIDE append to the same AOS, so the fragment records the
     # exact index range this call wrote and, per entry, the values with no
     # IMAS slot: the imaginary part of Delta-prime and the local criteria at
-    # the surface. Without the range a surface cannot be attributed (#143).
+    # the surface. Without the range a surface cannot be attributed to its solver.
     # Both lists come from the same delta_prime_diagonal(), row for row; pair
     # them by position and say so loudly if a caller ever hands in a diagonal
     # that does not line up, rather than silently dropping the criteria.
@@ -809,7 +809,7 @@ def _write_resistive_entry(
 
 
 def _resistive_native_xml(result: Pest3MatchingOutput) -> str:
-    """RDCON/STRIDE values with no IMAS slot (#939), as XML elements.
+    """RDCON/STRIDE values with no IMAS slot, as XML elements.
 
     The radial profiles are the solver's own grid at full resolution (mpsi + 1
     points, about 25 kB per (time slice, n) at mpsi 256). Of the PEST3
@@ -842,7 +842,7 @@ def _resistive_native_xml(result: Pest3MatchingOutput) -> str:
 
 
 def _plasma_formalism_xml(module: str, source: str) -> str:
-    """``<plasma_formalism>`` holding the run's #1734 record as canonical JSON, or ``""``."""
+    """``<plasma_formalism>`` with the run's plasma-formalism record as canonical JSON, or ``""``."""
     from vaft.code.gpec._formalism import resolve_plasma_formalism
 
     record = resolve_plasma_formalism(module, source)
@@ -850,7 +850,7 @@ def _plasma_formalism_xml(module: str, source: str) -> str:
 
 
 def _plasma_formalism_of(solver: Any) -> Optional[dict[str, Any]]:
-    """The fragment's #1734 record as a dict, ``None`` for a fragment written before it."""
+    """The fragment's plasma-formalism record as a dict; ``None`` for an older fragment."""
     import json
 
     text = solver.findtext("plasma_formalism")
@@ -870,7 +870,7 @@ def extract_rdcon_stability(ods: ODS) -> list[dict[str, Any]]:
     * ``psi_n``, ``q``, ``D_I``, ``D_R``, ``H``, ``C_A``: the solver's radial
       local-stability profiles (``H`` is RDCON-only; ``None`` where absent);
     * ``delta_prime_matrix``: the full complex ``(msing, msing)`` matrix;
-    * ``plasma_formalism``: the run's #1734 record, ``None`` for an older fragment;
+    * ``plasma_formalism``: the run's plasma-formalism record, ``None`` for an older fragment;
     * ``surfaces``: one dict per rational surface, ``m``, ``psi_n``, ``q``,
       ``delta_prime`` (complex: the real part from ``ntms``, the imaginary part
       from the fragment), and ``di``/``dr``/``h``/``ca1`` at the surface.
@@ -1043,7 +1043,7 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
         ensure_toroidal_mode_grid(ods, time_slice, grid)
 
     extras: dict[int, dict[str, Any]] = {}
-    # The run's physical formulation (#1734): derived from the namelists in the
+    # The run's physical formulation: derived from the namelists in the
     # run directory, stored beside the native payload as the canonical JSON of
     # vaft.code.formalism.PlasmaFormalism.
     formalism_xml = _plasma_formalism_xml(module, source)

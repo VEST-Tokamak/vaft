@@ -1,7 +1,7 @@
-"""TGLF flux = QL weight x saturated intensity x SAT3 amplitude factor, gated by a rebuild (#1900).
+"""TGLF flux = QL weight x saturated intensity x SAT3 amplitude factor, gated by a rebuild.
 
-Fixtures are four configurations of one real state and surface from the #1482 sensitivity
-campaign (39915 @ 0.317 s, magnetics lineage, r/a 0.7, GACODE b493397): SAT0 and SAT1
+Fixtures are four configurations of one real state and surface from the TGLF SAT x field
+sensitivity campaign (39915 @ 0.317 s, magnetics lineage, r/a 0.7, GACODE b493397): SAT0 and SAT1
 electrostatic, SAT2 and SAT3 with A_parallel. The decomposition is accepted only when
 it rebuilds TGLF's own ``sum_flux_spectrum``. The tests below show that the gate passes
 on all four and that it refuses the factorisation once the SAT3 factor is left out.
@@ -45,7 +45,7 @@ def test_the_factors_rebuild_tglfs_flux_spectrum(runs, config):
 
 
 def test_without_the_sat3_amplitude_factor_the_rebuild_is_refused(runs):
-    """The 0.67-0.83 ratio reported on #1900 was this factor missing, and the gate catches it."""
+    """A rebuild ratio of 0.67-0.83 was this factor missing, and the gate catches it."""
     sat3 = runs["sat3-em-bper"]
     as_sat2 = dataclasses.replace(sat3, saturation_parameters={**sat3.saturation_parameters, "SAT_RULE": 2})
     found = flux_decomposition(as_sat2)
@@ -134,7 +134,7 @@ def _sensitivity_module():
 
 
 def _tree(root, config, run):
-    """A run_tglf.py-shaped tree whose outputs.json predates the spectra (pre-#1591)."""
+    """A run_tglf.py-shaped tree whose outputs.json predates the spectra."""
     import json
     import shutil
 

@@ -1,9 +1,8 @@
-"""Semantic plot discovery (issue #262).
+"""Semantic plot discovery.
 
 ``available_plots`` returns a catalog that prints as a ``subject / view /
-[quantity]`` tree and iterates as records.  Discovery reports the policies
-decided in #251 (taxonomy), #256 (display), #259 (selection) and #260
-(layout) and decides nothing of its own: every instance-level answer comes
+[quantity]`` tree and iterates as records.  Discovery reports the taxonomy,
+display, selection and layout policies and decides nothing of its own: every instance-level answer comes
 from the helper the adapters run, so the listing and rendering agree by
 construction.  Policy: ``notebooks/plotting_sample_using_vaft_plot_module.ipynb``.
 """
@@ -69,7 +68,7 @@ def test_printing_never_discards_the_structure(catalog):
 def test_the_tree_is_grouped_by_subject_view_and_quantity(catalog):
     text = str(catalog)
     flux_loop = text[text.index("\nflux_loop\n"):]
-    # Two views under flux_loop since #486: the time history and the spatial
+    # Two views under flux_loop: the time history and the spatial
     # plot at one time, the last branch closing the tree.
     first = flux_loop.split("\n\n")[0]
     assert "├─ time" in first and "└─ spatial" in first
@@ -120,7 +119,7 @@ def test_related_but_distinct_concepts_do_not_match(term):
 
 def test_a_rogowski_coil_is_its_own_subject_not_plasma_current():
     # A Rogowski coil measures plasma current (and the limiter's induced
-    # current) but is not an alias of it; since issue #888 it is a diagnostic
+    # current) but is not an alias of it; it is a diagnostic
     # subject of its own.
     assert match_query("Rogowski coil").subjects == ("rogowski_coil",)
     assert {row.subject for row in vaft.plot.available_plots(query="Rogowski coil")} == {"rogowski_coil"}
@@ -207,8 +206,9 @@ def test_representatives_are_what_the_presets_resolve(shot):
 
 
 def test_usable_excludes_flagged_channels(shot):
-    # The six flagged voltages were IMPA channels, which left the sample with
-    # #305; compose the IMPA product back on to keep flagged channels to count.
+    # The six flagged voltages were IMPA channels, which left the sample when
+    # IMPA became its own stage; compose the IMPA product back on to keep
+    # flagged channels to count.
     from _synthetic_inputs import make_impa_composed
 
     shot = make_impa_composed(shot)
@@ -268,7 +268,7 @@ def test_analysis_methods_list_what_exists():
     registry = vaft.omas.available_plots(query="mirnov")
     assert registry.find("mirnov_spectrogram").analysis_methods == ("stft", "hann_fft", "cwt")
     assert registry.find("mirnov_spectrum").analysis_methods == ("Welch PSD",)
-    # The methods listed are the ones that exist; the default is marked (#484).
+    # The methods listed are the ones that exist; the default is marked.
     assert "methods: stft (default) | hann_fft | cwt" in str(registry)
 
 
@@ -281,7 +281,7 @@ def test_overviews_summarise_their_members():
 
 
 def test_camera_overlays_belong_to_the_image_entry_point():
-    # The view's own entry point declares its overlays (#261 G·5); the
+    # The view's own entry point declares its overlays; the
     # presets beneath it advertise none.
     image = vaft.omas.available_plots(query="camera_visible").find("camera_visible_image")
     from vaft.plot.backend.recipes import CAMERA_OVERLAYS
@@ -293,9 +293,9 @@ def test_camera_overlays_belong_to_the_image_entry_point():
 
 def test_capability_fields_are_filled_only_where_issue_261_defined_them(catalog):
     # Sources and projection wait for their sub-phases; besides the per-plot
-    # ``controls`` mode an evaluated record earns (issue #480), interaction is
+    # ``controls`` mode an evaluated record earns, interaction is
     # stated only by the plots that offer one: the static equilibrium slice
-    # summary and the diagnostics overview behind its entry point (issue #482).
+    # summary and the diagnostics overview behind its entry point.
     for record in catalog:
         assert record.sources == {} and record.projection == {}
         if record.name not in ("equilibrium_overview", "diagnostics_overview"):

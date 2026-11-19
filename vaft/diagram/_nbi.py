@@ -1,4 +1,4 @@
-"""Neutral beam injection: the particle lifecycle and the reduced neutral attenuation (#1136).
+"""Neutral beam injection: the particle lifecycle and the reduced neutral attenuation.
 
 ``nbi_particle_lifecycle``
     neutral injection -> ionisation -> fast-ion birth -> confined slowing down

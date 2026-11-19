@@ -50,8 +50,9 @@ still writes ``ip_vest`` unchanged, so the stored discharge does not yet satisfy
 the contract for ``Ip``.  Applying it is not a one-leaf edit: flipping ``Ip``
 flips, through Sauter Eq. 23, the sign of ``q`` and the orientation of ``psi``
 -- the whole equilibrium has to move together, which is a data-migration change
-of the same class as issue #275 and needs the same before/after numerical
-verification.  ``BT_SIGN_VEST_TO_IMAS`` is ``+1``, so the toroidal side already
+of the same class as normalising imported equilibria to COCOS 11 (Open: #275)
+and needs the same before/after numerical verification.
+``BT_SIGN_VEST_TO_IMAS`` is ``+1``, so the toroidal side already
 satisfies the contract; that is the assumption meeting a positive ``bt_vest``,
 not evidence for the assumption.
 
@@ -75,7 +76,7 @@ on ``dpsi`` and ``pprime`` -- which :func:`vaft.validation.cocos.validate_cocos`
 reports directly.  Its ``q > 0`` is therefore not evidence for COCOS 3; it is
 what a parallel configuration gives in COCOS 1/11.
 
-That mismatch is Anomaly A of issue #288, still open, and it is the same fact as
+That mismatch (Open: #288, "Anomaly A") is the same fact as
 ``IP_SIGN_VEST_TO_IMAS`` being declared but not applied: the stored current
 carries the VEST-native sign.  Apply the transformation to ``CURRENT`` and the
 file validates cleanly as COCOS 3 and 13 and fails 1 and 11 -- so COCOS 3/13 is
@@ -105,7 +106,7 @@ so they already agree on which way ``+phi`` runs and the conversion only rescale
 Why internal agreement cannot settle the polarities
 ---------------------------------------------------
 The Rogowski, the poloidal probes, the PF coil currents, EFIT and the ODS are
-mutually consistent -- the audit for issue #288 verified that the coil-subtracted
+mutually consistent -- an audit (provenance: #288) verified that the coil-subtracted
 outboard-probe response tracks ``magnetics.ip`` with a positive slope on shot
 39915.  That is a closed loop: every member of it could carry the same global
 inversion and no comparison among them would notice.  The same holds on the
@@ -136,7 +137,7 @@ agreement shows the two columns are mutually consistent rather than absolutely
 oriented; and the datasheet does not record which toroidal direction the Hall
 sensors face.  So it needs the raw alignment-shot data, which is in the VEST
 database but not packaged here, plus one statement of the Hall sensors' facing
-(issue #298).  Failing that: the TF winding sense with its supply polarity.  The
+(Open: #298).  Failing that: the TF winding sense with its supply polarity.  The
 packaged 3D coil geometry (:mod:`vaft.machine_mapping.coils_non_axisymmetric_geometry`) covers
 only the non-axisymmetric RMP sets, so it cannot supply the TF winding path.
 
@@ -281,7 +282,7 @@ Unresolved for VEST, with the evidence as it stands:
 
 Settling this therefore needs the g-file sign convention, not a choice between
 two constants -- and that convention is the unconfirmed part of the sign
-contract (``IP_SIGN_VEST_TO_IMAS.confirmed`` is ``False``, issue #288), so it
+contract (``IP_SIGN_VEST_TO_IMAS.confirmed`` is ``False``; Open: #288), so it
 is deliberately left alone here.  What is safe to say: both statements give
 ``helicity = -1``, which is the quantity GPEC uses for its toroidal-angle
 mapping and for conjugating real-space perturbed output, so no published VEST
@@ -406,8 +407,9 @@ def equilibrium_orientation_is_resolved() -> bool:
 #
 # VEST hardware is located by a clock position, and that coordinate runs the
 # *opposite* way from IMAS ``phi``.  The two are kept apart by name here,
-# because writing one into a field that means the other is exactly the defect
-# issue #718 found across the mapping.
+# because writing a clockwise-positive clock angle into a field that means
+# counter-clockwise IMAS ``phi`` silently mirrors the hardware about the
+# 12 o'clock axis.
 #
 # 1. The port-status document (20230112_PresentPortStatus_ForUpdate_rev7.pptx,
 #    2023-01-11) defines the clock system: 12 o'clock is the large main door,
@@ -426,8 +428,9 @@ def equilibrium_orientation_is_resolved() -> bool:
 #    disagrees with both.  No VEST-to-IMAS toroidal sign flag is needed or
 #    wanted; what is needed is the negation below.
 #
-# The NBI is an independent check rather than a counter-example.  Issue #265
-# records the beam running from the 2 o'clock region toward 7 o'clock, i.e.
+# The NBI is an independent check rather than a counter-example.  The NBI
+# geometry record (provenance: #265) has the beam running from the 2 o'clock
+# region toward 7 o'clock, i.e.
 # toward increasing clock number, and the geometry agrees: that is 150 deg,
 # and a 0.22 m tangency radius at a 0.8 m port radius sweeps
 # ``2*arccos(0.22/0.8) = 147.8 deg``, which matches 150 and not the 210 of the

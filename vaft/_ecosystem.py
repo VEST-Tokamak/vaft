@@ -201,6 +201,10 @@ class ExternalCode:
     install_section: str = ""
     links: Tuple[Reference, ...] = ()
     note: str = ""
+    #: Data Dictionary paths a reconstruction code fits or imposes as measured constraints
+    #: (canonical spelling, every index as ``(:)``); for EFIT the k-file inputs of
+    #: :mod:`vaft.code.efit.kfile`, its REQUIRED_CONSTRAINT_INPUTS included
+    constrained_by: Tuple[str, ...] = ()
 
     @property
     def scheduler_backed(self) -> bool:
@@ -226,6 +230,14 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
         workflow=("routine:generate_kfile", "routine:run_efit_reconstruction", "routine:generate_efit_ods"),
         install_section="efit-and-efund-licensed-software-obtain-it-yourself",
         links=(_doi("L. L. Lao et al., Nucl. Fusion 25, 1611 (1985)", "10.1088/0029-5515/25/11/007"),),
+        constrained_by=(
+            "magnetics/ip(:)/data",                    # required (REQUIRED_CONSTRAINT_INPUTS)
+            "tf/b_field_tor_vacuum_r/data",            # required: R0 B0 from the TF coil current
+            "magnetics/b_field_pol_probe(:)/field/data",
+            "magnetics/flux_loop(:)/flux/data",
+            "magnetics/diamagnetic_flux(:)/data",      # optional (#993)
+            "pf_active/coil(:)/current/data",
+        ),
         note="Distributed by the EFIT-AI collaboration under the EFIT users agreement; "
              "VAFT never fetches, mirrors or bundles it.",
     ),

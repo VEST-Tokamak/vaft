@@ -58,9 +58,9 @@ def render_field_2d(
     value off the curve beats matching a colour against a colorbar.
     """
     # A caller that owns a colorbar axes (a figure that redraws this panel,
-    # issue #261) keeps its layout fixed by passing it; otherwise Matplotlib
-    # takes the space from the panel as usual.  Taken out before the style
-    # reaches the contour call.
+    # such as the slice-navigation figure) keeps its layout fixed by passing
+    # it; otherwise Matplotlib takes the space from the panel as usual.  Taken
+    # out before the style reaches the contour call.
     colorbar_axes = style.pop("colorbar_ax", None)
     if not isinstance(model, Field2D):
         raise TypeError(
@@ -72,7 +72,7 @@ def render_field_2d(
     levels = model.contour_levels
     contour_kwargs = {"cmap": cmap, **style}
     if "norm" not in contour_kwargs and colorbar and model.colorbar:
-        # figure_options=FigureOptions(norm=...) (issue #1421): a contour set
+        # figure_options=FigureOptions(norm=...): a contour set
         # places its levels now, so the norm has to be known now too.  Only a
         # map whose colours a colorbar explains takes it.
         from ..figure_options import draw_norm
@@ -168,7 +168,7 @@ def _field_renderer(*, domain: str, subject: str, quantity: str, description: st
     domain="equilibrium", quantity="psi",
     subject="equilibrium",
     description="Reconstructed poloidal flux map on the equilibrium (R, Z) grid.",
-    # The machine geometry the default overlays draw over the map (issue #483);
+    # The machine geometry the default overlays draw over the map;
     # none of it is required, so availability is still the flux map's own.
     ids=("equilibrium", "wall", "pf_active", "pf_passive"),
     required_paths=(

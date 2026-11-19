@@ -1,4 +1,4 @@
-"""Contract for Tutorial 05: MHD stability and perturbed equilibria (issue #1023).
+"""Contract for Tutorial 05: MHD stability and perturbed equilibria.
 
 The session runs offline from packaged data -- an EFIT g-file, the VEST 3-D coil
 geometry and its vacuum field -- and runs DCON, RDCON and GPEC only in lab mode
@@ -169,7 +169,7 @@ def test_every_solver_launch_is_gated_by_the_mode_and_the_preflight(book):
 
 
 def test_solver_workdirs_are_short_temporary_directories(book):
-    """The GPEC suite reads paths into fixed-length Fortran strings (#1239)."""
+    """The GPEC suite reads paths into fixed-length Fortran strings."""
     for cell in _code_cells(book):
         source = _strip_comments(_source(cell))
         if "GPECCaseInputs(" in source:

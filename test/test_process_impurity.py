@@ -1,4 +1,4 @@
-"""The impurity-composition resolver (#1565 Stage B): precedence, the VEST preset, provenance."""
+"""The impurity-composition resolver: precedence, the VEST preset, provenance."""
 
 from __future__ import annotations
 

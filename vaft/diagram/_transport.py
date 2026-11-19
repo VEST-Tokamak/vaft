@@ -1,4 +1,4 @@
-"""Canonical transport concepts: random walk, flux and gradient, reference scales (#1112).
+"""Canonical transport concepts: random walk, flux and gradient, reference scales.
 
 ``random_walk_diffusion``
     one correlated radial motion seen three ways -- sample trajectories, the
@@ -15,7 +15,7 @@
     -- not by size.
 
 The banana / plateau / Pfirsch--Schlueter regimes are
-``neoclassical_collisionality`` (#1111), which already states its
+``neoclassical_collisionality``, which already states its
 collisionality convention.
 """
 

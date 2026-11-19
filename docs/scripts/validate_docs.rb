@@ -334,7 +334,7 @@ def compare_rendered(errors, label, url, expected, selector, attribute = "id")
   rendered.tally.select { |_name, count| count > 1 }.each_key { |name| errors << "#{label} #{name} is rendered more than once on #{url}" }
 end
 
-# Source navigation (#1069).  Every entry with a source span renders exactly one
+# Source navigation.  Every entry with a source span renders exactly one
 # [source] link, pinned to the commit its catalog was generated from and to the
 # span's line range, never to a branch; when the catalog carries the span's code
 # the page shows it once, collapsed, and it is that code.  catalog_coverage.py
@@ -344,7 +344,7 @@ end
 # class member.
 SITE_PROVENANCE = (ROOT / "_data" / "provenance.yml").file? ? data("provenance.yml") : {}
 
-# The dependency explorer (#1646).  The page fetches the snapshot through
+# The dependency explorer.  The page fetches the snapshot through
 # assets/graph/dependency-graph.json, so that endpoint must be built and hold
 # it; every API and reference link a node carries must be a built page, and the
 # source links it draws are pinned to the commit this track is built from.
@@ -380,7 +380,7 @@ if (ROOT / "_data" / "dependency_graph.yml").file?
   end
 end
 
-# The pipeline lineage explorer (#1647): the same receipt, provenance and
+# The pipeline lineage explorer: the same receipt, provenance and
 # endpoint checks, plus the semantics the page promises -- every edge names
 # known nodes, and every declared scientific reference is drawn.
 if (ROOT / "_data" / "pipeline_graph.yml").file?
@@ -415,7 +415,7 @@ if (ROOT / "_data" / "pipeline_graph.yml").file?
   end
 end
 
-# The dependency and external-code catalog (#1648).  Its pages render tables
+# The dependency and external-code catalog.  Its pages render tables
 # straight from the snapshot, so a missing snapshot would publish empty pages;
 # every internal link a code carries (its pipeline rules, its stage) must be a
 # built page, and every external-code entry renders exactly once.
@@ -444,7 +444,7 @@ if (ROOT / "_data" / "ecosystem.yml").file?
   end
 end
 
-# The scientific ontology explorer (#1702): the receipt, provenance and
+# The scientific ontology explorer: the receipt, provenance and
 # endpoint checks the other graphs have, plus its own contract -- namespaced
 # unique ids, every edge between known nodes and of a declared relation, and
 # every internal link a node carries pointing at a built page.
@@ -628,7 +628,7 @@ errors << "unaccounted legacy redirect pages: #{unaccounted.to_a.sort.join(', ')
 migrations.each do |migration|
   legacy = migration.fetch("legacy_url")
   target = migration.fetch("canonical_url")
-  # A renamed per-module reference page (#1838) is a hub child: canonical when built.
+  # A per-module reference page that replaced an older single page is a hub child: canonical when built.
   hub_child = HUB_CHILD_PREFIXES.any? { |prefix| target.start_with?(prefix) } && output_path(target)
   errors << "redirect target is not canonical: #{legacy} -> #{target}" unless canonical_urls.include?(target) || hub_child
   built = output_path(legacy)

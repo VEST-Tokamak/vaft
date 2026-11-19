@@ -1,4 +1,4 @@
-"""Discharge-timing events of a shot, from an ODS, with their provenance (issue #409).
+"""Discharge-timing events of a shot, from an ODS, with their provenance.
 
 Where :mod:`vaft.omas.plasma_timing` answers *when is there a plasma*, this
 module answers *when did the machine act*: the onset of every poloidal-field

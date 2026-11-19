@@ -1,6 +1,6 @@
-"""Tokamak toroidal geometry and flux coordinates (#1073).
+"""Tokamak toroidal geometry and flux coordinates.
 
-The parent geometry the cylindrical and slab reductions of #1062 start from:
+The parent geometry the cylindrical and slab reductions (``_geometry``) start from:
 the torus and its angles, nested flux surfaces with and without the
 Shafranov shift, shaping, the $1/R$ toroidal field, the safety factor as a
 winding number, flux coordinates and the straight-field-line angle.

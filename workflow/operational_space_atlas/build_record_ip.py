@@ -1,4 +1,4 @@
-"""Plasma-current waveforms of the atlas's record discharges (#1456, conference 2026-10-12).
+"""Plasma-current waveforms of the atlas's record discharges (conference 2026-10-12).
 
 The operational-space atlas stars a handful of record discharges (the largest current,
 the longest pulse, the highest beta_N, ...). This script extracts ``magnetics.ip`` --

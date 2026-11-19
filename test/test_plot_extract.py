@@ -1,4 +1,4 @@
-"""``dd_*`` / ``extract_*`` beside every ``plot_*``, and ``to_xarray()`` (umbrella #434).
+"""``dd_*`` / ``extract_*`` beside every ``plot_*``, and ``to_xarray()``.
 
 The three verbs cover one set of plots on both packages; ``extract_*`` is
 exactly what ``plot_*`` builds before drawing; a rendering keyword is refused

@@ -1,4 +1,4 @@
-"""Run the stability atlas batch over the selected Tier A slices (#1429).
+"""Run the stability atlas batch over the selected Tier A slices.
 
 For every row of ``slices.csv`` (from ``select_slices.py``):
 
@@ -10,7 +10,7 @@ For every row of ``slices.csv`` (from ``select_slices.py``):
 2. **CHEASE refinement** with the pipeline's own ``run_chease_refinement.py``
    at its defaults, so the input is what pipeline 1 would hand GPEC.
 3. **GPEC solvers** through ``scan_controls.run_job``, one suite call per
-   (variant, n), with the #141 choices: ``mpsi`` 256 and its 512 check,
+   (variant, n), with the control-scan choices: ``mpsi`` 256 and its 512 check,
    ``bal_flag=t``, and both DCON edge treatments.
 
 Every stage is resumable: a slice whose refined g-file exists, or a job whose
@@ -49,11 +49,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scan_controls import DCON, Equilibrium, Variant, collect, materialize_templates, preflight, run_job  # noqa: E402
 from select_slices import ELECTRON_KINETIC, MAGNETICS_ONLY, read  # noqa: E402
 
-#: #141 (comment 2026-10-01): mpsi=256 is the working resolution; 512 is
+#: From the 2026-10-01 control scan (record: #141): mpsi=256 is the working resolution; 512 is
 #: the per-surface/per-slice convergence check. mpsi=128 (packaged) is not
 #: converged, and 1024 exceeds what the nw=513 CHEASE g-files support.
 MPSI = (256, 512)
-#: #792: the truncated solution is independent of psiedge once psiedge is
+#: From the DCON edge-treatment comparison (record: #792): the truncated solution is independent of psiedge once psiedge is
 #: below the dW_edge peak, which sits above 0.98 on every reference case.
 TRUNCATED_PSIEDGE = 0.95
 
@@ -82,7 +82,7 @@ ATLAS_VARIANTS: tuple[Variant, ...] = (
 )
 
 #: Memory per solver job [MiB]: (reservation, resident limit), from measured
-#: peaks on vestserver (#1460): DCON/STRIDE <= 1 GB; RDCON n=1 a few GB; RDCON
+#: peaks on vestserver (record: #1460): DCON/STRIDE <= 1 GB; RDCON n=1 a few GB; RDCON
 #: n=2 12 GB at mpsi 256 and 24.6 GB at mpsi 512. n>=3 has more rational
 #: surfaces and is extrapolated. A job is admitted only when the host has room
 #: for its reservation next to everything already admitted, and stopped as
@@ -139,7 +139,7 @@ def gfile_name(row: dict) -> str:
 def magnetic_config_sha(filedb: Path, row: dict) -> str | None:
     """The EFIT configuration hash the campaign recorded for this magnetic slice.
 
-    The magnetics-only g-files come from the same campaign FileDB the #1331
+    The magnetics-only g-files come from the same campaign FileDB the Tier A
     labels were computed from. The hash makes that link checkable per row
     instead of assumed.
     """

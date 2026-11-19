@@ -1,4 +1,4 @@
-"""Routine transport states (#1428): time pairing, Ti hierarchy, readiness, identity, driver.
+"""Routine transport states: time pairing, Ti hierarchy, readiness, identity, driver.
 
 Built from the packaged 48224 kinetic ODS, extended to several slices whose times are
 deliberately offset so that pairing by index would pick the wrong profile -- the
@@ -442,7 +442,7 @@ def test_projection_lines_up_when_the_mapper_drops_a_surface(driver, sample, tmp
     for job in jobs.values():
         job["local_input"] = dataclasses.replace(job["local_input"], normalisation=None)
     assert driver.project_state(state, surfaces, jobs)["surfaces"] == []
-# --------------------------------------------------------------------------- partition (#1431)
+# --------------------------------------------------------------------------- partition
 
 
 def _row(r=0.5, rho=0.45, qe=100.0, ge=1e19, ions=None, gions=None):
@@ -502,7 +502,7 @@ def test_partition_ratio_is_undefined_below_the_floor_and_classical_joins():
     assert part["components"] == ["neo", "turb", "classical"]
 
 
-# --------------------------------------------------------------------------- routine NEO (#1431)
+# --------------------------------------------------------------------------- routine NEO
 
 
 @pytest.fixture()
@@ -563,7 +563,7 @@ def test_neo_driver_maps_one_profile_run_and_checks_its_surfaces(neo_driver, sam
     assert state["status"] == "partial"
 
 
-# --------------------------------------------------------------------------- classical (#1435)
+# --------------------------------------------------------------------------- classical
 
 
 def test_classical_collision_times_match_the_nrl_forms(sample):
@@ -920,7 +920,7 @@ def test_surface_codes_are_the_two_a_local_conversion_can_raise():
         "local_conversion_failure"
 
 
-# --------------------------------------------------------------------------- atlas (#1427)
+# --------------------------------------------------------------------------- atlas
 
 
 @pytest.fixture()
@@ -1247,7 +1247,7 @@ def test_the_native_directory_uses_the_slash_grammar_on_every_host(atlas):
     assert posix == windows == "48224/magnetics/00300/r0.30"
 
 
-# --------------------------------------------------------------------------- SAT x field sensitivity (#1482)
+# --------------------------------------------------------------------------- SAT x field sensitivity
 
 
 @pytest.fixture()
@@ -1453,7 +1453,7 @@ def test_ky_peak_in_the_table_uses_the_grid_model_of_the_run(sensitivity, tmp_pa
 
 
 def test_a_failed_surface_keeps_why_it_failed(sensitivity, tmp_path):
-    """cold review 0.8.0 delta-absorb-11 F2: a #1299 timeout is not just 'failed'."""
+    """A solver timeout is not just 'failed'."""
     tree = _sens_state(tmp_path, 0, "es")
     state = json.loads((tree / "state.json").read_text(encoding="utf-8"))
     state["surfaces"] = [
@@ -1516,7 +1516,7 @@ def test_pair_rows_carry_one_label_and_the_rows_surface_value(sensitivity, tmp_p
 
 
 
-# --------------------------------------------------------------------------- lane K inferred Ti (#1426)
+# --------------------------------------------------------------------------- inferred Ti
 
 
 def _with_inferred_ti(sample, outer_nan_from=None, note=inferred_ti_text("equilibrium_pressure_partition")):
@@ -1736,7 +1736,7 @@ _RATIO_RECORDS = [
 ]
 _INFERRED_RECORDS = [
     inferred_ti_text("equilibrium_pressure_partition"),
-    "origin: inferred; method: equilibrium_pressure_partition",  # issue #1426 section 4 spelling
+    "origin: inferred; method: equilibrium_pressure_partition",  # the specified spelling
     "origin=pressure_inferred; method=x",
 ]
 
@@ -1749,7 +1749,7 @@ def _with_record(sample, record):
 
 @pytest.mark.parametrize("record", _RATIO_RECORDS + ["policy"])
 def test_a_ratio_record_resolves_as_assumed_at_the_records_ratio_never_measured(sample, record):
-    """Every #1414 spelling -- legacy, caller, policy -- is an assumed Ti, with its ti_* condition."""
+    """Every ratio-record spelling -- legacy, caller, policy -- is an assumed Ti, with its ti_* condition."""
     if record == "policy":
         record = policy_for_ods(sample, 48224).ti_te_ratio_text()  # build_kinetic_core_profiles(ti_te_ratio="auto")
     state = resolve_transport_state(_with_record(sample, record), _key(0.3), efit_quality="good")
@@ -1847,9 +1847,9 @@ def test_a_bad_ti_te_ratio_string_is_refused_at_entry(sample):
 
 
 def test_classical_result_is_typed_and_reproduces_the_pre_1899_numbers(sample):
-    """#1899 moved every coefficient and collision time to vaft.formula.kinetic.
+    """Every coefficient and collision time now lives in vaft.formula.kinetic.
 
-    The reference was written by the pre-#1899 classical_heat_fluxes (process-layer
+    The reference was written by the earlier classical_heat_fluxes (process-layer
     formulas) on this state; the formula-layer path must give the same numbers. The
     only differences are CODATA constant versions (vaft.formula.constants vs SciPy).
     """
@@ -1885,7 +1885,7 @@ def test_classical_result_is_typed_and_reproduces_the_pre_1899_numbers(sample):
 
 
 def test_no_classical_coefficient_is_defined_in_the_process_layer():
-    """#1899 acceptance: the coefficients and collision times live in vaft.formula.
+    """The coefficients and collision times live in vaft.formula.
 
     Checked on the syntax tree of the whole module, not on strings: the process layer
     may not reach for the physical constants a collision time or gyrofrequency is

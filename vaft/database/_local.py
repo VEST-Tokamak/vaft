@@ -297,7 +297,7 @@ def load_ods(
         elif source_path.suffix.lower() == ".hdf5":
             # `ODS.load` picks `load_omas_<ext>` from the suffix and OMAS has
             # no `load_omas_hdf5`; the `.hdf5` spelling `_detect` accepts goes
-            # to the HDF5 reader directly (PR #1926 review F6).
+            # to the HDF5 reader directly.
             from omas import load_omas_h5
 
             ods = load_omas_h5(str(source_path), consistency_check=False)
@@ -389,7 +389,7 @@ def _decode_byte_strings(ods) -> None:
     That leak is not cosmetic. `replicate_stage` validates a publication by
     comparing the replica against the product it sent; with the product read
     here and the replica read through the checker, every string leaf differs by
-    type alone and the publication is recorded as unvalidated (#734).
+    type alone (bytes against str) and the publication is recorded as unvalidated.
     """
     for path, value in list(ods.flat().items()):
         decoded = _as_text(value)
@@ -401,7 +401,10 @@ def _promote_code_parameters(ods) -> None:
     """Turn every flat ``<ids>.code.parameters`` branch into a ``CodeParameters``.
 
     The load half of the pair in :mod:`vaft.imas.code_parameters`; the save
-    half is what decides which of a mixed block an entry sees (#478, #642).
+    half is what decides which of a mixed block an entry sees. A load with
+    consistency checks off keeps the block as a plain ODS branch, which OMAS
+    does not serialize to an IMAS entry, so without this promotion the block --
+    and the declared COCOS index in it -- would vanish on the way out.
     """
     from ..imas.code_parameters import promote_in_place
 

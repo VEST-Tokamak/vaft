@@ -1,4 +1,4 @@
-"""Structural comparison of two EFIT Green-table directories (issue #194).
+"""Structural comparison of two EFIT Green-table directories.
 
     PYTHONPATH=$PWD python workflow/efit_tables/compare_tables.py vaft/data/efit /scratch/tables/legacy-39915 \\
         --json compare.json --markdown compare.md

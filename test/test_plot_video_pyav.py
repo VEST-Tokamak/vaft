@@ -1,4 +1,4 @@
-"""The private PyAV backend of ``animation=True`` (#1050): encode, decode, compare.
+"""The private PyAV backend of ``animation=True``: encode, decode, compare.
 
 Lossy codecs are never compared pixel by pixel; what is checked is what the
 contract promises -- one decoded frame per scientific state, the frame size,

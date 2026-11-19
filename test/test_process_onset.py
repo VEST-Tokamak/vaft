@@ -1,4 +1,4 @@
-"""The onset primitives of issue #409, on synthetic waveforms.
+"""The onset primitives, on synthetic waveforms.
 
 Each case is one of the failure modes the VEST raw-database study found:
 coil-firing pickup spikes, isolated optical spikes, brief flashes, a record
@@ -241,7 +241,7 @@ def test_a_flat_reference_is_flagged_but_a_clean_pulse_is_still_found():
 
     The flat reference used to be refused outright, so a clean pulse whose
     lead sat on one ADC code came back `no_onset` exactly like an all-zero
-    coil (cold review 0.7.0 process F7, #1888).  The threshold degenerates to
+    coil.  The threshold degenerates to
     the fraction-of-peak term, which is still a threshold.
     """
     y = np.zeros(T.size)
@@ -456,7 +456,7 @@ def test_a_grid_that_cannot_carry_the_cutoff_skips_the_filter_and_says_so():
 
 
 # ---------------------------------------------------------------------------
-# Zero crossing after an anchored excursion (#409 PR-v)
+# Zero crossing after an anchored excursion
 # ---------------------------------------------------------------------------
 
 from vaft.process.onset import zero_crossing_after_excursion  # noqa: E402
@@ -555,7 +555,7 @@ def test_a_sample_exactly_at_the_baseline_is_not_a_crossing():
 
 
 # ---------------------------------------------------------------------------
-# Representative peak (#409 PR-vi)
+# Representative peak
 # ---------------------------------------------------------------------------
 
 from vaft.process.onset import PeakRecord, robust_peak  # noqa: E402
@@ -664,7 +664,7 @@ def test_an_empty_search_mask_is_no_peak():
 
 
 def test_a_refused_impulse_cannot_return_through_its_shoulder():
-    """Review finding on #535: masking only the half-height run let the impulse's
+    """Masking only the half-height run let the impulse's
     shoulder become the next candidate and pass the width test."""
     y = np.zeros_like(T)
     pulse = (T >= 0.020) & (T <= 0.030)
@@ -721,7 +721,7 @@ def test_a_trailing_re_emergence_under_the_end_threshold_is_dropped():
 
 
 def test_a_refused_spike_does_not_set_the_level_the_pulse_must_fall_below():
-    """#726: the end rule is judged against what the detector accepted.
+    """The end rule is judged against what the detector accepted.
 
     An isolated spike taller than the pulse is refused as a segment -- that is
     what persistence is for -- but it used to scale the end threshold anyway,
@@ -778,7 +778,7 @@ def test_a_record_whose_maximum_is_accepted_is_judged_exactly_as_before():
 
 
 def test_a_window_reports_how_much_of_it_is_above_threshold():
-    """#752: the extent of a window is not how long the signal was there.
+    """The extent of a window is not how long the signal was there.
 
     A window is the envelope of its segments, so two brief flashes tens of
     milliseconds apart make a long window that is nearly all gap.  Consumers

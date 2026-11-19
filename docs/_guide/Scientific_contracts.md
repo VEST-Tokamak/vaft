@@ -6,7 +6,7 @@ category: guide
 layout: post
 permalink: /reference/scientific-contracts/
 guide:
-  architecture: "Where VAFT's scientific contracts are defined: quantity identity, units, COCOS and machine polarity, Fourier conventions, applicability, validation evidence and provenance. Records who owns each, how it is enforced, and the gaps the interoperability work of #2160 closes (audit of #2161)."
+  architecture: "Where VAFT's scientific contracts are defined: quantity identity, units, COCOS and machine polarity, Fourier conventions, applicability, validation evidence and provenance. Records who owns each, how it is enforced, and the gaps the scientific-contracts interoperability work closes."
   prerequisites: The Scientific architecture and Credibility and applicability pages.
   expected: Which module is authoritative for a definition, a transformation and a verdict; which conventions are machine-readable and which are prose only; and why VAFT extends its existing taxonomy instead of adding a quantity registry.
 related:
@@ -14,9 +14,11 @@ related:
 ---
 
 VAFT already defines most of its scientific contracts. They live in the modules that own the
-science, though, and nothing connects them. This page is the audit behind the Scientific Contracts
-initiative (#2160, Phase A #2161). It inventories the contracts, names an owner for each one, traces
-five representative paths end to end, and records the minimal work Phase B (#2163) has to do.
+science, though, and nothing connects them. This page is the Phase A audit of the Scientific Contracts
+initiative (provenance: umbrella #2160). It inventories the contracts, names an owner for each one, traces
+five representative paths end to end, and records the minimal work Phase B has to do. Phase B has
+since added `vaft.formula.units`, `vaft.data.fourier` and `vaft.data.representation`; the tables
+below record the state at the audited commit.
 
 It audits `develop` at `7b1fcf192`. Symbols are cited by name so that line drift does not break the
 references. When this page and an owning module disagree, the module wins, and the disagreement is a
@@ -81,8 +83,8 @@ vocabulary.
 | Identification from data | `vaft.process.cocos` | `identify_convention`, `identify_flux_exponent`, `identify_flux_exponent_from_q` | narrowing to candidates; abstains | runtime (self-consistency: Ampère, contour q) | existing | none |
 | Consistency check | `vaft.validation.cocos` | `validate_cocos` → `ValidationReport` | issue codes | runtime | partial | `j_phi` and `phi_tor` are always unverifiable. |
 | Transformation | `vaft.process` (`convert_cocos`), `vaft.omas.general` (`equilibrium_psi_to_weber`, `_transform_cocos_leaves`) | omas `cocos_transform` factors | functions | runtime | partial | `convert_cocos` calls itself "the only COCOS transform", but CHEASE, FLARE, GACODE and VFIT each carry their own path. Records are ad hoc: a CHEASE `chease_cocos_transform.json` manifest, the free-text `convention.source` set by `convert_cocos`, GACODE `provenance["cocos"]`, a TokaMaker sidecar field. There is no shared record shape. **Lost evidence/provenance.** |
-| Machine-native polarity (VEST) | `vaft.machine_mapping.conventions` | `DischargeSignContract`, `SignTransformation(confirmed=False)`, `equilibrium_orientation_is_resolved()` | dataclass + boolean | doc + structural | unresolved | Owned by **#288**. A COCOS relabel cannot repair it. **Missing scientific evidence, not a software defect.** |
-| External-code boundary | `vaft.code.*` | CHEASE forces signs (`_desired_signs_for_cocos`, `CHEASE_ORIENTATION`), FLARE refuses ambiguity (`FlareEquilibriumScales`) | per adapter | runtime | partial | GPEC/DCON (`copy_gfile_for_gpec`), EFIT and TES never check COCOS. **Incomplete transformation boundary**, a follow-up outside #2163. |
+| Machine-native polarity (VEST) | `vaft.machine_mapping.conventions` | `DischargeSignContract`, `SignTransformation(confirmed=False)`, `equilibrium_orientation_is_resolved()` | dataclass + boolean | doc + structural | unresolved | **Open: #288** (the VEST sign chain is not verified end to end). A COCOS relabel cannot repair it. **Missing scientific evidence, not a software defect.** |
+| External-code boundary | `vaft.code.*` | CHEASE forces signs (`_desired_signs_for_cocos`, `CHEASE_ORIENTATION`), FLARE refuses ambiguity (`FlareEquilibriumScales`) | per adapter | runtime | partial | GPEC/DCON (`copy_gfile_for_gpec`), EFIT and TES never check COCOS. **Incomplete transformation boundary**, a follow-up outside Phase B. |
 
 ### Fourier, complex harmonics and phase
 
@@ -112,8 +114,8 @@ talks to. Until this audit they were recorded only in prose.
 | Validation statuses | `vaft.validation.model` | `ValidationStatus`: `PASS`, `WARN`, `FAIL`, `INDETERMINATE`, `NOT_AVAILABLE` | existing | none |
 | Named checks | `vaft.validation.registry` | `CheckSpec`, `CHECKS` (22, all equilibrium) | partial | No transformation check exists. |
 | Credibility axes | `vaft.validation.credibility` | `AXES`, `Evidence`, `EVIDENCE_ROLES`, `compose` | existing | **The `transformation` (T) axis has no producer.** No category or check maps to it. |
-| Approximation contracts | `vaft.validation.applicability`, `vaft.validation.orderings` (#1627, #1628) | `ApproximationContract`, `evaluate_contract`, `as_evidence`, 15 `CONTRACTS` | existing | none for this initiative |
-| Adapter-to-contract map | `vaft.validation.model_contracts` (#1823) | `ADAPTER_MODES`, `ordering_provenance`, `safe_ordering_provenance` | partial | Recorded by EFIT, GPEC, PENTRC and CGYRO. Not by CHEASE. |
+| Approximation contracts | `vaft.validation.applicability`, `vaft.validation.orderings` | `ApproximationContract`, `evaluate_contract`, `as_evidence`, 15 `CONTRACTS` | existing | none for this initiative |
+| Adapter-to-contract map | `vaft.validation.model_contracts` | `ADAPTER_MODES`, `ordering_provenance`, `safe_ordering_provenance` | partial | Recorded by EFIT, GPEC, PENTRC and CGYRO. Not by CHEASE. |
 | Data validity | `vaft.validation.validity`, `vaft.validation.imas` | `ValidityRecord`, `write_validity` (own assessment only) | existing | none |
 | Digest lineage | `vaft.database.provenance` | `ChainLink`, `verify_chain`, `NOT_RECORDED` | existing | none |
 | Scientific transformation history | none | GACODE per-field `{kind, source/reason}` and `provenance["cocos"]`; free-form notes elsewhere | partial | Per-field shapes exist in three places (GACODE inputs `{kind, source/reason}`, `pr08_mhd_state` `source_unit`/`transformation`, `gacode.output_audit` `native_units`/`transformation`) but share no schema. **Lost evidence/provenance**: no common record and no link from `Evidence` to what was transformed. |
@@ -130,15 +132,16 @@ because these are different responsibilities.
 | Physical dimensions | `vaft.formula.dimensional` | — | — |
 | Unit scale factors | `vaft.formula` (new `units` module, Phase B) | explicit conversion call | — |
 | COCOS | `vaft.data.cocos` | `vaft.process` `convert_cocos`, `vaft.omas.general` | `vaft.validation.cocos` |
-| Machine polarity | `vaft.machine_mapping.conventions` | `SignTransformation` (unconfirmed) | **#288** |
+| Machine polarity | `vaft.machine_mapping.conventions` | `SignTransformation` (unconfirmed) | none yet (**Open: #288**) |
 | Fourier conventions | `vaft.data` (new `fourier` descriptor, Phase B), next to `vaft.data.cocos` | explicit harmonic conversion | `vaft.validation.perturbation_phase` |
 | Representation and compatibility | `vaft.data` (new `representation` module, Phase B) | references the providers above | — (compatibility is not a verdict) |
-| Applicability | `vaft.validation.orderings` (#1627) | — | `vaft.validation.applicability` (#1628) |
+| Applicability | `vaft.validation.orderings` | — | `vaft.validation.applicability` |
 | Evidence and credibility | `vaft.validation.credibility` | — | `compose` per axis, no total |
 | Generated views | `vaft.formula.catalog`, `vaft.process.catalog`, `vaft._ontology_graph` | — | — |
 
-**Out of scope**, with owners recorded: the unresolved VEST polarity (#288); collisionality and
-gyroradius definition consolidation (#353); expansion of applicability contracts (#1627, #1628);
+**Out of scope**, with owners recorded: the unresolved VEST polarity (Open: #288); collisionality and
+gyroradius definition consolidation (Open: #353); expansion of ordering and applicability contracts
+(Open: #1627, #1628);
 consolidating the COCOS transform paths, and COCOS checks at the GPEC, EFIT and TES boundaries
 (follow-ups to be filed after Phase B).
 
@@ -164,7 +167,7 @@ work).
 5. The GPEC g-file copy (`copy_gfile_for_gpec`) passes the file through without a COCOS check.
    **Gap**, filed as a follow-up and kept out of this initiative.
 6. VEST machine polarity (`IP_SIGN_VEST_TO_IMAS.confirmed=False`) never enters steps 1–5.
-   **Unresolved, owned by #288.** Correct COCOS handling of the stored data does not confirm it.
+   **Unresolved (Open: #288).** Correct COCOS handling of the stored data does not confirm it.
 
 ### B. Greenwald density in engineering units
 
@@ -261,8 +264,8 @@ signature, return type or import cost changes.
    - Tests: the Greenwald `I_p` parameter is MA; a value in A is `REQUIRES_TRANSFORM` with factor
      10⁻⁶; a value with no unit is `UNRESOLVED`.
 
-Phase C (#2165) then adds a transformation record, the first producers of `transformation` (T)
-evidence, and an opt-in result context. Phase D (#2167) exposes all of it through the generated
+Phase C (Open: #2165) then adds a transformation record, the first producers of `transformation` (T)
+evidence, and an opt-in result context. Phase D (Open: #2167) exposes all of it through the generated
 catalogs and ontology.
 
 ## Related reference

@@ -18,7 +18,7 @@ with `cadquery-ocp`.
 | Polarization | TE10 E-field vertical: the WR340 narrow wall spans Z and the broad wall spans phi | CAD |
 | Quartz window | R = 0.873–0.883 m on axis | CAD |
 | WR284 end | R = 0.893 m | CAD |
-| phi | 210° | Port map (`5ML10`, clock 5, #718); the CAD has no toroidal datum |
+| phi | 210° | Port map (`5ML10`, clock 5; clock numbers run clockwise, so IMAS phi = (−30° × clock) mod 360°, `vaft.machine_mapping.conventions`); the CAD has no toroidal datum |
 
 The following points are provisional until the EC officer confirms them:
 

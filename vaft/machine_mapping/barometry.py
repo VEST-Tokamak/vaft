@@ -66,7 +66,8 @@ def vfit_barometry_dynamic(
     )
 
     # The gauge itself changed with the shot era (PKR 251 -> IKR 251 at 46993,
-    # issue #1543), so its identity is written with the shot's calibration.
+    # recorded in vest.yaml), so its identity is written with the shot's
+    # calibration.
     gauge = config.get("gauge") or {}
     if gauge:
         set_path(ods, "barometry.gauge.0.name", str(gauge["name"]))

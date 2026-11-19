@@ -1,4 +1,4 @@
-"""Attach a domain-owned analytic Jacobian and validity domain to a formula without wrapping it (#1874).
+"""Attach a domain-owned analytic Jacobian and validity domain to a formula without wrapping it.
 
 :func:`jacobian` is a decorator that records ``d f / d x`` -- and, optionally,
 the domain where the formula is defined -- on the function object and returns

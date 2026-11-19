@@ -1,4 +1,4 @@
-"""Canonical turbulence concepts: drift waves, cross-phase, saturation, shear, zonal flows, scales (#1112).
+"""Canonical turbulence concepts: drift waves, cross-phase, saturation, shear, zonal flows, scales.
 
 ``drift_wave_transport_cycle``
     a gradient's free energy, the drift frequency, the instability drive and

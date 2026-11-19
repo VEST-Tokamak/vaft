@@ -1,4 +1,4 @@
-"""Asymptotic orderings: the time and length scales a reduced model assumes (#1627, #1739).
+"""Asymptotic orderings: the time and length scales a reduced model assumes.
 
 ``timescale_hierarchy``
     the characteristic times of one illustrative low-field spherical-tokamak
@@ -56,7 +56,7 @@ ILLUSTRATIVE_STATE: Dict[str, float] = {
     "wall_sigma": 1.39e6,  # wall conductivity, stainless steel [S/m]
     "wall_d": 0.006,       # wall thickness [m]
     "wall_b": 0.6,         # wall radius [m]
-    # added for the plasma-model guide (#1739): illustrative, not measured
+    # added for the plasma-model guide: illustrative, not measured
     "T_i": 30.0,           # ion temperature [eV]
     "R0": 0.4,             # major radius [m]
     "q": 2.5,              # safety factor at mid-radius [-]
@@ -404,7 +404,7 @@ def ordering_contract_map(*, labels: bool = True) -> Diagram:
 
 
 # ---------------------------------------------------------------------------
-# which code adapter consumes which contract (#1823)
+# which code adapter consumes which contract
 # ---------------------------------------------------------------------------
 
 #: display names of the adapter modes of vaft.validation.model_contracts.ADAPTER_MODES

@@ -12,8 +12,8 @@ projection between the two, and its invariant is
 
 Nothing here decides which machine era a shot belongs to.  The caller obtains
 the era through :func:`vaft.omas.vest_upstream.machine_era_for_shot` and builds
-the static ODS for it; this module only projects what it is handed (issue #191
-forbids duplicating shot-boundary logic in EFUND code).
+the static ODS for it; this module only projects what it is handed, so the
+shot boundaries live in one place and EFUND input cannot drift from them.
 
 The F-coil grouping is not defined here.  It is machine configuration --
 ``efit_coilset`` in ``vest.yaml``, resolved by
@@ -382,7 +382,7 @@ def vest_acceptance_envelope(
 
     The virial consistency checks are a separate matter and are **disabled**
     unless ``virial_checks`` says otherwise.  At VEST's aspect ratio of about
-    1.45 they are ill-conditioned rather than merely strict (issue #649):
+    1.45 they are ill-conditioned rather than merely strict:
     ``sbpp`` is a difference of two terms near 0.8 leaving 0.01 to 0.2 and
     negative on some slices, a median cancellation of twelvefold, and
     ``sbli`` divides by ``alpha - 1``, which VEST measures at 0.22 to 0.51 and

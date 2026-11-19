@@ -1,6 +1,5 @@
 """`compute_power_balance` builds W_th with the same 3/2 that
-`compute_tau_E_exp` uses (issue #1282; cold review 0.8.0
-process-ml-and-omas-wrappers F1).
+`compute_tau_E_exp` uses (regression guard for #1282).
 
 The balance used 2/3 for the dW/dt term while tau_E divided a 3/2 W_th by
 the resulting P_loss, so dW/dt was 4/9 of the ideal-plasma value and P_loss

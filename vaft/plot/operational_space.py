@@ -1,4 +1,4 @@
-"""Operational-space population plots with registered-boundary overlays (#944, #1425).
+"""Operational-space population plots with registered-boundary overlays.
 
 A population of plasma states -- one row per equilibrium slice, discharge or
 database entry -- is drawn on a canonical projection of
@@ -41,9 +41,9 @@ from vaft.plot.presentation import presented
 __all__ = ["operational_space_population", "population_overlay", "applicability_status", "APPLICABILITY_STATUSES",
            "li_qa_pair"]
 
-#: How a drawn boundary relates to the plotted population (#1628, plotting side): inside its declared calibration
+#: How a drawn boundary relates to the plotted population: inside its declared calibration
 #: (SUPPORTED), outside it (OUTSIDE), not assessable from what is declared (UNASSESSED), or not drawable on this
-#: projection (NOT_APPLICABLE). There is no MARGINAL: no cutoff is invented (#1639).
+#: projection (NOT_APPLICABLE). There is no MARGINAL: no cutoff is invented.
 APPLICABILITY_STATUSES = ("SUPPORTED", "OUTSIDE", "UNASSESSED", "NOT_APPLICABLE")
 
 #: Aspect ratio R/a below which a tokamak is spherical (Peng and Strickler, Nucl. Fusion 26 (1986) 769:
@@ -61,17 +61,17 @@ BOUNDARY_COLORS = ("#1a1a19", "#a3442b", "#2f6f4f", "#5b4a9e")
 TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
 #: Boundaries shown in the inline style as a dashed reference line, never as a limit: no hatched forbidden side,
 #: no part in the "Stable" zone. Murakami is a historical conventional-tokamak reference, not a limit for a
-#: spherical tokamak (#1602).
+#: spherical tokamak.
 REFERENCE_ONLY = frozenset({"murakami_hugill"})
 #: Boundary pairs drawn in the inline style as one theoretical region between them (a filled permissible domain,
-#: with each bound as a line), not as two hatched limits: the Cheng-Furth-Boozer domain (#1603).
+#: with each bound as a line), not as two hatched limits: the Cheng-Furth-Boozer domain.
 REGIONS = {
     ("cheng_1987_li_qa_lower", "cheng_1987_li_qa_upper"):
         "Cheng-Furth-Boozer 1987 stable domain (theory: q(0) = 1.01, pressureless straight cylinder, no shell)",
 }
 #: Where a source figure ends: annotated at the registered end of the boundary's x range (its
 #: ``Applicability.ranges``), and only when that end is inside the axes, so that the end of a literature
-#: reference is not read as a limit and the data beyond it stay on the plot (#1603). ``{end}`` is that end;
+#: reference is not read as a limit and the data beyond it stay on the plot. ``{end}`` is that end;
 #: the side ("right" of the end point, or "above" it) keeps the note clear of the curve's along-line label.
 SOURCE_ENDS = {
     "wesson_1989_jet_li_qpsi_upper": ("JET Fig. 6 ends\nat $q_\\psi$ = {end}", "right"),
@@ -80,7 +80,7 @@ SOURCE_ENDS = {
 #: Fill of a theoretical permissible domain (REGIONS), shared by the plot and its legend patch.
 REGION_FILL = ("#1baf7a", 0.16)
 #: Projections on which a REFERENCE_ONLY boundary is a reference in every style, the default shaded one too:
-#: on the spherical-tokamak Hugill diagram Murakami must never read as a limit (#1602). The same holds for any
+#: on the spherical-tokamak Hugill diagram Murakami must never read as a limit. The same holds for any
 #: population whose ``table.attrs["machine_class"]`` is a spherical tokamak.
 REFERENCE_PROJECTIONS = frozenset({"hugill_st"})
 
@@ -137,9 +137,33 @@ def _declared_units(table: pd.DataFrame, units: Optional[Mapping[str, str]]) -> 
     return declared
 
 
-def _axis_mismatch(column: str, quantity: _b.BoundaryQuantity, declared: Mapping[str, str]) -> Optional[str]:
+def _declared_quantities(table: pd.DataFrame) -> dict:
+    """``{column: quantity name}`` a table declares in ``attrs["quantities"]`` (summary presets do)."""
+    return dict(getattr(table, "attrs", {}).get("quantities", {}) or {})
+
+
+def _column_for(table: pd.DataFrame, name: str) -> str:
+    """The column that *is* quantity ``name``: one of that name, else the one column declared as it.
+
+    A summary-preset frame keeps its own column names (``beta_normal``) and
+    declares their quantities in ``attrs["quantities"]``; this finds the column
+    without renaming. With no match, or two, ``name`` is returned and the
+    caller reports it missing.
+    """
+    if name in table.columns:
+        return name
+    matches = [column for column, quantity in _declared_quantities(table).items()
+               if quantity == name and column in table.columns]
+    return matches[0] if len(matches) == 1 else name
+
+
+def _axis_mismatch(column: str, quantity: _b.BoundaryQuantity, declared: Mapping[str, str],
+                   quantities: Optional[Mapping[str, str]] = None) -> Optional[str]:
     """Why this column cannot stand for the axis quantity, or None when it can."""
-    if column != quantity.name:
+    declared_quantity = (quantities or {}).get(column)
+    if declared_quantity is not None and declared_quantity != quantity.name:
+        return f"column {column!r} is declared as {declared_quantity!r}, not the projection's {quantity.name!r}"
+    if column != quantity.name and declared_quantity != quantity.name:
         return f"column {column!r} is not the projection's {quantity.name!r}"
     unit = declared.get(column, "-" if quantity.unit == "-" else None)
     if unit is None:
@@ -188,10 +212,12 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
         Curves to draw, and ``(key, reason)`` for each requested boundary left off.
     """
     proj = _projection(projection)
-    x = x or proj.x.name
-    y = y or proj.y.name
+    x = x or _column_for(table, proj.x.name)
+    y = y or _column_for(table, proj.y.name)
     declared = _declared_units(table, units)
-    reasons = [r for r in (_axis_mismatch(x, proj.x, declared), _axis_mismatch(y, proj.y, declared)) if r]
+    quantities = _declared_quantities(table)
+    reasons = [r for r in (_axis_mismatch(x, proj.x, declared, quantities),
+                           _axis_mismatch(y, proj.y, declared, quantities)) if r]
     requested = requested_boundaries(proj, boundaries)
     if reasons:
         return OverlayPlan(proj.key, (), tuple((key, "; ".join(reasons)) for key in requested))
@@ -212,10 +238,11 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
     for key in requested:
         entry = _b.get_boundary(key)
         for q in getattr(entry, "inputs", ()):
-            if q.name in fixed or q.name not in table.columns or q.name in (x, y):
+            column = _column_for(table, q.name)
+            if q.name in fixed or column not in table.columns or column in (x, y):
                 continue
-            if _axis_mismatch(q.name, q, declared) is None:
-                values = _finite(table, q.name)[plotted]
+            if _axis_mismatch(column, q, declared, quantities) is None:
+                values = _finite(table, column)[plotted]
                 if np.isfinite(values).any():
                     fixed[q.name] = float(np.nanmedian(values))
     return overlay_plan(proj, requested, x_range=span(x, x_range), y_range=span(y, y_range), fixed=fixed,
@@ -257,7 +284,7 @@ def _boundary_label(curve: _b.BoundaryCurve) -> str:
     return textwrap.fill(curve.key + (f" ({fixed})" if fixed else ""), width=44, subsequent_indent="  ")
 
 
-#: How a relation that is not a limit is drawn (#1691): no forbidden side and no "Stable" zone, a line style and a
+#: How a relation that is not a limit is drawn: no forbidden side and no "Stable" zone, a line style and a
 #: legend word per ``Boundary.kind``. A threshold reference also names its registered value in the legend.
 REFERENCE_KINDS = {
     "stability_reference": ("-", "stability reference"),
@@ -863,7 +890,7 @@ def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = 
 
     The two references use different quantities -- Wesson the equilibrium edge
     $q_\\psi$ and $l_i(3)$, Cheng et al. a straight cylinder's $q(a)$ and $l_i$ --
-    so they are never drawn on one pair of axes (#1603, #1620): the left panel
+    so they are never drawn on one pair of axes: the left panel
     places the population on Wesson's plane, the right panel draws the CFB
     stable domain on its own plane, with the population only where the table
     has the cylinder quantities.
@@ -1034,8 +1061,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     if boundary_style not in ("shade", "inline"):
         raise ValueError(f"boundary_style must be 'shade' or 'inline', not {boundary_style!r}")
     proj = _projection(projection)
-    x = x or proj.x.name
-    y = y or proj.y.name
+    x = x or _column_for(table, proj.x.name)
+    y = y or _column_for(table, proj.y.name)
     missing = [c for c in (x, y, color, marker) if c and c not in table.columns]
     if missing:
         raise KeyError(f"table has no column(s) {missing}; columns are {list(table.columns)}")
@@ -1175,7 +1202,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
         applicability[curve.key] = applicability_status(curve, rows, (x, y), machine_class)
         suffix = _status_suffix(*applicability[curve.key])
-        if _kind(curve.key) in REFERENCE_KINDS:   # a reference, not a limit: no forbidden side (#1691)
+        if _kind(curve.key) in REFERENCE_KINDS:   # a reference, not a limit: no forbidden side
             _draw_reference(ax, curve, proj.x.name, c, 1.6 * line_scale,
                             label=None if inline else _reference_label(curve, suffix, proj.x.name))
             if inline:
@@ -1222,7 +1249,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     if proj.equality_line and (x, y) == (proj.x.name, proj.y.name):
-        # two normalizations of one ratio (#1691): y = x is where they agree, a guide and not a boundary
+        # two normalizations of one ratio: y = x is where they agree, a guide and not a boundary
         lo, hi = max(xlim[0], ylim[0]), min(xlim[1], ylim[1])
         label = f"{_math(proj.y.symbol)} = {_math(proj.x.symbol)}"
         if hi > lo:

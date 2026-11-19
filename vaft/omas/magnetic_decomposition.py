@@ -1,4 +1,4 @@
-"""Magnetic response split into PF, wall and plasma parts, with an explicit plasma drive (#1795).
+"""Magnetic response split into PF, wall and plasma parts, with an explicit plasma drive.
 
 The routine eddy stage drives the vessel with the measured Rogowski current
 on fixed filaments (:func:`vaft.omas.vest_upstream.build_eddy_ods`).  That is
@@ -6,7 +6,7 @@ a VEST production policy, and it makes a question like "do the magnetics
 support the Rogowski current?" circular: the measurement under test has
 already shaped the wall current the magnetics are compared against.  On
 vestserver a free filament fit prefers 0.5-0.9 x the Rogowski current on most
-native-era shots (#918, H2); answering whether that is the current or the
+native-era shots (provenance: #918, hypothesis H2); answering whether that is the current or the
 wall needs a forward model whose plasma drive is the caller's choice.
 
 This module is that forward model's ODS-level contract:
@@ -57,7 +57,7 @@ __all__ = [
 ]
 
 #: Half-width of the interval around the evaluation time over which a channel
-#: must carry a usable sample [s] -- the EFIT constraint box average's (#433).
+#: must carry a usable sample [s] -- the EFIT constraint box average's.
 VALIDITY_HALF_WIDTH_S = 0.0005
 
 

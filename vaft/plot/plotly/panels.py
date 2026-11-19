@@ -66,7 +66,7 @@ def render_panels(model: Panels, *, show: bool = False, **style: Any) -> Any:
 
 
 def _link_axes(figure: Any, model: Panels, cells: list[tuple[int, int, int, int]]) -> None:
-    """Tie each link's panels together with ``matches`` (issue #1467).
+    """Tie each link's panels together with ``matches``.
 
     The panel that set its own range anchors the link, whatever its place in
     it, so the range it asked for is the range all of them show.

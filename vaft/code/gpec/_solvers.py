@@ -88,8 +88,8 @@ def free_boundary_stable(run_dir: Path, filename: str) -> bool | None:
     """Whether ``filename``'s own energies say every free-boundary mode is stable.
 
     A stable discharge produces no unstable-mode output, so any check that keys
-    on the presence of such output reads the desirable outcome as a failure
-    (issue #423). All three ideal solvers decide stability the same way --
+    on the presence of such output reads the desirable outcome as a failure.
+    All three ideal solvers decide stability the same way --
     ``Re(total1) < 0`` is unstable, anything else is stable
     (``dcon/dcon.F:306-315``, ``rdcon/dcon.f:450-458``,
     ``stride/stride.F:376-385``) -- and all three put that number in their
@@ -233,7 +233,7 @@ def _check_matching_output(run_dir: Path, filename: str) -> tuple[bool, str]:
     only when the solve found rational surfaces to match across
     (``rdcon/rdcon_netcdf.f:317``, ``stride/stride_netcdf.f:212``). An
     equilibrium the solver itself declares free-boundary stable therefore has
-    none to write, and demanding it would fail every stable cell (issue #423).
+    none to write, and demanding it would fail every stable cell.
 
     The rescue is narrow on purpose. The file still has to pass the same
     integrity check on its own -- present, openable, not truncated -- and the
@@ -324,7 +324,8 @@ def _namelist_array(name: str, values, *, note: str = "") -> str:
     """One Fortran namelist assignment holding every element of *values*.
 
     Written out element by element rather than with a repeat count, because
-    the values differ per surface -- which is the whole point of #716. The
+    the values differ per surface -- which is the whole point of giving rmatch
+    one resistive layer per rational surface. The
     trailing comment replaces the one on the line being overwritten, so the
     file still says what the numbers are and where they came from.
     """
@@ -355,8 +356,8 @@ def enable_rdcon_matching_output(path: Path) -> bool:
 
     The packaged `rdcon.in` ships `bin_delmatch=f`, whose own comment reads
     "Output solution for rmatch" -- so `rmatch` then dies on a missing
-    `gal_solution.dat` before it can use any of the per-surface inputs
-    #716 is about. `rdcon/gal.f:2007` writes both files `rmatch` opens under
+    `gal_solution.dat` before it can use any of the per-surface `eta`/`massden`
+    inputs. `rdcon/gal.f:2007` writes both files `rmatch` opens under
     that one flag::
 
         IF (bin_delmatch) THEN
@@ -383,7 +384,7 @@ def enable_rdcon_matching_output(path: Path) -> bool:
 
 
 def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
-    """Give rmatch one `eta` and one `massden` per rational surface (#716).
+    """Give rmatch one `eta` and one `massden` per rational surface.
 
     Reads the surfaces out of the `rdcon_output_n<mode>.nc` RDCON has just
     written, evaluates the supplied kinetic profiles there, and rewrites
@@ -468,7 +469,7 @@ def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
 #: ``delta.out`` (``match.f:814``), and never ``globalsol.bin``.  The packaged
 #: ``rdcon.in`` sets ``coil%rpec_flag=f`` and ``rmatch.in`` sets
 #: ``match_flag=t``, so these three are what a successful companion leaves.
-#: ``delta.out`` is also the file the plasma-formalism classification (#1734)
+#: ``delta.out`` is also the file the plasma-formalism classification
 #: reads as evidence that the inner layer was solved.
 RMATCH_MATCH_OUTPUTS: tuple[str, ...] = ("delta.out", "insol.bin", "outsol_tot.bin")
 
@@ -501,7 +502,7 @@ class RDCONSolver:
         )
 
     def prepare_companions(self, run_dir: Path, mode: int, config) -> None:
-        """Fill rmatch's per-surface `eta`/`massden` from the plasma (#716).
+        """Fill rmatch's per-surface `eta`/`massden` from the plasma.
 
         Deferred to here rather than done in `prepare` because the arrays have
         to line up with the rational surfaces RDCON itself found: it writes
@@ -700,7 +701,7 @@ def stage_dcon_products(dcon_dir: Path, run_dir: Path) -> tuple[Path, ...]:
 
 #: What ideal GPEC's ``gpec.in`` names as ``dcon_dir``: its own working
 #: directory, relative, so no path length can reach GPEC's 128-character
-#: fixed-length strings (#1239).  See :meth:`IdealGPECSolver.prepare`.
+#: fixed-length strings.  See :meth:`IdealGPECSolver.prepare`.
 GPEC_DCON_DIR = "."
 
 #: ``CHARACTER(256) :: data_dir`` in GPEC's ``coil/coil.F``.  A longer value is
@@ -739,7 +740,7 @@ class IdealGPECSolver:
         # CHARACTER(128) and then joins `euler.bin` etc. onto it in variables
         # of the same length, so an absolute path past ~118 characters (a deep
         # worktree, a scratch or Slurm directory) was silently truncated and
-        # GPEC failed to open its input (#1239).
+        # GPEC failed to open its input.
         options = ctx.config.gpec
         replacements: dict[str, object] = {
             "dcon_dir": GPEC_DCON_DIR,
@@ -835,7 +836,7 @@ class IdealGPECSolver:
             # coil.in first: it carries the current-count validation, so a
             # rejected request leaves no half-staged coil/ tree behind.
             # Named relative, like dcon_dir: the staged sets sit in the cell
-            # GPEC runs in, so no workdir path can reach coil.F's limit (#1239).
+            # GPEC runs in, so no workdir path can reach coil.F's limit.
             write_coil_in(
                 ctx.template_dir / "coil.in",
                 ctx.run_dir / "coil.in",

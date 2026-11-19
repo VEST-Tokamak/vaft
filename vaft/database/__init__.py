@@ -46,6 +46,7 @@ __all__ = [
     "equilibrium_summary",
     "export_summary",
     "get_summary_preset",
+    "summary_contract",
     "export",
 ]
 
@@ -417,6 +418,17 @@ def get_summary_preset(name):
     return _get_summary_preset(name)
 
 
+def summary_contract(preset=None):
+    """A preset's declared row contract as a table (unit, quantity, definition per column).
+
+    Without ``preset``, one row per preset: grain, identity and time axis. See
+    :func:`vaft.database._summary.summary_contract`.
+    """
+    from ._summary import summary_contract as _summary_contract
+
+    return _summary_contract(preset)
+
+
 def export(shot, source=None, *, backend, output=None, overwrite=False, occurrence=0,
            cache="auto", transport="auto", cache_max=None):
     """Export one shot from an HSDS source as portable local files.
@@ -469,7 +481,9 @@ def export_summary(df, path, *, mode="replace", key_columns=None, replace_groups
 
 def __getattr__(name: str):
     # Composing two sources is an explicit request, never something `load` does
-    # on its own (issue #305); the helper is exposed here so asking for it is as
+    # on its own: each source answers for itself, so a shot missing from the
+    # optional `impa` source is not mistaken for an incomplete baseline. The
+    # helper is exposed here so asking for it is as
     # easy as asking for one source, not so that anything does it implicitly.
     if name == "compose":
         value = getattr(import_module(".composition", __name__), "compose")
@@ -479,7 +493,8 @@ def __getattr__(name: str):
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module
-    # Plot adapters (issue #63) and their dd_*/extract_* twins (umbrella #434):
+    # Plot adapters and their dd_*/extract_* twins (the Data Dictionary paths a
+    # plot reads, and its undrawn view model):
     # resolved lazily so importing vaft.database pulls in neither the
     # plotting stack nor Matplotlib.
     if name.startswith(("plot_", "extract_", "dd_")) or name in ("available_plots", "stored_ids"):

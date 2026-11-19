@@ -1,4 +1,4 @@
-"""Regression tests for issue #65 equilibrium representations and algorithms."""
+"""Parametric equilibrium representations and algorithms: Miller, Solov'ev, descriptors."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ def test_models_validate_shapes_and_missing_fields_are_actionable():
 def test_geqdsk_and_ods_adapters_are_numerically_equivalent():
     source = sample_geqdsk()
     # The g-file stores psi in Wb/rad (COCOS 1 family); the ODS written by
-    # to_omas stores DD-conformant Wb (COCOS 11 family, issue #236). The two
+    # to_omas stores DD-conformant Wb (COCOS 11 family). The two
     # adapters are equivalent through the explicit convention conversion.
     direct = as_equilibrium(source, convention=1)
     through_ods = convert_cocos(as_equilibrium(source.to_omas(), convention=11), 1)
@@ -178,7 +178,7 @@ def test_miller_sequence_recovers_radial_derivatives():
 
 
 def test_miller_fits_nested_in_a_sequence_carry_the_equilibrium_convention():
-    # #604: the per-surface fits used to bypass `_provenance`, so they recorded no
+    # Regression guard for #604: the per-surface fits used to bypass `_provenance`, so they recorded no
     # convention while the sequence did, though their q and shear depend on it.
     from dataclasses import replace
 
@@ -235,7 +235,7 @@ def test_boundary_limiter_and_double_null_classification_and_gaps():
 
 
 def test_descriptors_are_invariant_under_cocos_family_conversion():
-    """Bugbot #204-1: psi-derived fields must honor the 2*pi weber convention.
+    """Psi-derived fields must honor the 2*pi weber convention.
 
     Converting COCOS 2 (psi per radian) to COCOS 12 (full weber) scales psi by
     2*pi; beta_p, the Shafranov integrals, and li are physical quantities and
@@ -251,7 +251,7 @@ def test_descriptors_are_invariant_under_cocos_family_conversion():
 
 
 def test_miller_sequence_is_invariant_to_level_ordering():
-    """Bugbot #204-2: q/shear/alpha must follow the radius sorting."""
+    """q/shear/alpha must follow the radius sorting."""
     eq = _analytic_equilibrium()
     levels = [0.16, 0.25, 0.36, 0.49, 0.64]
     forward = fit_miller_sequence(eq, levels)
@@ -276,7 +276,7 @@ def test_miller_sequence_is_invariant_to_level_ordering():
 
 
 def test_outboard_radius_uses_the_midplane_not_the_contour_maximum():
-    """Bugbot #204-3: dRsep must sample R_out at z0, not max(R) of the contour."""
+    """dRsep must sample R_out at z0, not max(R) of the contour."""
     from vaft.process._equilibrium_parametric import _outboard_radius_at_z
 
     contour = Contour(
@@ -313,7 +313,7 @@ def _classic_solovev(psi_boundary: float = 0.08, kappa: float = 1.4):
 
 
 def test_solovev_axis_is_the_o_point_not_a_grid_corner():
-    """Bugbot #204-4: with the axis omitted, the O-point must be found even on
+    """With the axis omitted, the O-point must be found even on
     a generous grid window where |psi - psi_boundary| peaks at a domain corner."""
     from vaft.process.equilibrium import solovev_to_equilibrium
 
@@ -792,7 +792,7 @@ def test_the_squared_fit_still_reports_a_distance_to_the_curve():
 
 @pytest.mark.parametrize("convention", [11, 1, 2, 13, 17])
 def test_solovev_plasma_current_agrees_with_amperes_law(convention):
-    """#966: the exported ``ip`` is the current the exported field encloses,
+    """The exported ``ip`` is the current the exported field encloses,
     along the convention's own toroidal direction, and carries the sign Sauter
     Eq. 23 ties to the flux and pressure gradients."""
     from vaft.data.cocos import cocos_spec
@@ -821,7 +821,7 @@ def test_solovev_plasma_current_agrees_with_amperes_law(convention):
 
 
 # ---------------------------------------------------------------------------
-# compare_contours (#885)
+# compare_contours
 # ---------------------------------------------------------------------------
 
 def _circle(radius, count, *, start=0.0, reverse=False, centre=(1.0, 0.0)):
@@ -903,7 +903,7 @@ def test_a_contour_needs_three_points():
 
 
 # ---------------------------------------------------------------------------
-# find_stationary_points (#220)
+# find_stationary_points
 # ---------------------------------------------------------------------------
 
 def _saddle_field():
@@ -972,7 +972,7 @@ def test_stationary_points_of_a_solovev_field_are_true_zeros_of_its_gradient():
 
 
 def test_a_double_null_solovev_field_has_its_saddles_where_they_were_put():
-    """The #220 criterion names Solov'ev saddles as well as its axis.
+    """The stationary-point finder names Solov'ev saddles as well as its axis.
 
     Constraining psi and both of its derivatives to vanish at (0.88, +-0.47) --
     the basis is even in Z, so one constraint covers both -- places the
@@ -1017,7 +1017,7 @@ def test_stationary_points_of_a_record_without_psi_are_empty():
     assert find_stationary_points(EquilibriumData()) == ()
 
 
-# --- #1307: one source of truth for the sign of B_phi -------------------------------------------------------------
+# --- one source of truth for the sign of B_phi -----------------------------------------------------------------
 
 def _field_sign_record(f_boundary, f_sign):
     from vaft.process.equilibrium import solovev_shape_constraints, solovev_to_equilibrium

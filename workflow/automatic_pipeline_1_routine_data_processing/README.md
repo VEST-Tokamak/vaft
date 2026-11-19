@@ -1,7 +1,7 @@
 # VEST routine data-processing pipeline
 
-The maintained VEST production pipeline. `workflow/main` was folded into this
-workflow by PR #121; this is the single Snakemake DAG that carries a shot from
+The maintained VEST production pipeline. It absorbed the former `workflow/main`
+workflow; this is the single Snakemake DAG that carries a shot from
 the raw DAQ export through to linear-MHD stability:
 
 ```text
@@ -16,8 +16,8 @@ Every product path is resolved by `PipelinePaths` in `paths.py`, never
 reconstructed by hand. Two layouts are selectable through the `layout` config
 key: the legacy `shot_first` tree (default, diffable against the read-only
 legacy server) and the canonical `filedb` grammar from
-`vaft.database.filedb.FileDB`. Issue #138 removes `shot_first` once #137
-finishes validating the canonical schema.
+`vaft.database.filedb.FileDB`. Open: #138 (removing `shot_first` once the
+canonical schema is validated, #137).
 
 ```bash
 make run                 # snakemake --cores 30 --configfile config.yaml
@@ -26,7 +26,7 @@ make run                 # snakemake --cores 30 --configfile config.yaml
 ## HSDS sources
 
 Each analysis lineage is stored in its own named HSDS source, so two valid
-representations of the same IDS never overwrite each other (issue #56).
+representations of the same IDS never overwrite each other.
 `vaft.database` writes `main` unless a call names another source;
 `chease-mhd-stability` takes the CHEASE-refined equilibrium and the linear-MHD
 results that follow from it. `python -m vaft.cli summary sources` prints the

@@ -3,7 +3,7 @@
 Each ``plot_<canonical-stem>`` here interprets its input, builds the typed view
 model the matching :mod:`vaft.plot` renderer expects, and delegates rendering.
 No Matplotlib code lives in this namespace: the adapter owns data interpretation
-and the renderer owns drawing (issues #62 and #63).
+and the renderer owns drawing.
 
 Every adapter shares one signature::
 
@@ -14,7 +14,7 @@ and returns the renderer's ``(Figure, Axes)`` or ``(Figure, ndarray[Axes])``.
 ``"key"``, or an explicit sequence -- and list/ODC ordering is preserved, so
 repeated calls produce the same legend order.
 
-Every ``plot_<stem>`` has two twins (umbrella #434): ``dd_<stem>()`` lists the
+Every ``plot_<stem>`` has two twins: ``dd_<stem>()`` lists the
 IMAS Data Dictionary paths it reads without touching data, and
 ``extract_<stem>(source, *, label="shot", **extraction_options)`` returns the
 view model the plot draws, undrawn -- ``.to_xarray()`` on it gives an
@@ -35,7 +35,7 @@ from typing import Any, Sequence
 from vaft.plot.backend.render import render_entries
 from vaft.plot.registry import get_spec, specs
 
-from .interactive import (  # public entry points, issues #261 and #482
+from .interactive import (  # public entry points
     plot_diagnostics_time_interactive,
     plot_equilibrium_interactive,
 )
@@ -79,7 +79,7 @@ def compose(
     label: str | Sequence[str] = "shot",
     **presentation: Any,
 ) -> Any:
-    """Draw several canonical plots of ``source`` as one figure (issue #1467).
+    """Draw several canonical plots of ``source`` as one figure.
 
     ``composition`` is a :class:`vaft.plot.FigureComposition` -- which plots,
     in which grid cells, which axes move together -- or its ``to_dict()``
@@ -114,7 +114,7 @@ def available_plots(
     available_only: bool | None = None,
     **filters: Any,
 ):
-    """What can be plotted, as a semantic catalog (issue #262).
+    """What can be plotted, as a semantic catalog.
 
     Without ``source`` this is :func:`vaft.plot.available_plots` plus what the
     recipes declare: display units, layouts, analysis methods, overview
@@ -260,7 +260,7 @@ def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
     module-level ``<name>_overlay(ods, ax, ...)`` functions, not the ODS
     methods, so ``ods.plot_overlay()`` keeps OMAS' own behaviour and draws
     onto ``pyplot.gca()`` while each individual ``ods.plot_<name>_overlay()``
-    opens a figure of its own (issue #271).
+    opens a figure of its own.
     """
     canonical = {f"plot_{spec.name}" for spec in specs()}
     return tuple(
@@ -352,7 +352,7 @@ def plot_camera_visible_image_fluctuation(
     """One FAST-camera frame with its local temporal background removed.
 
     The published step that brings fast filamentary structure out of the slowly
-    varying line emission (issue #161).  ``background_frames=`` sets the window.
+    varying line emission.  ``background_frames=`` sets the window.
 
     Renders with :func:`vaft.plot.camera_visible_image_fluctuation`.
     """
@@ -372,7 +372,7 @@ def plot_camera_visible_image_mhd_power(
     """Per-pixel MHD-band power normalised by the local average emission.
 
     The published spectrally filtered image: a band magnitude, not an
-    inverse-transform reconstruction (issue #161).  ``centre_frequency=`` names the
+    inverse-transform reconstruction.  ``centre_frequency=`` names the
     band the magnetics report; without it the camera's own dominant component stands in.
 
     Renders with :func:`vaft.plot.camera_visible_image_mhd_power`.
@@ -392,7 +392,7 @@ def plot_camera_visible_spectrogram(
 ) -> tuple[Any, Any]:
     """Time-frequency map of the camera intensity summed over one image region.
 
-    The camera side of the published camera/magnetics comparison (issue #161).
+    The camera side of the published camera/magnetics comparison.
     ``region=(row_start, row_stop, column_start, column_stop)`` chooses what is summed.
 
     Renders with :func:`vaft.plot.camera_visible_spectrogram`.
@@ -520,7 +520,7 @@ def plot_equilibrium_field_2d(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> Any:
-    """One reconstructed 2-D equilibrium quantity on the (R, Z) grid (issue #483).
+    """One reconstructed 2-D equilibrium quantity on the (R, Z) grid.
 
     ``field=`` chooses it -- ``psi`` (default), ``j_tor``, ``pressure``,
     ``b_field_r``, ``b_field_z``, ``b_field_tor`` -- deriving what the slice
@@ -1031,7 +1031,7 @@ def plot_camera_visible_image(
     ``animation=True`` the default selection is the interval containing
     complete equilibrium sections, and ``.save("movie.mp4")`` writes the
     movie plus a physical-time/provenance JSON sidecar.
-    Renders with :func:`vaft.plot.camera_visible_image` (issue #261).
+    Renders with :func:`vaft.plot.camera_visible_image`.
     """
     return render("camera_visible_image", source, ax=ax, show=show, label=label, **options)
 
@@ -1046,8 +1046,8 @@ def plot_equilibrium_overview_histories(
 ) -> tuple[Any, Any]:
     """Equilibrium global quantities against time: Ip, beta_p, li, q95.
 
-    This is the composite ``plot_equilibrium_overview`` drew before issue #261
-    made that name a one-slice summary.  Renders with
+    This is the composite ``plot_equilibrium_overview`` used to draw; that name
+    is now a one-slice summary.  Renders with
     :func:`vaft.plot.equilibrium_overview_histories`.
     """
     return render(
@@ -1065,10 +1065,10 @@ def plot_diagnostics_overview(
 ) -> tuple[Any, Any]:
     """Time overview across the diagnostic subjects, one panel per available member.
 
-    A diagnostic the input lacks is left out and the grid shrinks (issue
-    #476); ``members=`` picks the panels by name, and ``interactive=True``
+    A diagnostic the input lacks is left out and the grid shrinks;
+    ``members=`` picks the panels by name, and ``interactive=True``
     -- or :func:`plot_diagnostics_time_interactive` -- offers that and the
-    presets every panel honours as controls (issue #482).
+    presets every panel honours as controls.
 
     Renders with :func:`vaft.plot.diagnostics_overview`.
     """
@@ -1174,7 +1174,7 @@ def plot_diagnostics_spectrum_coherence(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Coherence and relative phase of two fluctuation channels (issue #1005).
+    """Coherence and relative phase of two fluctuation channels.
 
     ``x_signal=`` and ``y_signal=`` name the channels -- a Mirnov index,
     ``"sxr:3"``, ``"mirnov:OutMirnov_45_L1-01"``, ``"interferometer:0"``, an IDS
@@ -1198,11 +1198,11 @@ def plot_flux_loop_spatial_flux(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> Any:
-    """Flux-loop flux against sensor position at one time (issue #486).
+    """Flux-loop flux against sensor position at one time.
 
     ``time=`` snaps to the nearest stored sample, ``time_slice=`` maps
     through a stored equilibrium slice and ``time_index=`` names a sample of
-    the shared magnetics grid (one of the three, issue #1380); ``coordinate="z"`` (default) draws
+    the shared magnetics grid (one of the three); ``coordinate="z"`` (default) draws
     the inboard and outboard loops as two panels, ``"theta"`` one panel
     against the poloidal angle about the layout centre (``centre=``).
     Renders with :func:`vaft.plot.flux_loop_spatial_flux` from OMAS input.
@@ -1237,7 +1237,7 @@ def plot_b_field_probe_spatial_field(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> Any:
-    """B-probe poloidal field against sensor position at one time (issue #486).
+    """B-probe poloidal field against sensor position at one time.
 
     Same options as :func:`plot_flux_loop_spatial_flux`; ``angle="stored"``
     reads each probe's IMAS ``poloidal_angle`` instead of the geometric one.
@@ -1356,7 +1356,7 @@ def plot_passive_structure_overview_wall_reduction(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Reduced-wall response error against retained order (vaft #494).
+    """Reduced-wall response error against retained order.
 
     Options: ``rows`` (precomputed convergence rows), ``drive``, ``rules``,
     ``orders``, ``metrics``, ``remap_em_coupling``.  Renders with
@@ -1588,7 +1588,7 @@ __all__ = [
     "render",
 ]
 
-# The other two verbs of every plot (umbrella #434): ``dd_<stem>()`` lists the
+# The other two verbs of every plot: ``dd_<stem>()`` lists the
 # Data Dictionary paths, ``extract_<stem>(source, ...)`` returns the view
 # model undrawn.  Generated from the registry the ``plot_*`` above are written
 # against, so the three surfaces cover one set of plots.

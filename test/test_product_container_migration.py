@@ -1,4 +1,4 @@
-"""Migrating stored stage products onto their declared shape (#813).
+"""Migrating stored stage products onto their declared shape.
 
 Modelled on `test_filedb_grammar_relocation.py`, because `migrate-products` is
 modelled on `relocate` -- with the difference that matters asserted here: this
@@ -358,7 +358,7 @@ def test_an_unreadable_root_is_named_rather_than_silently_empty(tmp_path):
 
 
 def test_the_hdf5_stages_are_not_in_the_migration_at_all():
-    """They declared `.h5` from the start (#599); there is no `.json` to move."""
+    """They declared `.h5` from the start; there is no `.json` to move."""
     stages = {row.stage for row in MIGRATIONS}
     assert stages.isdisjoint(
         {"soft_x_rays", "camera_visible", "camera_visible_fluctuation"}

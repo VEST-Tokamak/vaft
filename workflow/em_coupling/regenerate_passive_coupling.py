@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Repair the passive-passive coupling asset to exact reciprocity, with provenance (issues #373, #347).
+"""Repair the passive-passive coupling asset to exact reciprocity, with provenance.
 
 `vaft/data/geometry/VEST_em_coupling_pf_versions.npz` was committed as an
 opaque legacy binary.  Its `mutual_passive_passive` (950 x 950) violated
-reciprocity by 1.27e-3 (relative), and the mapper has folded it to
-(M + M^T)/2 on load since #347.  The defect has one cause: the donor MATLAB
+reciprocity by 1.27e-3 (relative), and the mapper folded it to
+(M + M^T)/2 on load.  The defect has one cause: the donor MATLAB
 kernel (`getMutualInductanceCoil.m`) tested the *first* conductor's material
 twice where it meant to test both, so the relative permeability factor used
 for SUS316LN (1.04) was applied only when the SUS loop came first.  The

@@ -1,4 +1,4 @@
-"""Chain A against chain B on the #1839 archive cases (issue #1842): the numbers behind the choice.
+"""Chain A against chain B on the matched kinetic-state archive cases: the numbers behind the choice.
 
 Two ways of getting from the equilibrium and Thomson to a kinetic state:
 
