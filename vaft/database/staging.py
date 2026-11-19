@@ -550,8 +550,14 @@ def stage_imas_shot(
     if pending:
         with ThreadPoolExecutor(max_workers=min(domain_workers(), len(pending))) as executor:
             futures = [executor.submit(item.download) for item in pending]
-            for future in futures:
-                future.result()
+        # Record every domain that did arrive before surfacing a failed one,
+        # as the sequential loop did, so a retry does not fetch them again.
+        failure = next((f.exception() for f in futures if f.exception() is not None), None)
+        if failure is not None:
+            for item, future in zip(pending, futures):
+                if future.exception() is None:
+                    item.finish()
+            raise failure
         for item in pending:
             _, hits[item.filename], transports[item.filename], transfers[item.filename] = (
                 item.finish()

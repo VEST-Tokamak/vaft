@@ -291,3 +291,25 @@ def test_revision_probes_stay_on_the_calling_thread(fake_hsds, monkeypatch, tmp_
     staging.stage_imas_shot("public", 123, tmp_path / "cold", requested_ids=None, cache=cache)
     staging.stage_imas_shot("public", 123, tmp_path / "warm", requested_ids=None, cache=cache)
     assert seen and set(seen) == {main}
+
+
+def test_a_failed_download_surfaces_and_keeps_the_domains_that_arrived(fake_hsds, monkeypatch, tmp_path):
+    """With overlapping downloads, one failed hsget is still the stage's error,
+    and the domains that did arrive reach the cache (as in the sequential loop)."""
+    _remote, calls, _revisions = fake_hsds
+    original = staging.run_hsget
+
+    def failing(uri, target):
+        if uri.endswith("/magnetics.h5"):
+            raise RuntimeError("hsget failed")
+        return original(uri, target)
+
+    monkeypatch.setattr(staging, "run_hsget", failing)
+    cache = tmp_path / "cache"
+    with pytest.raises(RuntimeError, match="hsget failed"):
+        staging.stage_imas_shot("public", 123, tmp_path / "a", requested_ids=None, cache=cache)
+
+    monkeypatch.setattr(staging, "run_hsget", original)
+    calls.clear()
+    staging.stage_imas_shot("public", 123, tmp_path / "b", requested_ids=None, cache=cache)
+    assert calls == ["magnetics.h5"]
