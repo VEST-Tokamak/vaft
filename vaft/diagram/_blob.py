@@ -1,4 +1,4 @@
-"""SOL blobs and filaments: why a blob moves, how the current closes, how fast, and in which regime (#1211).
+"""SOL blobs and filaments: why a blob moves, how the current closes, how fast, and in which regime.
 
 ``blob_polarization``
     the mechanism in the blob's cross-section: a density monopole, the

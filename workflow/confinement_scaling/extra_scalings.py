@@ -1,6 +1,6 @@
-"""Ohmic and L-mode confinement scalings for the Lane D figures (#548), evaluated on table columns.
+"""Ohmic and L-mode confinement scalings for the Lane D figures, evaluated on table columns.
 
-The formulas live in ``vaft.formula`` since #670; this module only maps the
+The formulas live in ``vaft.formula``; this module only maps the
 canonical confinement columns onto them, row by row, NaN where an input is
 missing.
 

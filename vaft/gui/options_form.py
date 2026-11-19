@@ -1,4 +1,4 @@
-"""The Figure Options form, generated from :class:`vaft.plot.FigureOptions` (#1421).
+"""The Figure Options form, generated from :class:`vaft.plot.FigureOptions`.
 
 Every field of the options dataclass becomes one widget whose empty state
 means *inherited* -- the format, theme or plot keeps deciding -- so the form

@@ -180,7 +180,7 @@ def _wall_check(mygs, limiter: Any, tolerance: float = 1.0e-3) -> dict[str, Any]
 
 
 def _apply_vessel_currents(mygs, inputs) -> dict[str, float]:
-    """Impose the eddy-stage wall currents on the vessel coil regions (#1534).
+    """Impose the eddy-stage wall currents on the vessel coil regions.
 
     Each vessel region is a one-turn coil driven at 1 A. OFT spreads a coil's
     current as ``I * dist / area`` over the region, so the distribution is set
@@ -276,7 +276,7 @@ def _save_eqdsk(mygs, path: Path, config: TokaMakerConfig, run_info: str) -> Non
     ``truncate_eq=False`` keeps ``lcfs_pad`` for tracing but extrapolates the
     contour back to the true boundary flux. OFT's default (``True``) writes the
     ``1 - lcfs_pad`` surface as RBBBS/ZBBBS and as the boundary flux, so a
-    limited plasma never shows wall contact in the export (issue #882 item 1).
+    limited plasma never shows wall contact in the export.
     """
     mygs.save_eqdsk(
         str(path),

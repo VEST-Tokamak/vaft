@@ -1,10 +1,10 @@
-"""Issue #479: the radial coordinates of an equilibrium 1-D profile.
+"""The radial coordinates of an equilibrium 1-D profile.
 
 Five names, validated at every adapter; ``r_major`` mirrors the profile
 through the magnetic axis and marks the axis and the limiter; ``r_minor``
 is the midplane half-width; ``sqrt_phi_norm`` is the toroidal coordinate
 sourced from a stored ``phi``.  What a slice cannot supply degrades with a
-relabelled axis (issue #276), never with a wrong label.
+relabelled axis, never with a wrong label.
 """
 
 from __future__ import annotations
@@ -182,7 +182,7 @@ def test_entries_that_disagree_fall_back_together(sample):
 
 
 def test_no_entry_is_left_on_a_coordinate_under_another_entrys_label(sample):
-    """Review of #556: the common fallback failing for a later entry used to
+    """The common fallback failing for a later entry used to
     relabel the axis 'index' while an earlier entry kept its real coordinate."""
     stored_radii = copy.deepcopy(sample)
     from vaft.omas import update_equilibrium_profiles_1d_radial_coordinates
@@ -297,7 +297,7 @@ def _core_profiles_ods():
 
 @pytest.mark.parametrize("name", ["electron_temperature_profile", "electron_density_profile"])
 def test_a_core_profile_on_psi_norm_draws_psi_norm_not_its_square_root(name):
-    """Issue #1314: psi_norm read grid.rho_pol_norm, sqrt(psi_N), under a psi_N label."""
+    """Regression guard for #1314: psi_norm read grid.rho_pol_norm, sqrt(psi_N), under a psi_N label."""
     ods, psi_n, rho_pol = _core_profiles_ods()
     model = build_model(name, normalize_entries(ods), time_slice=0, coordinate="psi_norm")
     assert model.coordinate_label == COORDINATE_LABELS["psi_norm"]
@@ -323,3 +323,45 @@ def test_every_declared_coordinate_form_names_a_declared_coordinate():
             # a leaf named for a square root is never drawn as the flux itself
             if path.endswith("rho_pol_norm") and coordinate == "psi_norm":
                 assert recipe.coordinate_forms.get(coordinate) == "square", name
+
+
+def _grid_psi_only_ods(scale=1.0):
+    """A core profile stored on grid.psi (no rho_pol_norm) beside its equilibrium slice."""
+    ods, psi_n, _ = _core_profiles_ods()
+    del ods["core_profiles.profiles_1d.0.grid.rho_pol_norm"]
+    ods["core_profiles.profiles_1d.0.grid.psi"] = scale * (-0.05 + 0.04 * psi_n)
+    ods["equilibrium.time"] = np.array([0.1, 0.3])
+    for index, instant in enumerate((0.1, 0.3)):
+        ods[f"equilibrium.time_slice.{index}.time"] = instant
+    # the slice at the profile's time, not the one sharing its index
+    ods["equilibrium.time_slice.0.global_quantities.psi_axis"] = 0.0
+    ods["equilibrium.time_slice.0.global_quantities.psi_boundary"] = 1.0
+    ods["equilibrium.time_slice.1.global_quantities.psi_axis"] = -0.05
+    ods["equilibrium.time_slice.1.global_quantities.psi_boundary"] = -0.01
+    return ods, psi_n
+
+
+@pytest.mark.parametrize("name", ["electron_temperature_profile", "electron_density_profile"])
+def test_a_core_profile_without_rho_pol_norm_takes_psi_norm_from_its_grid_psi(name):
+    """#2253: grid.psi against the time-matched equilibrium, not a sample index."""
+    ods, psi_n = _grid_psi_only_ods()
+    model = build_model(name, normalize_entries(ods), time_slice=0, coordinate="psi_norm")
+    assert model.coordinate_label == COORDINATE_LABELS["psi_norm"]
+    np.testing.assert_allclose(model.series[0].x, psi_n, atol=1e-12)
+
+
+def test_a_grid_psi_off_the_unit_interval_is_refused_with_a_warning():
+    ods, psi_n = _grid_psi_only_ods(scale=2.0 * np.pi)  # Wb against Wb/rad (#278)
+    with pytest.warns(UserWarning, match="not drawn as psi_N"):
+        model = build_model("electron_density_profile", normalize_entries(ods), time_slice=0, coordinate="psi_norm")
+    assert model.coordinate_label != COORDINATE_LABELS["psi_norm"]
+    np.testing.assert_array_equal(model.series[0].x, np.arange(psi_n.size, dtype=float))
+
+
+def test_the_packaged_kinetic_sample_draws_its_core_profile_on_psi_norm():
+    ods = sample_ods(48224)
+    assert "rho_pol_norm" not in ods["core_profiles.profiles_1d.0.grid"]
+    model = build_model("electron_density_profile", normalize_entries(ods), coordinate="psi_norm")
+    assert model.coordinate_label == COORDINATE_LABELS["psi_norm"]
+    x = model.series[0].x
+    assert x[0] == pytest.approx(0.0, abs=1e-9) and x[-1] == pytest.approx(1.0, abs=1e-9)

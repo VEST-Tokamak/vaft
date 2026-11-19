@@ -1,4 +1,4 @@
-"""Straight-field-line coordinates: one equilibrium, many angles (#1074).
+"""Straight-field-line coordinates: one equilibrium, many angles.
 
 ``sfl_coordinate_grids``
     PEST, Boozer, Hamada and equal-arc constant-angle lines on the same
@@ -384,7 +384,7 @@ def _fourier_convergence_shifted(n: int, labels: bool) -> Diagram:
 
 
 # ---------------------------------------------------------------------------
-# action-angle, validity near a separatrix, coordinates vs COCOS (#1074 part 2)
+# action-angle, validity near a separatrix, coordinates vs COCOS
 # ---------------------------------------------------------------------------
 
 

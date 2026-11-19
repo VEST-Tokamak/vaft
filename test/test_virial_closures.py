@@ -1,6 +1,6 @@
 """The three virial identities, the three pairwise closures, and what closes.
 
-Issue #546. Every assertion here is against the identities
+Every assertion here is against the identities
 
     E1: 3*beta_p + li - mu_i        = S1 + S2
     E2:   beta_p + li + mu_i        = (RT/R0) * S2
@@ -133,7 +133,7 @@ def test_the_full_solve_recovers_all_three_unknowns():
 
 
 def test_bongard_is_exactly_the_pair_13_closure():
-    """Acceptance criterion of #546: the historical low-aspect-ratio closure is
+    """The historical low-aspect-ratio closure is
     not merely close to the RT-free pair, it is the same algebra."""
     assert virial_bongard_from_S_alpha_mu(S1, S2, S3, ALPHA, MU) == (
         virial_pair_13_from_S_alpha_mu(S1, S2, S3, ALPHA, MU)
@@ -141,7 +141,7 @@ def test_bongard_is_exactly_the_pair_13_closure():
 
 
 def test_lao_beta_p_is_pair_12_but_lao_li_is_not():
-    """The distinction #546 exists to make explicit. Lao's beta_p comes from
+    """The distinction the closures make explicit. Lao's beta_p comes from
     E1+E2; his li takes beta_p - mu_i from the same pair and substitutes it into
     E3, so it is a three-relation result wearing a pairwise name."""
     beta_lao, li_lao = virial_lao_from_S_alpha_mu_rt(S1, S2, S3, ALPHA, MU, RT)
@@ -230,7 +230,7 @@ def test_each_closure_depends_on_exactly_the_inputs_its_identities_carry(name, e
     ],
 )
 def test_a_singular_closure_is_indeterminate_not_a_large_number(label, call):
-    """#546: near-singular cases must return indeterminate, not plausible-looking
+    """Near-singular cases must return indeterminate, not plausible-looking
     finite garbage that is then read as a physical failure."""
     values = call()
     assert all(math.isnan(v) for v in values), f"{label} returned {values}"
@@ -316,7 +316,7 @@ def test_consistent_inputs_give_a_vanishing_aggregate():
     ]
     assert virial_residual_rms(*normalized) == pytest.approx(0.0, abs=1e-12)
 
-# --- what the review of #546 found, pinned so it cannot come back -----------
+# --- what the closure review found, pinned so it cannot come back -----------
 
 
 def test_a_normalized_residual_refuses_an_unknown_scale():

@@ -1,4 +1,4 @@
-"""Plasma-free magnetic-response benchmark for the VEST wall model (issue #190).
+"""Plasma-free magnetic-response benchmark for the VEST wall model.
 
 One question, asked of the machine model rather than of a shot:
 
@@ -6,19 +6,20 @@ One question, asked of the machine model rather than of a shot:
     measured plasma-free magnetic response across representative VEST shots, PF
     excitations, sensors and machine eras?
 
-That is a different question from the routine eddy-stage QA (#139), which asks
+That is a different question from the routine eddy-stage QA, which asks
 whether *this* shot's vacuum reconstruction looks right, and different again
-from magnetics signal quality (#189), which asks whether the waveform is a
-measurement at all.  The three must not be run together::
+from magnetics signal quality (:mod:`vaft.validation.magnetics`), which asks
+whether the waveform is a measurement at all.  The three must not be run
+together::
 
-    #189  is the datum usable?              -> magnetics.*.validity
-    #190  does it match the vacuum model?   -> residual metrics   *(here)*
-    #139  may the pipeline use the result?  -> stage QA policy
+    signal quality      is the datum usable?              -> magnetics.*.validity
+    vacuum benchmark    does it match the vacuum model?   -> residual metrics   *(here)*
+    eddy-stage QA       may the pipeline use the result?  -> stage QA policy
 
-The direction is strictly one way.  This module *reads* the validity #189
-established and never writes it: a channel that disagrees with the forward
-model is evidence about the model, and cross-diagnostic disagreement must never
-invalidate source data (#253 §10).
+The direction is strictly one way.  This module *reads* the validity the
+signal-quality layer established and never writes it: a channel that disagrees
+with the forward model is evidence about the model, and cross-diagnostic
+disagreement must never invalidate source data.
 
 Nothing here re-implements the forward model.  The passive-loop dynamics come
 from the existing solver through
@@ -94,7 +95,7 @@ DEFAULT_HISTORY_TIME_CONSTANTS = 3.0
 #: fired on PF pickup ~0.8 ms *before* the solenoid, so the nominal plasma-free
 #: window carried 0.003 of the shot's drive and the eddy score there was a
 #: ratio of two noise numbers.  With the interval ending at the plasma onset
-#: of the shared timing policy (#409) the packaged shots 39915, 41524 and
+#: of the shared timing policy the packaged shots 39915, 41524 and
 #: 41672 all reach 1.00 of their shot peak inside the window; the gate stays,
 #: for the shot whose coils genuinely fire late.
 MIN_COIL_DRIVE_FRACTION = 0.10
@@ -130,9 +131,9 @@ MIN_ARRAY_MEMBERS = 7
 #: both neighbours) before its contradiction fraction means anything.
 ARRAY_CONTRADICTION_MIN_SCORED = 0.5
 
-#: Schema of ``plasma_free_evidence`` (#409).  4: the embedded plasma-timing
+#: Schema of ``plasma_free_evidence``.  4: the embedded plasma-timing
 #: summary carries ``duty_cycle``, how much of the window the chosen detector
-#: was above threshold (#752) -- a fifth of the corpus's light windows are
+#: was above threshold -- a fifth of the corpus's light windows are
 #: envelopes with gaps, so the boundary's extent alone does not say what it
 #: bounded.  3: the boundary comes from the shared plasma-timing policy with
 #: its provenance, and nothing else -- the two retired detectors (the legacy
@@ -180,7 +181,7 @@ class PlasmaFreeInterval(dict):
 def _signal(ods: Any, path: str) -> np.ndarray | None:
     """A waveform at ``path``, or ``None`` when the ODS does not carry one.
 
-    Through the shared non-mutating accessor (issue #118): an ODS creates paths
+    Through the shared non-mutating accessor: an ODS creates paths
     on access, so probing for an absent ``magnetics.ip`` -- which a vacuum shot
     genuinely has -- would leave a malformed branch behind that fails the next
     consistency check, and ``flat()`` does not show it, so the damage stays
@@ -207,11 +208,11 @@ def plasma_free_interval(
 
     A shot that never forms a plasma is a benchmark case over its whole record
     -- the situation the routine eddy stage treats as "nothing to validate"
-    and #190 treats as the cleanest case there is.  A shot that does form one
+    and this benchmark treats as the cleanest case there is.  A shot that does form one
     contributes the stretch before it.
 
     The boundary is the plasma-free boundary of the shared timing policy
-    (:func:`vaft.omas.plasma_timing.plasma_timing`, issue #409): the plasma
+    (:func:`vaft.omas.plasma_timing.plasma_timing`): the plasma
     window's onset -- the slow H-alpha line when it is usable, optical, so the
     coil-firing pickup every magnetic diagnostic carries cannot trigger it --
     or the plasma-current principal pulse when that starts earlier, since a
@@ -336,7 +337,7 @@ def benchmark_wall_currents(
     carry.
 
     ``resistance_scale`` multiplies every ``pf_passive.loop.*.resistance`` by
-    one global factor, for the low-dimensional sensitivity study #190 permits.
+    one global factor, for a low-dimensional sensitivity study.
     It is deliberately a single scalar: fitting hundreds of loop resistances
     against the magnetic data used to validate them would make the benchmark an
     underconstrained fit rather than an independent qualification.
@@ -347,8 +348,9 @@ def benchmark_wall_currents(
     own values in place -- byte-identical to before this seam existed -- and
     the vintage the shipped asset was built from reproduces them exactly, so
     passing it is a no-op that makes the wall's provenance explicit. This is
-    the seam a #308 calibration fit varies; ``resistance_scale`` still
-    multiplies on top.
+    the seam a resistance-calibration fit varies (Open: #308, the 3-zone
+    effective-resistance fit with B-pol and flux constraints);
+    ``resistance_scale`` still multiplies on top.
     """
     from vaft.omas.process_wrapper import compute_eddy_currents
 
@@ -378,7 +380,8 @@ def wall_time_constants(ods: Any) -> np.ndarray:
     homogeneous decay is governed by the generalized eigenvalues of the
     ``(R, L)`` pencil, and the slowest of them sets how long the solver's
     assumed initial state persists.  They are read from the same
-    segment-wise wall eigenbasis the reduced-wall work builds (vaft #473):
+    segment-wise wall eigenbasis the reduced-wall work builds
+    (:mod:`vaft.process.wall_modes`):
     at full rank the reduced inductance ``L_r = V^T L V`` with ``R_r = I``
     has exactly the global spectrum, so the QA and the basis cannot report
     two different walls.
@@ -418,7 +421,7 @@ def solver_history_check(
     that opens too early measures the initial condition, not the wall model.
 
     Reports rather than raises: an under-supported case is still informative,
-    and #190 asks for it to be rejected *or explicitly warned about*.
+    so it is explicitly warned about rather than rejected.
     """
     constants = wall_time_constants(ods) if time_constants is None else time_constants
     slowest = float(constants[0])
@@ -740,10 +743,10 @@ def run_benchmark_case(
     constant rather than from a guessed margin.
 
     ``per_family=None`` evaluates every usable channel, which is what
-    qualifying a machine model needs; #139's compact subset stays available for
+    qualifying a machine model needs; the eddy-stage QA's compact subset stays available for
     routine per-shot QA and for plotting.
 
-    Returns a manifest carrying the provenance #190 asks for alongside the
+    Returns a manifest carrying provenance alongside the
     metrics, so a residual can be traced back to the model revision that
     produced it.
     """
@@ -884,7 +887,7 @@ def aggregate_benchmark(cases: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     one shot among consistent neighbours        acquisition / baseline / timing
     ==========================================  ==================================
 
-    No thresholds and no verdict: #190 is explicit that broad scientific
+    No thresholds and no verdict: broad scientific
     acceptance bounds must wait until the VEST benchmark distribution has been
     inspected.
     """

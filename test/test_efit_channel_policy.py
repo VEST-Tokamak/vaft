@@ -1,4 +1,4 @@
-"""The acceptance policy that decides EFIT's magnetic channels (issue #296).
+"""The acceptance policy that decides EFIT's magnetic channels.
 
 It reads the projected validity and the routine manual list, nothing else:
 no detector, no vacuum model, no machine list of its own.

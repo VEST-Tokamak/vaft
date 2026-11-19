@@ -1,4 +1,4 @@
-"""Tokamak geometry diagrams (#1073): every surface, shift, field and angle is the formula's."""
+"""Tokamak geometry diagrams: every surface, shift, field and angle is the formula's."""
 
 import math
 

@@ -1,6 +1,6 @@
 """The VEST port table and the clock-position-to-toroidal-angle convention.
 
-Issue #718. Two coordinates live here and they run opposite ways round the
+Two coordinates live here and they run opposite ways round the
 machine, so the tests are deliberately split: those that pin the *clock angle*
 (the hardware coordinate, clockwise-positive) and those that pin *phi* (IMAS,
 counter-clockwise). Mixing them in one assertion is how the two came to be
@@ -53,7 +53,7 @@ def test_the_clock_coordinate_is_not_phi():
 
     Only 12 o'clock and 6 o'clock survive the reflection unchanged; every other
     port has two different numbers, and writing one where the other belongs is
-    the defect #718 found.
+    the defect this guards against (#718).
     """
     same = {h for h in range(1, 13) if math.isclose(vest_clock_angle(h), np.rad2deg(port_toroidal_angle(h)))}
     assert same == {6, 12}

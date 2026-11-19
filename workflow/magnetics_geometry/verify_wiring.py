@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check vest.yaml's probe wiring and recorded faults against the raw signals (issue #956).
+"""Check vest.yaml's probe wiring and recorded faults against the raw signals.
 
 Read-only. For each shot it answers two questions from the raw archive alone:
 
@@ -48,8 +48,8 @@ from vaft.machine_mapping.magnetics_registry import PROBE_KIND, resolve_equilibr
 from vaft.process.magnetics import vest_equilibrium_magnetics_detailed, vest_magnetics_time_window
 
 R_OUTBOARD = 0.796
-#: The two positions whose field the 39437/39438 swap moves, by sensor id
-#: (#2158). Mapped to their canonical index because `MagneticsWiring.channels`
+#: The two positions whose field the 39437/39438 swap moves, by registry
+#: sensor id. Mapped to their canonical index because `MagneticsWiring.channels`
 #: is indexed by it.
 DISPUTED_IDS = ("bpol_C_z+0.060", "bpol_C_z-0.420")
 DISPUTED = {

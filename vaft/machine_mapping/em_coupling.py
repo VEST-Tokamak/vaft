@@ -59,13 +59,13 @@ def _ordered_labels(ods: Any, path: str, count: int) -> list[str]:
 # `turns_with_sign` -- all of which the signature already covers or which are
 # identical by construction on both sides of the comparison. Including it made
 # the guard reject every packaged ODS whenever the resistance *formula*
-# changed, even though the coupling matrices were still valid (issue #117).
+# changed, even though the coupling matrices were still valid.
 _SIGNATURE_EXCLUDED_FIELDS = (
     "current",
     "resistance",
     # Electrical, not geometric: the coupling rows depend on outlines and
-    # areas alone. resistivity is the nominal material value since #388 and
-    # older products still carry the inherited vector.
+    # areas alone. resistivity holds the nominal material value; products
+    # written before that convention still carry the inherited vector.
     "resistivity",
 )
 
@@ -148,8 +148,10 @@ def _resolve_reference(source: str | Path | None, options: dict | None) -> Path:
 PASSIVE_COUPLING_ASYMMETRY_ROUNDOFF = 1.0e-12
 #: Above this a passive-passive coupling matrix is reported. Reciprocity
 #: requires M_ij == M_ji exactly, so anything above round-off is a defect in
-#: the source, not noise. The packaged asset read 1.27e-3 until issue #373
-#: repaired the material factor the donor code applied one-sidedly; it is now
+#: the source, not noise. The packaged asset read 1.27e-3 while the donor
+#: code's SUS316LN material factor (mu_r = 1.04) was applied one-sidedly, only
+#: when the SUS loop came first; regenerated with the factor applied whenever
+#: either conductor is SUS, it is now
 #: exactly reciprocal and carries that repair as provenance (see
 #: ``workflow/em_coupling``). The threshold stays for a caller-supplied
 #: reference matrix, and for any product materialized before the repair.
@@ -178,7 +180,8 @@ def _load_versioned_coupling(
 ) -> tuple[dict[str, np.ndarray], dict | None]:
     """The packaged coupling matrices and, when the asset carries one, its provenance.
 
-    An asset written before #373 has no provenance key and loads unchanged;
+    An asset written before the reciprocity repair has no provenance key and
+    loads unchanged;
     ``None`` then says "the asset does not say where it came from", which the
     record distinguishes from a repaired asset.
     """
@@ -339,7 +342,7 @@ def em_coupling(
                     "rows were computed against the packaged base loops"
                 )
     # Reciprocity is a property of the physics, not of the file the matrix came
-    # from, so it is enforced on whichever source won above (issue #347).
+    # from, so it is enforced on whichever source won above.
     mutual_pp, passive_asymmetry = _symmetrize_passive_coupling(
         mutual_pp,
         source=(

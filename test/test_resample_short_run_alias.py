@@ -1,13 +1,13 @@
-"""A short run must not be decimated unfiltered (#2162 B3.12, a scientific correction).
+"""A short run must not be decimated unfiltered (a scientific correction).
 
 ``anti_alias_filter`` cannot run ``filtfilt`` over a record or finite run shorter
 than ``3 * numtaps + 1`` samples -- 994 for the 331-tap filter of a 250 kHz ->
 25 kHz cut -- and hands such a run back unfiltered, with a ``RuntimeWarning``
-and a ``False`` in the filter mask (#893, #915).  ``resample_to_time`` then
+and a ``False`` in the filter mask.  ``resample_to_time`` then
 interpolated it onto the slow grid anyway, so a 20 kHz tone in that run folds
 to ``|20 - 25| = 5 kHz`` at full amplitude: a number inside the band a reader
 trusts, stored beside correctly band-limited samples as their equal.  Only a
-caller that asked for the mask and acted on it (Langmuir, #915) was protected.
+caller that asked for the mask and acted on it (Langmuir) was protected.
 
 Ground truth is analytic: the alias frequency and amplitude follow from the
 sampling theorem, independent of the implementation.

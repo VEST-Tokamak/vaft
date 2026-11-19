@@ -1,4 +1,4 @@
-"""Loading and merging the VEST configuration safely (#2159, audit gaps G1-G5).
+"""Loading and merging the VEST configuration safely.
 
 Synthetic YAML in ``tmp_path`` pins each rule; the last group proves the
 packaged vest.yaml satisfies the stricter revision rules at every era bound.

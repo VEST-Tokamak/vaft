@@ -1,4 +1,4 @@
-"""The composition stage of pipeline 2 (#1842): C/O composition, n_i and Z_eff(rho) on measured core profiles.
+"""The composition stage of pipeline 2: C/O composition, n_i and Z_eff(rho) on measured core profiles.
 
 Synthetic ADF11 tables and synthetic products, no network and no repository data.
 """
@@ -481,6 +481,50 @@ def test_the_inferred_ti_is_labelled_inferred_with_its_lineage_and_validity(tmp_
     assert "not measured" in record
 
 
+def test_the_profile_form_writes_one_smooth_ratio_on_the_whole_grid(tmp_path, tables):
+    """``ti_form="profile"`` (#1842 inferred_profile) leaves no hole for a solver to fill."""
+    ods, manifest, _, _ = _ti_stage(tmp_path, tables, ti_form="profile")
+    assert manifest["status"] == "success", manifest.get("error")
+    assert manifest["slices"]["inferred"] == 2
+    assert manifest["configuration"]["ti_form"] == "profile"
+    assert manifest["inference"]["method"] == "equilibrium_pressure_partition_profile"
+    assert manifest["inference"]["ti_te_orders"] == {"0": 2}, "a flat true ratio is fitted at order 0"
+    base = "core_profiles.profiles_1d.0"
+    t_i = np.asarray(ods[f"{base}.ion.0.temperature"], dtype=float)
+    assert np.all(np.isfinite(t_i)), "the profile form covers the whole grid"
+    assert np.allclose(t_i / TE, TI_OVER_TE, rtol=5e-3)
+    record = ods[f"{base}.ion.0.temperature_fit.parameters"]
+    assert classify_ti_record(record) == "inferred", record
+    fields = ti_record_fields(record)
+    assert fields["method"] == "equilibrium_pressure_partition_profile"
+    assert fields["ti_te_order"] == "0" and fields["extrapolated_outside_rho_valid"] == "1"
+    assert fields["n_independent_source"] in ("thomson", "default") and int(fields["n_independent"]) >= 1
+    assert manifest["inference"]["profile_ti_te_median"] == pytest.approx(TI_OVER_TE, rel=5e-3)
+    assert "ti_te_median" not in manifest["inference"], "profile mode names the pointwise median as such"
+    assert fields["equilibrium_lineage"] == "magnetics"
+    low, high = (float(x) for x in fields["rho_valid"].split(":"))
+    assert 0.0 <= low < high <= 1.0
+    assert np.all(np.isfinite(np.asarray(ods[f"{base}.pressure_thermal"], dtype=float)))
+
+
+def test_the_profile_form_agrees_with_the_pointwise_partition_where_it_is_defined(tmp_path, tables):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    pointwise, _, _, _ = _ti_stage(tmp_path / "a", tables)
+    profile, _, _, _ = _ti_stage(tmp_path / "b", tables, ti_form="profile")
+    base = "core_profiles.profiles_1d.0"
+    a = np.asarray(pointwise[f"{base}.ion.0.temperature"], dtype=float)
+    b = np.asarray(profile[f"{base}.ion.0.temperature"], dtype=float)
+    valid = np.isfinite(a)
+    assert valid.any() and np.allclose(a[valid], b[valid], rtol=5e-3)
+
+
+def test_an_unknown_ti_form_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="ti_form"):
+        vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=tmp_path / "c.json",
+                                 efit_product=tmp_path / "e.json", ti_form="spline")
+
+
 def test_the_pressures_follow_the_inferred_ti_as_a_closure_identity(tmp_path, tables):
     ods, _, truth, _ = _ti_stage(tmp_path, tables)
     base = "core_profiles.profiles_1d.0"
@@ -576,7 +620,7 @@ def test_the_inferred_ti_replaces_the_one_the_composition_assumed(tmp_path, tabl
 
 
 def test_an_assumed_or_inferred_ion_temperature_does_not_make_a_slice_kinetic(tmp_path, tables):
-    """With the default T_i = T_e a Thomson-only shot stays in the electron lineage (cold review #1842)."""
+    """With the default T_i = T_e a Thomson-only shot stays in the electron lineage."""
     ods, _ = _build(tmp_path, tables, assume_ti_eq_te=True)
     assert ti_record_fields(ods["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"])["status"] == "assumed"
     assert vu._has_kinetic_slice(ods), "slice 0 carries the fixture's measured T_i"

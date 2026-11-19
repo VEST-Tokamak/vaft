@@ -1,4 +1,4 @@
-"""Poll VEST SQL for new shots and run the routine pipeline on them (issue #58).
+"""Poll VEST SQL for new shots and run the routine pipeline on them.
 
     vaft pipeline-worker run --config /srv/vaft/worker.yaml          # the service
     vaft pipeline-worker run --config worker.yaml --once             # one cycle

@@ -1,4 +1,4 @@
-"""Issue #480: a validated option vocabulary and discovery-driven controls."""
+"""A validated option vocabulary and discovery-driven controls."""
 
 from __future__ import annotations
 
@@ -133,7 +133,7 @@ def test_a_channel_line_offers_selection_layout_unit_sign_and_validity(catalog):
     controls = controls_for(catalog["flux_loop_time_flux"])
     names = [c.name for c in controls]
     # The sample now stores EFIT's reconstructed flux-loop values (m-file
-    # replay, #952), so the reconstruction overlay is offered.
+    # replay), so the reconstruction overlay is offered.
     assert names == [
         "selection", "channels", "layout", "yunit", "x", "synthetic", "orientation", "validity", "theme"
     ]
@@ -187,7 +187,7 @@ def test_the_synthetic_control_needs_the_overlay_to_be_available(catalog):
     available = replace(record, synthetic={"overlay": "equilibrium", "available": True})
     synthetic = next(c for c in controls_for(available) if c.name == "synthetic")
     assert synthetic.options == ("none", "equilibrium", "both") and synthetic.default == "none"
-    # after selection, channels, layout, yunit and the abscissa (#481)
+    # after selection, channels, layout, yunit and the abscissa
     assert [c.name for c in controls_for(available)].index("synthetic") == 5
 
 

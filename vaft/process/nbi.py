@@ -1,4 +1,4 @@
-"""Reduced neutral-beam attenuation along a prescribed 1-D path (vaft #1136).
+"""Reduced neutral-beam attenuation along a prescribed 1-D path.
 
 A transparent reference for NBI deposition: given a path coordinate and the
 attenuation coefficient along it, the neutral survival, the fast-ion birth
@@ -22,10 +22,11 @@ slowing down, heating, drive    no           yes
 ==============================  ===========  ==============================
 
 The "birth" power profile is where neutrals become fast ions, not where the
-plasma is heated. Related work: the VEST NBI description (#265) feeds the
-path and components; NUBEAM results and their IMAS mapping (#592) are what
-this is compared against, never re-derived; generic scales and orbits
-belong to #1064 and #1092; the diagrams follow #890/#1090.
+plasma is heated. Related work: the VEST NBI description (its IMAS mapping is
+open: #265) feeds the path and components; NUBEAM results and their IMAS
+mapping (open: #592) are what this is compared against, never re-derived;
+generic characteristic scales (open: #1064) and particle orbits are separate
+work, as are the diagrams.
 """
 
 from __future__ import annotations

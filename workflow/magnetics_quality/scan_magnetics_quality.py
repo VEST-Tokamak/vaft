@@ -1,7 +1,7 @@
-"""Is this shot's magnetics fit to reconstruct from? (issues #189, #190, #295, #296)
+"""Is this shot's magnetics fit to reconstruct from?
 
-Every EFIT study — cadence (#468), termination (#171), initialization (#196),
-domain and grid (#459), profile-model uncertainty (#579) — reconstructs from
+Every EFIT study — cadence, termination, initialization, domain and grid,
+profile-model uncertainty — reconstructs from
 the same magnetics, and none of them says whether that input was sound. The
 pieces to answer it all exist and none of them answers it alone: the quality
 layer reports per-channel metrics without judging a shot, the flux-loop
@@ -15,11 +15,12 @@ over the window the routine pipeline would actually reconstruct.
         --shots 39915,41524 --source main --table /tmp/mq.json
 
 The layering of ``vaft.validation`` is respected and not crossed. Model
-disagreement never changes the verdict: #190 is explicit that scientific
-acceptance bounds wait for the VEST distribution, so the benchmark's residual
+disagreement never changes the verdict: scientific acceptance bounds wait,
+by design, for the VEST benchmark distribution, so the benchmark's residual
 columns are reported beside the verdict as corroboration, never folded into
 it. What decides the verdict is only what the channel decisions say EFIT will
-see, which is the #296 contract read at the routine slice times.
+see, which is the channel-decision contract (``vaft.validation.channel_decision``)
+read at the routine slice times.
 
 The table is what the tests pin. Shots the source does not carry are recorded
 as ``absent`` and shots whose assessment raises are recorded as ``error``:
@@ -162,7 +163,7 @@ def load_shot(shot: int, *, source: str | None, packaged: bool):
 def refresh_coupling(ods, shot: int) -> str | None:
     """Re-map ``em_coupling`` from the canonical asset; returns what it did.
 
-    The packaged pre-EFIT products predate the repair of #347/#373 and carry a
+    The packaged pre-EFIT products predate the reciprocity repair of the coupling asset and carry a
     ``mutual_passive_passive`` that is asymmetric by 1.27e-3, which the wall-
     mode basis refuses as ill-posed -- so the vacuum model cannot be consulted
     on them as they stand.  Re-mapping installs the repaired, exactly
@@ -176,7 +177,7 @@ def refresh_coupling(ods, shot: int) -> str | None:
     try:
         # The coupling checks the PF and passive geometry leaf by leaf; on a
         # lazy database ODS that is thousands of requests unless each dataset
-        # is read once first (#1331: 10+ minutes per shot without it).
+        # is read once first (10+ minutes per shot without it).
         if hasattr(ods, "prefetch"):
             for ids_name in ("pf_active", "pf_passive"):
                 if ids_name in ods.keys():
@@ -456,7 +457,7 @@ def scan_shot(shot: int, *, source: str | None, packaged: bool, policy: FitnessP
         ods = load_shot(shot, source=source, packaged=packaged)
         # Inside the guard: a lazy source opens without contacting the server,
         # so a shot the source does not hold first answers here -- as an HSDS
-        # 404 from listing its IDS -- not in `load_shot` (#1331).
+        # 404 from listing its IDS -- not in `load_shot`.
         has_magnetics = ods is not None and "magnetics" in ods
     except Exception as error:  # a source that cannot answer is a row, not a crash
         row.update(status="absent", reason=f"{type(error).__name__}: {error}"[:200])
@@ -480,7 +481,7 @@ def scan_shot(shot: int, *, source: str | None, packaged: bool, policy: FitnessP
 
         # Decide on a gated copy, so the verdict describes the shot's signals
         # rather than whether someone remembered to project them.  The source
-        # is never written; this is the one direction #253 permits.
+        # is never written; validation reads a product and never writes it back.
         gated, gate = quality_gate(ods, window=(window["start"], window["end"]), report=report)
         decisions = decide_efit_channels(gated, times, nbprobe=nbprobe)
         summary = _decision_summary(decisions, metrics["channels"], policy)
@@ -636,7 +637,7 @@ def markdown(payload: dict[str, Any]) -> str:
                 line += f"; normalized residual median {residual['median']:.3f}, max {residual['max']:.3f}"
             else:
                 # Consulted but unable to answer (e.g. the coupling could not be
-                # re-mapped): say why rather than format a missing number (#1331).
+                # re-mapped): say why rather than format a missing number.
                 line += f"; no residual ({model.get('reason') or model.get('coupling')})"
             if authority.get("median") is not None:
                 line += f"; wall authority median {authority['median']:.3f}"

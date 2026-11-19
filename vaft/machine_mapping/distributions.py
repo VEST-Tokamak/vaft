@@ -1,12 +1,12 @@
 """`distributions` IDS mapping for NUBEAM results.
 
-Architecture (issue #170, and the precedent in
+Architecture (following the precedent of
 :mod:`vaft.machine_mapping.core_sources`): this module is the IDS-populating
 layer only. It never reopens a NUBEAM output file -- it reads the solver-native
 container owned by :mod:`vaft.code.nubeam`.
 
 `core_sources` answers "what does the beam do to the plasma". This IDS answers
-the other half of issue #490 section 6: **what the fast-ion population itself
+the other half: **what the fast-ion population itself
 is**. NUBEAM computes both, and only the first had a home.
 
 **Two families of profile, and NUBEAM writes them differently.** The units are

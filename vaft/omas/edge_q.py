@@ -1,4 +1,4 @@
-"""Edge safety-factor estimates from an ODS, with or without an equilibrium (#1583).
+"""Edge safety-factor estimates from an ODS, with or without an equilibrium.
 
 Most VEST discharges have no converged equilibrium, so their q95 is unknown.
 :func:`edge_q_estimate` evaluates the analytic edge-q proxies of
@@ -278,6 +278,11 @@ def edge_q_estimate(
     -------
     EdgeQEstimate
         The proxies and the provenance of every input.
+
+    Semantics
+    ---------
+    consumes: plasma_current, b_t, minor_radius, major_radius, elongation, triangularity
+    produces: estimated_q95, normalized_current
     """
     from vaft.formula.equilibrium import (
         estimated_q95,

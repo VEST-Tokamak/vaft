@@ -4,7 +4,7 @@
 ###############################################################################
 #
 # Externally uploaded profile diagnostics and what is derived from them. Every
-# stage here is optional in the #305 sense: most VEST shots carry no Thomson
+# stage here is optional, like the IMPA branch of pipeline 1: most VEST shots carry no Thomson
 # upload at all, and that is a normal result rather than a failure. Each stage
 # records its own absence and exits 0, so this pipeline can be pointed at the
 # whole shot range without a shot without diagnostics failing the run.
@@ -14,7 +14,7 @@
 # pipeline 1 never reconstructed, which is exactly the case the stages are
 # written to record instead. Each such param is declared once, in
 # paths.SCIENTIFIC_REFERENCES, and built from that declaration, so the lineage
-# graph (#1647) shows exactly what these rules consult.
+# graph shows exactly what these rules consult.
 
 import os
 import sys
@@ -24,7 +24,7 @@ from pathlib import Path
 # working directory: a bare "config.yaml" resolves against `--directory`, so a
 # run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
 # re-read its own partial config and never loaded this one -- every unset key
-# fell back to a code default (efit.run false, no eddy filament, #1530).
+# fell back to a code default (efit.run false, no eddy filament).
 # Command-line `--configfile` files are deep-merged over these.
 configfile: str(Path(workflow.basedir) / "config.yaml")
 
@@ -41,7 +41,7 @@ from paths import (
 
 require_run_config_keys(workflow)
 # `${VAFT_FILEDB_DIR:-/srv/vest.filedb}` and friends, read the way pipeline 1
-# reads its config (cold review 0.7.0 data F12, #1888).
+# reads its config.
 config.update(expand_config_environment(config))
 
 from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, scoped, stage_scope
@@ -346,7 +346,8 @@ rule generate_ti_inferred_ods:
 ############################################################
 # The Romero resistive Z_eff
 ############################################################
-# Lane Z's window estimate (#1214), stored in `global_quantities.z_eff_resistive`
+# One Z_eff per shot window, from transformer balance and neoclassical
+# conductivity, stored in `global_quantities.z_eff_resistive`
 # beside, never over, the composition Z_eff. It is built on the inferred-T_i
 # product so that replacing `core_profiles` in `main` keeps what the stages before
 # it wrote, and it is a leaf: nothing reads it. Its settings are stated, not

@@ -1,4 +1,4 @@
-"""Scientific display policy contract (issue #256, phase C).
+"""Scientific display policy contract.
 
 Unit, scale, and notation are separate concepts resolved through one table:
 changing the display unit always rescales the data and relabels the axis
@@ -282,7 +282,7 @@ def test_an_ods_without_a_pulse_names_no_shot():
 
 
 # ---------------------------------------------------------------------------
-# Legend and channel-label policy (issue #256 sections 8 and 9, visual review)
+# Legend and channel-label policy
 # ---------------------------------------------------------------------------
 
 def _loops():

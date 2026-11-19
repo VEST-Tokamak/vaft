@@ -1,4 +1,4 @@
-"""Explicit VEST Rogowski-coil mapping (issue #215).
+"""Explicit VEST Rogowski-coil mapping.
 
 VEST processes two physical Rogowski coils but used to store only what they
 were processed *into* -- `magnetics.ip[0]` and `magnetics.diamagnetic_flux[0]`.
@@ -78,7 +78,7 @@ def test_both_physical_rogowski_sensors_are_mapped(magnetics_ods):
 
 
 def test_stored_current_is_the_sensor_signal_not_the_derived_product(magnetics_ods):
-    """The whole point of #215: a measurement, not a reconstruction."""
+    """The whole point of the mapping: a measurement, not a reconstruction."""
     ods = magnetics_ods
     sensor_time, sensor = vest_plasma_rogowski_current(SHOT, raw_source=RAW)
     stored = np.asarray(
@@ -204,7 +204,7 @@ def test_diamagnetic_flux_is_stored_in_webers(magnetics_ods):
 
 
 def test_refactor_left_the_derived_quantities_untouched():
-    """The calibration-only split must be numerically inert (#215 non-goal)."""
+    """The calibration-only split must be numerically inert."""
     time, ip = vfit_plasma_current(SHOT, raw_source=RAW)
     sensor_time, sensor = vest_plasma_rogowski_current(SHOT, raw_source=RAW)
     np.testing.assert_array_equal(time, sensor_time)
@@ -264,7 +264,7 @@ def test_pipeline_still_aborts_magnetics_when_the_plasma_channel_is_missing(tmp_
     calls `vfit_plasma_current` on the next line, which does not. A shot missing
     field 109 therefore loses the entire magnetics component, sensor slots
     included -- graceful degradation of the Rogowski mapping alone does not make
-    the pipeline tolerant. Widening that is #189/#195 territory, not #215.
+    the pipeline tolerant. Widening that belongs to signal validation, not this mapping.
     """
     import gzip
     import json
@@ -323,7 +323,7 @@ def test_sensor_travels_with_its_derived_quantity_on_every_entry_point():
 
 
 def test_sensor_current_matches_the_flux_path_it_feeds():
-    """The two must not drift apart after the #285 saturation work.
+    """The two must not drift apart after the saturation repair.
 
     `vest_diamagnetic_rogowski_current` stops at the first integration instead
     of running the full triple-integration chain, so it repeats the gain
@@ -355,7 +355,7 @@ def test_sensor_current_matches_the_flux_path_it_feeds():
 
 
 def test_validity_does_not_claim_a_reconstructed_waveform_is_clean(magnetics_ods):
-    """A repaired sample is an interpolation, not a measurement (#285).
+    """A repaired sample is an interpolation, not a measurement.
 
     Shot 41672 has samples pinned at the diamagnetic channel's acquisition
     rail, which `vest_diamagnetic_flux_detailed` reconstructs before

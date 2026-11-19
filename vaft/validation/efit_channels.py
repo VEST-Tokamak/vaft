@@ -1,15 +1,15 @@
-"""The acceptance policy that decides which magnetic channels EFIT may use (issue #296).
+"""The acceptance policy that decides which magnetic channels EFIT may use.
 
 This is the one place the chain
 
-    mapped magnetics -> signal quality (#189) -> acceptance policy -> constraints
+    mapped magnetics -> signal quality -> acceptance policy -> constraints
 
 turns evidence into a :class:`~vaft.validation.channel_decision.ChannelDecision`
 per channel and reconstruction slice.  It reads the validity the diagnostics
 stage projected and nothing else: no detector runs here, no vacuum model is
 consulted, and no machine-specific list lives here.  The routine manual
 exclusion list is accepted as an *input*, recorded with its own reason, so
-that removing it (#295 §4) is a change to a caller's configuration and not
+that dropping it is a change to a caller's configuration and not
 to this module.
 
 The rules, in the order they are applied to each channel:

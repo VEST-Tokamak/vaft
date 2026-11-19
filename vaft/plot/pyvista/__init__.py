@@ -1,4 +1,4 @@
-"""PyVista/VTK conversion and VTK-family export of 3-D scenes (issue #1087).
+"""PyVista/VTK conversion and VTK-family export of 3-D scenes.
 
 The scientific 3-D tier beside :mod:`vaft.plot.plotly` and :mod:`vaft.plot.k3d`:
 it is an adapter of the view model, not a ``backend=`` value, and nothing in

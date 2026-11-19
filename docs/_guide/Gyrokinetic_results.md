@@ -13,7 +13,7 @@ related:
   api: [process, code, mapping, plot]
 ---
 
-This implements the 2D milestone of #2020, #2025, #2026, #2028, #2030 and #2019. A stored number, an executed solver, a selected average, a stationary screen and demonstrated convergence are different pieces of evidence.
+This page covers the IMAS-first gyrokinetic result path for spectral, radial and saved-theta 2D results: the output audit, the reproducible reductions and the qualified comparisons built on them. A stored number, an executed solver, a selected average, a stationary screen and demonstrated convergence are different pieces of evidence.
 
 ## Data contract and audit
 
@@ -154,9 +154,9 @@ Mapper relocation is a separate compatibility-preserving series: first extract s
 
 The inspected import graph has `gpec_ideal` depending on shared helpers in `mhd_linear`, and both importing the GPEC package for native result types/readers. Moving only `gpec_ideal` into the eagerly exported GPEC package would risk a reader/mapper import cycle. Put solver projection exports behind lazy imports and move shared helpers before moving those modules. NEO and TGLF upstream call sites include `vaft.omas.vest_upstream`, `vaft.omas.neoclassical`, `workflow/transport_atlas/run_neo.py`, `run_tglf.py`, and `install/check_gacode.py`; CGYRO and registered plot examples import the current gyrokinetics mapper. Each needs a compatibility test before old aliases can be retired. No relocation is required to use the 2D result path.
 
-The 3D #2019 milestone remains open. It must use #1286's shared mesh/field representation and needs sufficient saved parallel information and validated geometry/metric conventions. Local periodic copies will remain explicitly local, rather than being presented as global simulations.
+Open: #2019 (3D flux-tube field visualization and animation). It must use the shared 3D surface/mesh/field representation in `vaft.plot.pyvista` / `vaft.plot.k3d` (Open: #1286) and needs sufficient saved parallel information and validated geometry/metric conventions. Local periodic copies will remain explicitly local, rather than being presented as global simulations.
 
-## CGYRO elapsed time and discharge time (#2040)
+## CGYRO elapsed time and discharge time
 
 CGYRO's native coordinate is **normalized gyrokinetic elapsed time**, `t c_s/a`.
 The default plot label is `Gyrokinetic elapsed time [a/c_s]`. This is a physical
@@ -254,7 +254,7 @@ coordinates across flux, field, zonal diagnostics, fits/peaks and averaging
 windows. These checks do not establish physical stationarity, numerical
 convergence, or discharge-trajectory equivalence.
 
-The common physics-normalized discharge-time interface in #2033 is not yet
+Open: #2033 (a common physics-normalized discharge-time interface); it is not yet
 present on this implementation base. This adapter exposes explicit SI scales and
 solver-relative coordinates for that future bridge; it does not duplicate fixed
 reference or cumulative normalization algorithms. No discharge-relative alignment

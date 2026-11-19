@@ -1,4 +1,4 @@
-"""The EFIT -> CHEASE -> stability chain is checkable, not merely recorded (#527 step 6).
+"""The EFIT -> CHEASE -> stability chain is checkable, not merely recorded.
 
 Before this, every stage recorded the *path* of what it consumed. A path
 identifies the file that was read only if that file never changed afterwards --

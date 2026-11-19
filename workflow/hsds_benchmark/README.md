@@ -1,8 +1,8 @@
-# HSDS I/O benchmark (#1869)
+# HSDS I/O benchmark
 
 A reproducible, **read-only** benchmark of VAFT's HSDS access paths, plus the
-opt-in instrumentation it is built on. Part of the database I/O umbrella #1868;
-#1870 uses it to profile and optimise.
+opt-in instrumentation it is built on. It is also the measurement used when
+profiling and optimising the lazy, prefetch and eager access paths.
 
 ## Run
 
@@ -104,7 +104,7 @@ Outside `record_io` nothing is patched; behaviour is unchanged.
   would the run). The 1/2/4/8-client matrix and the HSDS 1.x comparison belong
   on staging (vest-server#2).
 * h5pyd stays pinned at 0.24.0 (`pyproject.toml`); 1.0.0 silently empties
-  attributes on this HSDS (#1271).
+  attributes on this HSDS (Open: #1271, blocks the 1.x upgrade).
 
 ## First smoke result (2026-10-11, vestserver, production HSDS 0.9.0.alpha0, 4 nodes, h5pyd 0.24.0)
 

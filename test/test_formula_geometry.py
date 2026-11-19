@@ -1,4 +1,4 @@
-"""Geometric approximations (#1062): the slab, cylinder and local reduction agree where they should."""
+"""Geometric approximations: the slab, cylinder and local reduction agree where they should."""
 
 import numpy as np
 import pytest

@@ -1,8 +1,11 @@
-# EFIT temporal resolution: cadence and averaging window (issue #468)
+# EFIT temporal resolution: cadence and averaging window
+
+Study record: #468 (open). The findings below are a status record of the
+first baseline run, not a final answer.
 
 `run_cadence_study.py` varies the two temporal controls of a VEST EFIT run —
 the reconstruction cadence `dt_EFIT` and the constraint-averaging half-window
-`w` (#433) — one at a time, under one fixed and serialized numerical
+`w` — one at a time, under one fixed and serialized numerical
 configuration, and records what the solver reported per slice: `jflag` /
 `lflag` from the a-file, the iteration count and final Grad–Shafranov
 residual from EFIT's terminal log (the local build has no NetCDF, so no
@@ -76,25 +79,26 @@ What the first pass says:
 - **The ramp fails in the boundary finder**, not in the fit: every slice from
   0.310 to 0.314 s (and a third of all slices above the cut at 0.08 ms)
   ends with "first and last contour points are too far apart" and writes no
-  a-file. That is a plasma-shape / limiter question for #459 and the
-  initialization policy of #196, not a temporal one.
+  a-file. That is a plasma-shape / limiter question for the computational
+  domain study (Open: #459) and the ICINIT initialization policy (Open:
+  #196), not a temporal one.
 - **The flat-top does not meet the termination criterion under this
   configuration.** χ² runs from 128 at 0.317 s down to 3.6 at 0.324 s against
   `SAICON = 80`, the residual sits just under `ERRMIN = 0.01`, and the loop
   stops at 11 iterations without `jflag`. The stored pipeline product for the
   same shot (`vaft/data/efit/a039915.00319`) has `jflag = 1` at χ² = 77.6
   from a different EFIT build. The Green tables are **not** the difference:
-  the #194 A/B (`workflow/efit_tables/`) reconstructed the same slices with a
+  the Green-table A/B (`workflow/efit_tables/`) reconstructed the same slices with a
   table generated from canonical geometry and with the bundled one, and the
   two agree on χ², plasma current and axis to every printed digit while
   failing identically. What remains is the constraint set and the termination
-  settings, which is exactly what #171 is for.
+  settings, which is exactly what the termination study (Open: #171) is for.
 
 So the cadence question cannot be answered yet: under the configuration the
 study can currently hold fixed, no cadence converges, and a comparison of
 non-converged slices measures the configuration, not the sampling. The
 harness, the k-file fix and this baseline are the deliverable; the study
-proper starts once #171 pins a configuration under which the reference case
+proper starts once the termination study pins a configuration under which the reference case
 converges, and then reruns this exact command.
 
 Cost, for planning: 0.3–0.4 s per slice on this machine, roughly linear in

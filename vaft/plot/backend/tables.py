@@ -1,4 +1,4 @@
-"""Builders of the non-graphical canonical views: tables and text summaries (issue #1180).
+"""Builders of the non-graphical canonical views: tables and text summaries.
 
 These are recipes like any other: they select a slice, read or compute the
 quantities, and return a typed view model -- a
@@ -373,7 +373,8 @@ def _verdict_note(key: str, result: dict[str, Any]) -> str:
 
 #: A reason longer than this is listed once beneath the table, behind a
 #: marker in its row, instead of widening the column (several checks share
-#: one long reason, e.g. the #891 uncertainty-model one).
+#: one long reason, e.g. the one saying residuals are not graded under a
+#: non-statistical uncertainty model).
 _INLINE_NOTE = 80
 
 
@@ -501,7 +502,7 @@ _SUMMARY_READS = RECIPES["equilibrium_overview"].reads
 #: independent checks.  The builder hands validate_equilibrium a private copy
 #: of just these (it deep-copies its argument whole).
 # tf: the virial kernel's measured mu_i falls back to the tf vacuum R*B_phi
-# on a slice without profiles_1d.f (#862, #2100).
+# on a slice without profiles_1d.f.
 _VALIDATION_ROOTS = ("equilibrium", "magnetics", "tf", "core_profiles", "thomson_scattering", "dataset_description")
 _VALIDATION_READS = (*_SUMMARY_READS, *_VALIDATION_ROOTS)
 
@@ -542,7 +543,7 @@ RECIPES["equilibrium_table_validation"] = CallableRecipe(
 
 
 # ---------------------------------------------------------------------------
-# The plasma-free vacuum benchmark as tables (issue #190, roadmap #1242 C3)
+# The plasma-free vacuum benchmark as tables
 # ---------------------------------------------------------------------------
 
 def _score_cell(value: Any) -> TableCell:

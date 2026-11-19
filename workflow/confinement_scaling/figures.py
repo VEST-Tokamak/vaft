@@ -1,4 +1,4 @@
-"""Lane D figures for the conference atlas (#548; handed to Lane V, #1456).
+"""Lane D figures for the conference operational-space atlas.
 
 ``vaft.plot`` is frozen, so these are workflow functions. Each returns
 ``(fig, axes)``, so ``notebooks/conference_operational_space_atlas.ipynb`` can
@@ -20,7 +20,7 @@ call them directly. They draw only from Lane D's files and Lane M's public data:
   against NSTX and IPB98(y,2), plus the Kadomtsev-completed mu_rho, drawn as
   *assumed* and marked undetermined where (1 + aP)/sigma < 2.
 
-VEST rows are the primary selection of ``fit.py`` (decided on #1490), with
+VEST rows are the primary selection of ``fit.py``, with
 W = W_mhd and P = P_net (radiation not subtracted, as DB5 PLTH).
 
 Usage::
@@ -51,7 +51,7 @@ LABELS = {"H98y2": "IPB98(y,2)", "NSTX2006L": "NSTX 2006 L-mode", "NSTX2006H": "
           "ITPA20": "ITPA20"}
 LABELS.update(extra_scalings.LABELS)
 #: Every confinement scaling vaft.formula carries: the _SCALING_COEFS power laws plus
-#: the ohmic and L-mode ones extra_scalings.py maps onto table columns (#670);
+#: the ohmic and L-mode ones extra_scalings.py maps onto table columns;
 #: ohmic, then L-mode, then H-mode. ITPA20-IL (vaft.formula "ITPA20_IL") is left out:
 #: it was fitted on the ITER-like subset of Verdoolaege et al. 2021 (Sec. 2.1: eight
 #: conventional tokamaks, no ST, with epsilon < 0.5 among its constraints), and VEST
@@ -109,14 +109,14 @@ def predict_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
 
 
 #: Machines whose plasmas are ohmic with no fast-ion population: there the thermal
-#: confinement time may stand in for a global one, recorded (#1713). DB5 rows are
+#: confinement time may stand in for a global one, and the substitution is recorded. DB5 rows are
 #: auxiliary-heated: a global scaling takes their tau_e_global_s (DB5 TAUTOT), and
 #: an unaudited one stays strict (NaN).
 OHMIC_MACHINES = ("VEST",)
 
 
 def observed_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
-    """Observed tau_E with the scaling's energy basis (#1713) [s].
+    """Observed tau_E with the scaling's energy basis [s].
 
     Thermal scalings take ``tau_e_th_s``. Global and unaudited ones take
     ``tau_e_global_s`` where the table has it; on OHMIC_MACHINES rows the thermal
@@ -158,7 +158,7 @@ def h_factor_of(table: pd.DataFrame, scaling: str) -> pd.Series:
 
 
 def basis_marker(scaling: str) -> str:
-    """'*' when the comparison needs a non-thermal tau_E that VEST supplies only as thermal (#1713)."""
+    """'*' when the comparison needs a non-thermal tau_E that VEST supplies only as thermal."""
     from vaft.formula.equilibrium import confinement_scaling_basis
 
     return "" if confinement_scaling_basis(scaling).energy_basis == "thermal" else "*"
@@ -206,7 +206,7 @@ def _wrap_to_width(text, width_px: float, renderer) -> bool:
 
 
 def _fit_titles_and_footnote(fig, axes) -> None:
-    """Wrap panel titles wider than their axes, and the footnote to the figure width (#1946).
+    """Wrap panel titles wider than their axes, and the footnote to the figure width.
 
     Called once, when the figure is built: it draws once so the measurement uses
     the laid-out axes (constrained layout) and the active presentation format's
@@ -255,7 +255,7 @@ def population_table(db5: pd.DataFrame, confinement: pd.DataFrame, selection: st
         raise ValueError(f"scope must be standard/all and grouping spherical/machine; got {scope}, {grouping}")
     vest = confinement.loc[select(confinement, SELECTIONS[selection])]
     keep = list(CONFINEMENT_COLUMNS) + (["thomson_consistent"] if "thomson_consistent" in vest else [])
-    # reindex: a Lane D table written before #1713 has no global columns (NaN here).
+    # reindex: an older Lane D table without the thermal/global split has no global columns (NaN here).
     vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0)].reindex(columns=keep)
     rows = db5 if scope == "all" else db5.loc[db5["selected"].astype(bool)]
     table = pd.concat([rows.reindex(columns=list(CONFINEMENT_COLUMNS)), vest], ignore_index=True)
@@ -276,7 +276,7 @@ def population_figure(table: pd.DataFrame, *, max_groups: int = 4, figsize=(11.0
     from vaft.plot.population import confinement_population
 
     fig, axes = plt.subplots(1, 2, figsize=figsize, constrained_layout=True)
-    # Groups are labelled on their clusters (#1946). Should a caller ask for legends,
+    # Groups are labelled on their clusters, not in a legend. Should a caller ask for legends,
     # the two panels draw the same series, so only the I_p panel keeps one.
     for ax, x in zip(axes, ("i_p_A", "p_loss_W")):
         confinement_population(table, x=x, y="tau_e_th_s", by="population",
@@ -290,9 +290,9 @@ def population_figure(table: pd.DataFrame, *, max_groups: int = 4, figsize=(11.0
 
 
 #: Legend text of the ring drawn around a VEST point whose EFIT pressure is outside
-#: [1, 2] p_e of its Thomson profile (Lane K criteria v2, #1521).
+#: [1, 2] p_e of its Thomson profile (Lane K criteria v2).
 THOMSON_RING_LABEL = "VEST: EFIT p outside [1, 2] p_e (#1521)"
-#: The same, as a direct label beside the rings themselves (#1946).
+#: The same, as a direct label beside the rings themselves.
 THOMSON_RING_SHORT = "EFIT p outside [1, 2] p_e"
 
 
@@ -311,7 +311,7 @@ def mark_thomson_inconsistent(ax, table: pd.DataFrame, x, y: str, *, legend_loc:
     ``x`` is a column name or an array aligned with ``table``. The ring is drawn
     only when some row is marked. It is named the way ``vaft.plot.population``
     names its groups: beside the rings, in their colour, when the axes carry
-    direct labels (the default, #1946); otherwise the legend is redrawn
+    direct labels (the default); otherwise the legend is redrawn
     (x-small, frameless) so the ring joins it.
     """
     mask = thomson_inconsistent(table)
@@ -363,7 +363,7 @@ def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX20
                                  figsize=None, label_counts: bool = False, mark_thomson: bool = False):
     """Measured against scaling-predicted tau_E, one panel per scaling.
 
-    Presentation (#1946): groups are named on their clusters without row counts
+    Presentation: groups are named on their clusters without row counts
     (``label_counts=True`` adds them), panel titles name the scaling only, and
     the VEST details -- its energy basis, the rows a density-dependent scaling
     can use, and how many rows' EFIT pressure disagrees with Thomson -- go in
@@ -377,7 +377,7 @@ def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX20
     coverage, drawn = {}, np.zeros(len(table), bool)
     for ax, scaling in zip(axes, scalings):
         predicted = predict_tau(table, scaling)
-        # The measured axis is the observed tau_E with the scaling's energy basis (#1713).
+        # The measured axis is the observed tau_E with the scaling's energy basis.
         shown = table.assign(tau_e_th_s=observed_tau(table, scaling))
         confinement_predicted_vs_measured(shown, predicted, scaling_label=LABELS.get(scaling, scaling),
                                           by="population", highlight=VEST_LABEL, max_groups=max_groups,
@@ -445,7 +445,7 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
     return fig, axes
 
 
-#: Scalings left out of the VEST H figure by default (#1946 follow-up): the three
+#: Scalings left out of the VEST H figure by default: the three
 #: Goldston 1984 fits. They stay in ALL_SCALINGS and in every table; ``exclude=()``
 #: draws them.
 H_FIGURE_EXCLUDE = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L")
@@ -622,7 +622,7 @@ def exponent_figure(exponents: pd.DataFrame, *, figsize=(12.5, 5.2)):
     return fig, axes
 
 
-#: The conference set: (name, scalings) drawn in vaft.plot's slide format (#1572).
+#: The conference set: (name, scalings) drawn in vaft.plot's slide format.
 SLIDE_SCALINGS = ("ITER97L", "H98y2")
 
 

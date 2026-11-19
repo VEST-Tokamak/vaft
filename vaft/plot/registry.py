@@ -40,10 +40,10 @@ Status = Literal["canonical", "legacy"]
 #: ``quantity(t, x)`` -- distinct from ``time`` (``quantity(t)``), ``profile``
 #: (``quantity(x)`` at one time), and ``spectrogram``
 #: (``spectral_quantity(t, f)``); ``spatial`` is ``quantity(position)`` across
-#: a sensor array at one time (issue #486).  Interaction, 3D representation,
-#: comparison, and validation are capabilities, not views (issue #251).
+#: a sensor array at one time.  Interaction, 3D representation,
+#: comparison, and validation are capabilities, not views.
 #: ``table`` and ``text`` are scientific presentations that are not graphical
-#: (issue #1180): their renderers return text, not a figure.
+#: presentations: their renderers return text, not a figure.
 VIEWS = (
     "time",
     "profile",
@@ -79,7 +79,7 @@ class PlotSpec:
     description: str
     #: The physical or diagnostic concept the plot represents, registered in
     #: :mod:`vaft.plot.taxonomy`.  ``domain`` records where the data lives;
-    #: ``subject`` records what it physically is (issue #251).
+    #: ``subject`` records what it physically is.
     subject: str = ""
     quantity: str = ""
     #: Top-level IDS names the adapter must read.  Drives selective loading.
@@ -221,7 +221,7 @@ def available_plots(
     ``query`` resolves a subject through the strict alias registry (``"ip"``
     lists ``plasma_current``); ``detail=True`` prints the developer block.
     ``vaft.omas.available_plots(ods)`` evaluates the same catalog against an
-    object (issue #262).
+    object.
     """
     from .discovery import catalog
 

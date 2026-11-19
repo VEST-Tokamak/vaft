@@ -1,24 +1,24 @@
-"""Can this shot's diagnostics be trusted?  One row per shot (Lane U, #1543).
+"""Can this shot's diagnostics be trusted?  One row per shot.
 
-The #58 worker turns every new shot into a diagnostics product within minutes.
+The routine pipeline's new-shot worker turns every new shot into a diagnostics product within minutes.
 This script answers, for a list of such shots, the questions a class
 instructor or the next pipeline stage asks before using one:
 
 * **Plasma current** -- peak, when, and what is left at the end of the
   analysis window (a Rogowski drift or a baseline extrapolated across the
-  discharge shows up there first, #1373).
+  discharge shows up there first).
 * **Rogowski sensors** -- the plasma-current and diamagnetic (TF) Rogowski
-  validity, and whether a diamagnetic flux was produced at all (#993).
+  validity, and whether a diamagnetic flux was produced at all.
 * **Equilibrium magnetics** -- how many probes and flux loops the signal-quality
-  layer condemns, per family, and *why*, grouped by detector (#189).
+  layer condemns, per family, and *why*, grouped by detector.
 * **PF currents** -- with ``--raw``, the drift of every coil's acquisition
-  between its pre-shot baseline and the end of the record, in amperes (#1424).
+  between its pre-shot baseline and the end of the record, in amperes.
 * **Filterscope** -- how much of the fast filterscope's tail is a clamped copy
-  of its last raw sample rather than a measurement (#430).
+  of its last raw sample rather than a measurement.
 
 Everything here is report-only.  The ``flags`` column names conditions worth a
 look; the thresholds behind it are provisional until the population scan sets
-them (#189 forbids unjustified thresholds becoming gates), so nothing in the
+them (an unjustified threshold must not become a gate), so nothing in the
 pipeline reads this table.
 
     PYTHONPATH=$PWD python workflow/magnetics_quality/class_shot_checklist.py \\
@@ -51,7 +51,7 @@ LOGGER = logging.getLogger("class_shot_checklist")
 SCHEMA = 1
 #: Report-only, provisional: what the ``flags`` column calls worth a look.
 PROVISIONAL = {
-    # Record peak on VEST is ~290 kA; #1373 lists 398-1674 kA artefacts.
+    # Record peak on VEST is ~290 kA; the shot overview holds 398-1674 kA artefacts.
     "ip_peak_ceiling_kA": 350.0,
     # |Ip| left at the end of the window, as a fraction of the peak.
     "ip_tail_fraction": 0.10,
@@ -188,7 +188,8 @@ def pf_drift_row(shot: int) -> dict[str, Any]:
     """Each PF coil's acquisition at the end of the record against its baseline, in A.
 
     The mapper removes only the mean of the leading ``baseline_samples``; a
-    drift that is still there when every coil is off is what #1424 asks about.
+    drift that is still there when every coil is off is not removed, and this
+    row measures it. Open: #1424 (bias/drift correction for PF-current signals).
     """
     from vaft.database import raw as raw_db
     from vaft.machine_mapping import pf_active as pf
@@ -211,7 +212,7 @@ def pf_drift_row(shot: int) -> dict[str, Any]:
 
 
 def recorded_faults_row(shot: int) -> list[dict[str, Any]]:
-    """The vest.yaml ``diagnostic_faults`` records in force on *shot* (#1543)."""
+    """The vest.yaml ``diagnostic_faults`` records in force on *shot*."""
     from vaft.machine_mapping.diagnostic_faults import known_diagnostic_faults
 
     return [
@@ -220,7 +221,7 @@ def recorded_faults_row(shot: int) -> list[dict[str, Any]]:
 
 
 def tf_repair_row(shot: int) -> dict[str, Any]:
-    """TF-current excursions the mapper repairs on *shot*, from raw (#1543)."""
+    """TF-current excursions the mapper repairs on *shot*, from raw."""
     from vaft.machine_mapping.tf import vfit_tf_current_detailed
 
     _time, _current, intervals = vfit_tf_current_detailed(shot)

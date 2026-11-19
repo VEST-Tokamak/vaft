@@ -1,4 +1,4 @@
-"""Watch the Thomson/CES uploads and run the corrective pipeline on them (issue #1842).
+"""Watch the Thomson/CES uploads and run the corrective pipeline on them.
 
     vaft corrective-worker run --config /srv/vaft/corrective.yaml        # the service
     vaft corrective-worker run --config corrective.yaml --once           # one cycle

@@ -1,6 +1,6 @@
-"""Choose the Tier A slices the stability atlas may use (#1429, #1331).
+"""Choose the Tier A slices the stability atlas may use.
 
-Only slices whose EFIT the #1331 criteria label ``good`` or ``admissible`` are
+Only slices whose EFIT the Tier A campaign's criteria label ``good`` or ``admissible`` are
 selected. ``unreconstructible`` slices never produce an atlas row.
 
 Two lineages come out of the campaign analysis (``tierA_analysis*.json``):
@@ -16,8 +16,10 @@ Two lineages come out of the campaign analysis (``tierA_analysis*.json``):
     neighbour. Its g-file is written from the electron-EFIT ODS later, by
     ``run_batch.py``.
 
-The state key follows the provisional contract in #1448:
-``(shot, time_efit_s, efit_lineage)``.
+The state key is ``(shot, time_efit_s, efit_lineage)``, the tuple of Lane K's state
+key contract v1 (``vaft.validation.kinetic_state``), with this module's lineage
+spellings (``magnetics-only``, ``electron-kinetic``; the contract's are
+``magnetics``, ``electron_kinetic``).
 """
 
 from __future__ import annotations

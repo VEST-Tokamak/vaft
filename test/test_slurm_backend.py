@@ -1,4 +1,4 @@
-"""SlurmBackend against fake Slurm commands (#1017).
+"""SlurmBackend against fake Slurm commands.
 
 No cluster is needed: ``sbatch``, ``squeue``, ``sacct``, ``scancel`` and
 ``srun`` are small Python programs put first on ``PATH``. They behave the way
@@ -189,7 +189,8 @@ def slurm(tmp_path, monkeypatch):
         "SLURM_JOB_ID", "SLURM_STEP_ID", "FAKE_SLURM_OUTCOME", "FAKE_SLURM_REJECT",
         "FAKE_SLURM_NO_SACCT", "FAKE_SQUEUE_FLAKY", "FAKE_SLURM_CLUSTER", "FAKE_SLURM_BANNER",
         "FAKE_SLURM_BANNER_ONLY", "FAKE_JOB_END_NOW", "FAKE_SACCT_LAG",
-        "FAKE_SLURM_REJECT_MESSAGE",
+        "FAKE_SLURM_REJECT_MESSAGE", "VAFT_EXECUTION_POLICY", "VAFT_EXECUTION_APPROVAL",
+        "VAFT_SLURM_CLUSTER", "SLURM_CLUSTER_NAME",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -323,7 +324,7 @@ def test_batch_job_gets_stdin_env_delta_and_thread_defaults(tmp_path, slurm, mon
 
 
 def test_a_pinned_thread_count_is_exported_even_when_the_parent_matches():
-    """#1016 review: under a remote cluster --export=ALL carries *its* environment."""
+    """Under a remote cluster --export=ALL carries *its* environment."""
     from vaft.code.slurm import _job_script
 
     request = ExecutionRequest(
@@ -406,7 +407,7 @@ def test_max_wait_cancels_a_job_stuck_in_the_queue(tmp_path, slurm, monkeypatch)
     result = _batch(max_wait=0.05).run(_python(_workdir(tmp_path), "pass"))
     assert result.timed_out
     assert result.returncode is None
-    # Never started: a queue wait, not "timed out after N s" of running (#1016).
+    # Never started: a queue wait, not "timed out after N s" of running.
     assert result.runtime_status == "queue_timeout"
     assert "max_wait" in result.stderr and "never started" in result.stderr
     assert slurm("scancel") == [["scancel", result.job_id]]
@@ -489,8 +490,7 @@ def test_a_queued_jobs_running_time_leaves_out_the_queue_wait(tmp_path, slurm, m
     max_wait is held until the program itself has written ``ready`` -- it runs
     only after the job script installed its TERM trap -- and the controller's
     pid file exists, so scancel can reach it: on a loaded runner a wall-clock
-    cancel landed before the trap and the run read "completed" (PR #2065
-    review)."""
+    cancel landed before the trap and the run read "completed"."""
     import vaft.code.slurm as slurm_module
     from vaft.code.execution import timeout_reason
 
@@ -558,12 +558,24 @@ def test_an_interrupt_while_waiting_cancels_the_job(tmp_path, slurm, monkeypatch
     assert slurm("scancel") == [["scancel", "1000"]]
 
 
-@pytest.mark.parametrize("state", ["NODE_FAIL", "OUT_OF_MEMORY", "PREEMPTED", "BOOT_FAIL", "CANCELLED"])
-def test_a_job_ended_around_the_program_is_non_zero_with_its_state(tmp_path, slurm, monkeypatch, state):
+@pytest.mark.parametrize(
+    ("state", "status"),
+    [
+        ("NODE_FAIL", "node_fail"),
+        ("OUT_OF_MEMORY", "memory_limit"),
+        ("PREEMPTED", "node_fail"),
+        ("BOOT_FAIL", "node_fail"),
+        ("CANCELLED", "cancelled"),
+    ],
+)
+def test_a_job_ended_around_the_program_carries_why(tmp_path, slurm, monkeypatch, state, status):
+    # The program did not exit on its own: the scheduler's reason is the
+    # status (an administrator's scancel was a "cancelled", not a "137").
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", state)
     result = _batch().run(_python(_workdir(tmp_path), "pass"))
-    assert not result.timed_out
-    assert result.returncode == 128 + 9
+    assert result.timed_out
+    assert result.runtime_status == status
+    assert result.returncode is None
     assert state in result.stderr
 
 
@@ -760,7 +772,7 @@ def test_environment_selects_the_default_backend(monkeypatch):
 
 
 def test_a_python_task_runs_as_a_batch_job(tmp_path, slurm, monkeypatch):
-    """The request ``python_task_request`` builds runs unchanged as a batch job (#1147)."""
+    """The request ``python_task_request`` builds runs unchanged as a batch job."""
     from vaft.code import python_task_request
 
     monkeypatch.delenv("VAFT_PYTHON", raising=False)
@@ -784,7 +796,7 @@ def test_a_python_task_runs_as_a_batch_job(tmp_path, slurm, monkeypatch):
     (sbatch,) = slurm("sbatch")
     assert {"--cpus-per-task=2", "--mem=1000M", "--job-name=vaft-unit-39915"} <= set(sbatch)
 def test_batch_submit_queues_every_job_before_any_wait(tmp_path, slurm):
-    """#1018: submit is sbatch alone; result() polls and collects."""
+    """Submit is sbatch alone; result() polls and collects."""
     work = _workdir(tmp_path)
     backend = _batch()
     handles = [
@@ -816,7 +828,7 @@ def test_cancelling_a_submitted_batch_job_scancels_it(tmp_path, slurm, monkeypat
 
 
 def test_a_polled_handle_applies_max_wait_to_a_queued_job(tmp_path, slurm, monkeypatch):
-    """Cold review #1018: max_wait is not deferred until the job's turn to be collected."""
+    """max_wait is not deferred until the job's turn to be collected."""
     import time
 
     monkeypatch.setenv("FAKE_SLURM_OUTCOME", "PENDING")
@@ -831,7 +843,7 @@ def test_a_polled_handle_applies_max_wait_to_a_queued_job(tmp_path, slurm, monke
 
 
 def test_a_polled_handle_applies_max_wait_to_a_running_job(tmp_path, slurm):
-    """Re-review #1018: a running head-of-line job is not exempt from max_wait."""
+    """A running head-of-line job is not exempt from max_wait."""
     import time
 
     work = _workdir(tmp_path)
@@ -920,3 +932,84 @@ def test_an_adapter_runs_unchanged_through_slurm(tmp_path, slurm):
     assert result.returncode == 0
     assert result.stdout.strip() == "solved rtes.in"
     assert slurm("sbatch")
+
+
+# ---------------------------------------------------------------------------
+# Execution policy (vaft.code.policy): checked before sbatch, audited after
+# ---------------------------------------------------------------------------
+
+def _policy(tmp_path, *, approval=None, **cluster):
+    import yaml
+
+    approvals = tmp_path / "approvals"
+    approvals.mkdir(exist_ok=True)
+    if approval is not None:
+        (approvals / f"{approval['id']}.json").write_text(json.dumps(approval))
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump({
+        "approvals_dir": "approvals", "audit_log": "audit.jsonl",
+        "clusters": {"cluster-a": {"requires_approval": True, **cluster}},
+    }))
+    return path
+
+
+def test_a_cluster_that_requires_approval_refuses_before_sbatch(tmp_path, slurm, monkeypatch):
+    from vaft.code.policy import SubmissionRefused
+
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path)))
+    with pytest.raises(SubmissionRefused, match="requires a recorded approval"):
+        _batch(cluster="cluster-a").run(_python(_workdir(tmp_path), "pass"))
+    assert not (slurm.directory / "calls.jsonl").exists() or slurm("sbatch") == []
+    (entry,) = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text().splitlines()]
+    assert entry["event"] == "refused" and entry["cluster"] == "cluster-a" and entry["job_id"] is None
+
+
+def test_an_approved_submission_within_its_limits_is_audited_with_its_job_id(tmp_path, slurm, monkeypatch):
+    approval = {"id": "cluster-a-1", "cluster": "cluster-a", "approver": "admin", "max_cpus": 16, "max_mem_mb": 65536}
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path, approval=approval, partitions=["g1"])))
+    request = _python(_workdir(tmp_path), "pass", resources=ResourceRequest(threads_per_task=16, memory_mb=65536))
+    result = _batch(cluster="cluster-a", approval="cluster-a-1", partition="g1").run(request)
+    assert result.returncode == 0
+    entries = [json.loads(line) for line in (tmp_path / "audit.jsonl").read_text().splitlines()]
+    assert [(e["event"], e["approval"], e["job_id"]) for e in entries] == [("submitted", "cluster-a-1", result.job_id)]
+
+
+@pytest.mark.parametrize(
+    ("resources", "partition", "message"),
+    [
+        (dict(threads_per_task=32, memory_mb=65536), "g1", "32 CPUs requested, limit 16"),
+        (dict(threads_per_task=16, memory_mb=220000), "g1", "limit 65536 MiB"),
+        (dict(threads_per_task=16), "g1", "no memory requested"),
+        (dict(threads_per_task=16, memory_mb=65536), "gpu", "partition 'gpu' not in"),
+    ],
+)
+def test_an_approval_does_not_widen_the_limits(tmp_path, slurm, monkeypatch, resources, partition, message):
+    from vaft.code.policy import SubmissionRefused
+
+    approval = {"id": "cluster-a-1", "cluster": "cluster-a", "approver": "admin", "max_cpus": 64, "max_mem_mb": 65536}
+    monkeypatch.setenv(
+        "VAFT_EXECUTION_POLICY", str(_policy(tmp_path, approval=approval, max_cpus=16, partitions=["g1"]))
+    )
+    request = _python(_workdir(tmp_path), "pass", resources=ResourceRequest(**resources))
+    with pytest.raises(SubmissionRefused, match=message):
+        _batch(cluster="cluster-a", approval="cluster-a-1", partition=partition).run(request)
+    assert not (slurm.directory / "calls.jsonl").exists() or slurm("sbatch") == []
+
+
+def test_a_refused_batch_job_leaves_nothing_behind(tmp_path, slurm, monkeypatch):
+    from vaft.code.policy import SubmissionRefused
+
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path)))
+    work = _workdir(tmp_path)
+    with pytest.raises(SubmissionRefused):
+        _batch(cluster="cluster-a").run(_python(work, "pass"))
+    assert not (work / SCRATCH_DIRECTORY).exists()
+
+
+def test_a_step_outside_an_allocation_is_gated_too(tmp_path, slurm, monkeypatch):
+    from vaft.code.policy import SubmissionRefused
+
+    monkeypatch.setenv("VAFT_EXECUTION_POLICY", str(_policy(tmp_path)))
+    with pytest.raises(SubmissionRefused):
+        SlurmBackend(mode="step", cluster="cluster-a").run(_python(_workdir(tmp_path), "pass"))
+    assert not (slurm.directory / "calls.jsonl").exists() or slurm("srun") == []

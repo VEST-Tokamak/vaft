@@ -1,4 +1,4 @@
-"""Issue #486: flux-loop and B-probe values against sensor position at one time.
+"""Flux-loop and B-probe values against sensor position at one time.
 
 A new ``spatial`` view: ``coordinate="z"`` draws the inboard and outboard
 sensors as two panels split by the family's own radial divider; ``"theta"``
@@ -206,7 +206,7 @@ def test_both_backends_draw_both_coordinates(sample):
 
 def test_the_impa_profile_is_unchanged_by_the_shared_time_snap(sample):
     """The two inline argmin snaps in the IMPA builder now go through resolve_time_sample."""
-    # IMPA is its own stage since #305: compose it onto the sample first.
+    # IMPA is its own stage: compose it onto the sample first.
     from _synthetic_inputs import make_impa_composed
 
     entries = normalize_entries(make_impa_composed(sample))
@@ -250,7 +250,7 @@ def test_two_shots_are_drawn_together_with_their_own_time_stamps(sample):
     assert len(theta.series) == 2
 
 
-# -- issue #1380 phase 1: dense time_index navigation --------------------------------------
+# -- dense time_index navigation --------------------------------------------------------
 
 
 def _probe_values(model):

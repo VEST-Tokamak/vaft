@@ -1,4 +1,4 @@
-"""The TGLF runner and its native output container (issue #553, increment 1).
+"""The TGLF runner and its native output container.
 
 The fixture under `test/data/gacode/tglf_reg05/` is GACODE's own `tglf05` regression
 case -- the GA standard case with spectral-shift ExB shear -- run through the launcher

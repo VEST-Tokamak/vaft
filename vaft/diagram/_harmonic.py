@@ -1,4 +1,4 @@
-"""3-D perturbation harmonics: what a complex Fourier coefficient means (#1088).
+"""3-D perturbation harmonics: what a complex Fourier coefficient means.
 
 Five single-concept diagrams, independent of any equilibrium, shot or solver
 output:

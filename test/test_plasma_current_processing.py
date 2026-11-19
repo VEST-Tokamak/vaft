@@ -107,7 +107,7 @@ def test_baseline_subtraction_matches_the_documented_algorithm(
 
 
 def test_fl10_disabled_mode_ignores_the_flux_reference_entirely(tmp_path):
-    """Shot >= 47117 (#195): Ip == Ip_shot after sign only. The mapper must
+    """Shot >= 47117: Ip == Ip_shot after sign only. The mapper must
     not even require a flux-reference field to be present."""
     shot = 47117
     n = 9000
@@ -132,7 +132,7 @@ def test_fl10_disabled_mode_ignores_the_flux_reference_entirely(tmp_path):
 
 
 def test_fl10_windowed_mode_subtracts_only_inside_the_compensation_window(tmp_path):
-    """Shots 46403-47116 (#195): compensation must not leak outside
+    """Shots 46403-47116: compensation must not leak outside
     0.26 <= t <= 0.36 s. Compare against a zero-FL10-reference control,
     which is mathematically equivalent to no compensation at all (mode
     'disabled') for the same underlying Ip_shot."""

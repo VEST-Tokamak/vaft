@@ -1,4 +1,4 @@
-"""What VAFT depends on and integrates with, and why (#1648).
+"""What VAFT depends on and integrates with, and why.
 
 Two different relations, kept apart on purpose:
 
@@ -78,6 +78,8 @@ CAPABILITIES: Tuple[Capability, ...] = (
                "ParaView scenes, Jupyter 3-D and encoded animations"),
     Capability("interfaces", "Agent interfaces", "optional",
                "The MCP server for agent clients (vaft[gui] is kept as an empty alias)"),
+    Capability("public_data", "Public dataset readers", "optional",
+               "Columnar and compressed formats of third-party public equilibrium datasets"),
     Capability("acceleration", "Acceleration", "optional", "JIT compilation, reserved until a measurement justifies it"),
     Capability("optimization", "Adaptive scientific optimization", "optional",
                "Optuna studies behind domain-owned methods, imported only when such a strategy runs"),
@@ -133,6 +135,7 @@ EXTRA_ROLES = {
     "video": ("visualization3d", "encoding animations to .mp4/.webm"),
     "mcp": ("interfaces", "the local, read-only MCP server for agent clients"),
     "gui": ("interfaces", "nothing: Panel is core now; the empty extra keeps vaft[gui] working"),
+    "public": ("public_data", "the DIII-D parquet record and FAIR-MAST zstd Zarr chunks of vaft.data.public.equilibria"),
     "accel": ("acceleration", "nothing yet: no VAFT module imports numba"),
     "optimize": ("optimization", "nothing yet: reserved for domain-owned adaptive optimization (#1875)"),
     "architecture": ("architecture", "the import graph behind the dependency explorer"),
@@ -198,6 +201,10 @@ class ExternalCode:
     install_section: str = ""
     links: Tuple[Reference, ...] = ()
     note: str = ""
+    #: Data Dictionary paths a reconstruction code fits or imposes as measured constraints
+    #: (canonical spelling, every index as ``(:)``); for EFIT the k-file inputs of
+    #: :mod:`vaft.code.efit.kfile`, its REQUIRED_CONSTRAINT_INPUTS included
+    constrained_by: Tuple[str, ...] = ()
 
     @property
     def scheduler_backed(self) -> bool:
@@ -223,6 +230,14 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
         workflow=("routine:generate_kfile", "routine:run_efit_reconstruction", "routine:generate_efit_ods"),
         install_section="efit-and-efund-licensed-software-obtain-it-yourself",
         links=(_doi("L. L. Lao et al., Nucl. Fusion 25, 1611 (1985)", "10.1088/0029-5515/25/11/007"),),
+        constrained_by=(
+            "magnetics/ip(:)/data",                    # required (REQUIRED_CONSTRAINT_INPUTS)
+            "tf/b_field_tor_vacuum_r/data",            # required: R0 B0 from the TF coil current
+            "magnetics/b_field_pol_probe(:)/field/data",
+            "magnetics/flux_loop(:)/flux/data",
+            "magnetics/diamagnetic_flux(:)/data",      # optional (#993)
+            "pf_active/coil(:)/current/data",
+        ),
         note="Distributed by the EFIT-AI collaboration under the EFIT users agreement; "
              "VAFT never fetches, mirrors or bundles it.",
     ),

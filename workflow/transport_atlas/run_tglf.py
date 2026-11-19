@@ -1,13 +1,14 @@
-"""Routine multi-surface TGLF over the #1331 Tier A states (issue #1428).
+"""Routine multi-surface TGLF over the EFIT campaign's Tier A states.
 
 Reads a campaign FileDB (``omas/core_profiles``, ``omas/efit/magnetic``,
-``omas/electron_efit``) and the #1331 slice-label table, enumerates every
+``omas/electron_efit``) and the EFIT campaign's slice-label table, enumerates every
 good/admissible state of both EFIT lineages, resolves each through
 :func:`vaft.process.transport_state.resolve_transport_state`, and runs native TGLF on
 every ready surface through the existing runner and execution backend.
 
 Every run names its TGLF configuration: ``--sat-rule`` and ``--field-model`` have no
-defaults (#1482), and the outputs go to ``--out/tglf-sat<n>-<field>/``.
+defaults (which suits VEST is an open validation question), and the outputs go to
+``--out/tglf-sat<n>-<field>/``.
 
 Output tree (``--out/<config>``)::
 
@@ -65,7 +66,7 @@ STAGES = {
 
 
 def load_labels(path: Path) -> dict[tuple[int, int], str]:
-    """``{(shot, time_ms): label}`` from a #1331 analysis file (its ``labels`` list)."""
+    """``{(shot, time_ms): label}`` from an EFIT campaign analysis file (its ``labels`` list)."""
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     rows = payload["labels"] if isinstance(payload, dict) else payload
     return {(int(r["shot"]), int(r["time_ms"])): str(r["label"]) for r in rows}
@@ -129,7 +130,7 @@ def core_profiles_product(filedb: Path, shot: int, directory: Optional[Path] = N
     """The core_profiles product: the FileDB stage, or ``<directory>/<shot>.json.gz``.
 
     ``directory`` points at another producer's per-shot products, for example lane K's
-    inferred-Ti ``atlas/v1/core_profiles/`` (#1454); those carry no stage manifest.
+    inferred-Ti ``atlas/v1/core_profiles/``; those carry no stage manifest.
     """
     if directory is None:
         return product(filedb, "core_profiles", shot)
@@ -211,7 +212,7 @@ def gacode_revision(config: Any = None) -> Optional[str]:
         return None
 
 
-#: The field models of the #1482 sensitivity space. ``em-bper-bpar`` is a separate
+#: The field models of the SAT-rule sensitivity space. ``em-bper-bpar`` is a separate
 #: diagnostic assumption and is never grouped under "EM".
 FIELD_MODELS = {
     "es": {"use_bper": False, "use_bpar": False},
@@ -221,7 +222,7 @@ FIELD_MODELS = {
 
 
 def config_label(sat_rule: int, field_model: str) -> str:
-    """``tglf-sat<n>-<field>``: the #1482 source-style name of one configuration.
+    """``tglf-sat<n>-<field>``: the source-style name of one configuration.
 
     A discovery label only; the full settings travel as ``tglf_parameters``.
     """
@@ -443,7 +444,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--ti-te-ratio", default="policy",
                         help="'policy' (vest.yaml, #1414) or a number")
     parser.add_argument("--rho-max", type=float, default=DEFAULT_RHO_MAX)
-    # No defaults on purpose (#1482): which saturation rule and field model suit VEST
+    # No defaults on purpose: which saturation rule and field model suit VEST
     # is an open validation question, so every run names its configuration.
     parser.add_argument("--sat-rule", type=int, choices=(0, 1, 2, 3), required=True)
     parser.add_argument("--field-model", choices=tuple(FIELD_MODELS), required=True)
@@ -535,7 +536,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 if job is not None:
                     entry["run_identity"] = job["identity"]
                     entry["local"] = job["local"]
-                    # The classical baseline (#1435) needs no solver: it is evaluated
+                    # The classical (Braginskii) baseline needs no solver: it is evaluated
                     # from the same local input, so it describes the same surface.
                     entry["classical"], entry["classical_error"] = classical_record(
                         job["profile"], job["local_input"])

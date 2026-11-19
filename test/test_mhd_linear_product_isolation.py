@@ -1,4 +1,4 @@
-"""What the per-product split actually protects (#527 step 7, #137).
+"""What the per-product split actually protects.
 
 The combined `mhd_linear` folded DCON, RDCON and STRIDE into one dense
 `(time, n_tor)` grid, and it is tempting to say the three overwrote each other.
@@ -7,7 +7,7 @@ which of the three pairs is the dangerous one.
 
 Only `dcon-peeling` and `dcon-kink` destroy data: they are the same executable
 run two ways, so both go through `_write_dcon_entry` and write the same fields
-at the same position. That is the case #527 exists for, and the combined product
+at the same position. That is the case the split exists for, and the combined product
 had nowhere to record which of the two it held.
 
 These tests pin the distinction, so a future change that makes DCON and RDCON

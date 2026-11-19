@@ -29,7 +29,7 @@ __all__ = [
     "render_text_view",
 ]
 
-#: Keywords that each pick one state of a time-resolved plot (issue #1380).
+#: Keywords that each pick one state of a time-resolved plot.
 STATE_SELECTORS = ("time", "time_slice", "time_index", "frame_index")
 
 
@@ -57,7 +57,7 @@ def render_entries(
     :class:`plotly.graph_objects.Figure` and takes no ``ax=``.  The model is
     built the same way whichever draws it.
 
-    ``interactive=True`` (issue #480) draws the same plot with the controls
+    ``interactive=True`` draws the same plot with the controls
     its capability record supports -- ``controls`` names a subset, or
     ``"auto"`` for all of them -- and returns a
     :class:`vaft.plot.renderers.interactive.Interactive` whose ``state``
@@ -65,7 +65,7 @@ def render_entries(
     :data:`vaft.plot.renderers.interactive.BACKENDS`.  Every option given
     here is the control's starting value.
 
-    ``animation=True`` (issues #1049/#1050) draws the same plot over a
+    ``animation=True`` draws the same plot over a
     sequence of its states -- the values of its slice control, the one the
     ``interactive=True`` slider drives -- and returns a lazy
     :class:`vaft.plot._animation.Animation` with ``save("x.mp4")``;
@@ -112,7 +112,7 @@ def render_entries(
     model = _mark_cross_shot(name, build_model(name, entries, **options), entries)
     # A layout other than overlay arranges the same traces into a Panels model;
     # renderer_for hands such a model to the panels renderer, so the return
-    # shape follows the layout (issue #260) and no renderer knows about layouts.
+    # shape follows the layout and no renderer knows about layouts.
     renderer = renderer_for(spec, model, backend)
     _, style = split_options(options)
     from vaft.plot.figure_options import figure_options_scope
@@ -159,7 +159,7 @@ def render_text_view(
     interaction_backend: str = "auto",
     **options: Any,
 ) -> Any:
-    """A ``table`` or ``text`` view (issue #1180): the model, presented as text.
+    """A ``table`` or ``text`` view: the model, presented as text.
 
     The model is built exactly as for a figure; the renderer returns a
     :class:`vaft.plot.renderers.tables.TextView` instead of ``(Figure, Axes)``
@@ -202,7 +202,7 @@ def render_text_view(
 def _panel_marks(figure_options: Any, model: Any) -> tuple[Any, Any]:
     """Hand ``panel_labels`` to a composite model, which draws its marks itself.
 
-    A ``Panels`` model marks its cells at render time (#1480); setting the
+    A ``Panels`` model marks its cells at render time; setting the
     model's own flag -- rather than marking afterwards -- draws them in the
     same place and style and never twice.  Returns the options without the
     field and the replaced model, or the options unchanged and ``model``.
@@ -277,7 +277,7 @@ def _render_interactive(
 
     if ax is not None:
         raise TypeError("interactive=True draws its own figure and takes no ax=")
-    # A theme is a control here (issue #710); the canvas is the controls
+    # A theme is a control here; the canvas is the controls
     # figure's, so format= alone is refused.
     _refuse_presentation(
         options, "interactive=True draws its own controls figure", keys=("format",)
@@ -303,7 +303,7 @@ def _render_interactive(
     # An instant the caller chose with another selector (time= on a plot whose
     # slider is time_index, time_slice= on a camera frame) pins the state the
     # same way: the slice control is not offered, since a builder takes one
-    # selector at a time (issue #1380).
+    # selector at a time.
     pinned = [key for key in STATE_SELECTORS if extraction.get(key) is not None]
     offered = tuple(
         c for c in offered if not (c.group == "slice" and any(key != c.name for key in pinned))
@@ -359,7 +359,7 @@ def frame_renderers(
 
     # validity= is drawn by the renderer, but a mode the caller states also
     # tells the signal presets to keep condemned channels for that mode to
-    # handle (issue #1380), so the builder sees it as the static call does.
+    # handle, so the builder sees it as the static call does.
     hints = {"validity": fixed_style["validity"]} if fixed_style.get("validity") is not None else {}
 
     def build(chosen: Mapping[str, Any]) -> Any:
@@ -378,7 +378,7 @@ def _refuse_presentation(
 ) -> None:
     """Refuse ``format=``/``theme=`` where they would otherwise be dropped.
 
-    They are Matplotlib presentation presets (issue #689) and a path that
+    They are Matplotlib presentation presets and a path that
     cannot apply them must say so rather than draw something else.  ``keys``
     narrows the refusal to the presets a path really cannot take.
     """
@@ -398,10 +398,10 @@ def refuse_when_unsupported(
 ) -> None:
     """Raise rather than render a figure with nothing in it.
 
-    A path-driven adapter whose leaf is absent used to return an empty figure --
-    no lines, no error, nothing to say why. That is worse than failing: it is
-    also why a plot could be missing from ``available_plots(obj)`` while the
-    function itself still "succeeded" (issue #290).
+    Without the guard, a path-driven adapter whose leaf is absent would return
+    an empty figure -- no lines, no error, nothing to say why. That is worse
+    than failing: a plot could then be missing from ``available_plots(obj)``
+    while the function itself still "succeeded".
 
     The guard asks the same question ``available_plots`` asks, so the two
     agree by construction. It covers only the plain path reads: composites drop

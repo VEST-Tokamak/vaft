@@ -11,8 +11,8 @@ Two rules the fields encode:
 * **Optional means absent, not zero.**  Every field GACODE treats as optional is
   ``None`` when VAFT does not have it.  ``expro`` itself omits an all-zero
   profile when it writes, so a zero-filled array is indistinguishable from a
-  physical zero once written -- which is exactly the confusion issue #550 asks
-  this layer not to create.
+  physical zero once written -- which is exactly the confusion this layer must
+  not create.
 * **Units are GACODE's, not SI.**  Densities are 10^19 m^-3, temperatures keV,
   currents MA and MA/m^2, conductivity MSiemens/m.  The conversion happens once,
   at the boundary, and is recorded in ``provenance``.
@@ -168,7 +168,7 @@ class GACODEProfile:
         """Fields NEO needs for ``PROFILE_MODEL=2`` that this profile lacks.
 
         A precondition check, not a verdict: it reports what is missing and
-        leaves the decision to the caller, per the boundary in issue #253.
+        leaves the decision to the caller: checks report, callers judge.
         """
         # kappa is required even though delta and zmag are not: expro reads an
         # absent tag as zero, which is a legitimate delta or zmag but collapses

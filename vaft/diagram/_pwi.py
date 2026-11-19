@@ -1,5 +1,5 @@
 """Plasma-wall interaction concepts: processes, reflection, sputtering, recycling, energy partition, and the
-reflected-energy, angle, threshold, particle-balance and surface-response views (#1047).
+reflected-energy, angle, threshold, particle-balance and surface-response views.
 
 ``plasma_wall_interaction_processes``
     one impact and its outcomes: reflection, implantation/retention,
@@ -25,7 +25,10 @@ reflected-energy, angle, threshold, particle-balance and surface-response views 
 ``plasma_wall_interaction_surface_response``
     the generic input -> response -> output model a PWI backend fills.
 
-Level 0 of the issue's enrichment: semantics only. No reflection or
+Enrichment levels (open: #1047): 0, semantics only; 1, IMAS / VAFT wall
+metadata; 2, energy- and angle-resolved response tables; 3, an external PWI
+backend; 4, a plasma-distribution-aware wall response. This module is
+level 0: semantics only. No reflection or
 sputtering coefficient, threshold or yield is drawn unless computed from a
 ``vaft.formula.pwi`` relation with inputs the caller supplies (a threshold
 needs the surface binding energy). Projectile and target species are checked
@@ -373,7 +376,7 @@ def plasma_wall_interaction_reflection_energy(projectile="D", target="W", *, lab
     $(1 - \gamma)E_i$, with $\gamma$ from
     ``binary_collision_energy_transfer_factor`` for the pair. $R_N(E_i)$,
     $R_E(E_i)$ and $\langle E_r\rangle(E_i)$ are the enrichment slots of
-    #1047 level 2; they are data and stay empty here, so no functional
+    level 2 (response tables); they are data and stay empty here, so no functional
     relation between $E_i$ and $E_r$ is drawn.
     """
     labels = _check_labels(labels)
@@ -554,7 +557,7 @@ def plasma_wall_interaction_surface_response(projectile="D", target="W", *, labe
     composition and state) feed a surface response that returns the particle
     and energy reflection coefficients and the sputtering yield, and from them
     the reflected and sputtered distributions and the retained/recycled split.
-    This is the extension point of #1047 levels 2-4: tabulated data or an
+    This is the extension point of enrichment levels 2-4: tabulated data or an
     external code fills the response; at level 0 it is empty.
     """
     labels = _check_labels(labels)

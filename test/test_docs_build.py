@@ -226,7 +226,7 @@ def test_publishing_only_ever_forces_with_a_pinned_lease():
     """Replacing gh-pages is forced, but always leased on the tip read before the build.
 
     A lease with an explicit expected value is what keeps a concurrent publish
-    detectable (#2117). ``git add --force`` is used and is fine: it stages the
+    detectable. ``git add --force`` is used and is fine: it stages the
     composed tree past docs/.gitignore. What must never appear is an
     unconditional forced push: a bare ``--force``/``-f``, ``+refspec``, or a
     lease with no expected value, which only protects against a stale fetch.

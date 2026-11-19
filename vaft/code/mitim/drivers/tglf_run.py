@@ -1,4 +1,4 @@
-"""MITIM TGLFtools run at given rho_tor_norm, outputs regrouped per radius (#1588 A2).
+"""MITIM TGLFtools run at given rho_tor_norm, outputs regrouped per radius.
 
 Runs in the MITIM interpreter; imports MITIM and the standard library only.
 """

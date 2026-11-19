@@ -1,4 +1,4 @@
-"""The plasma-formalism provenance record of a run (issue #1727, under #1723).
+"""The plasma-formalism provenance record of a run.
 
 Which physical formulation did *this run* use?  The solver name does not say:
 DCON is ideal or kinetic-MHD depending on ``kin_flag``, CGYRO is electrostatic or
@@ -6,8 +6,8 @@ electromagnetic, linear or nonlinear, and ASCOT5 follows full orbits or guiding
 centres.  :class:`PlasmaFormalism` records the answer as a few factorized,
 controlled fields, derived by each backend from its actual configuration.
 
-The vocabulary is the minimum the Phase A audit justified
-(``docs/_guide/Plasma_models.md``, #1725).  Its design rules:
+The vocabulary is the minimum the audit of the solvers' formulations justified
+(``docs/_guide/Plasma_models.md``).  Its design rules:
 
 * **Factorized, not a ladder.**  Ideal MHD, drift kinetics and gyrokinetics are
   not rungs of one fidelity scale; they differ along independent axes

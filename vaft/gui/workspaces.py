@@ -1,13 +1,13 @@
-"""The workspaces ``vaft gui`` ships with (#1174).
+"""The workspaces ``vaft gui`` ships with.
 
-* **Plots** -- the plot explorer of #1086: sources, the discovered plot
+* **Plots** -- the plot explorer (:mod:`vaft.gui.app`): sources, the discovered plot
   catalog, controls, figure options, export.  It publishes what it has open
   and the selected time to the shared selection, and opens what another
   workspace selects.
 * **Diagnostics** -- the explorer narrowed to one diagnostic chosen from the
-  diagnostic registry (:mod:`vaft.gui.diagnostics`, #1348).
+  diagnostic registry (:mod:`vaft.gui.diagnostics`).
 * **Equilibrium** -- equilibrium plots by mode with one shared time slice,
-  and the validation verdicts (:mod:`vaft.gui.equilibrium`, #1352).
+  and the validation verdicts (:mod:`vaft.gui.equilibrium`).
 * **Database** -- the database sources a shot can be read from, the HSDS
   credential configuration h5pyd will use (never its secrets), a connection
   check, and opening database shots in the plot explorer.

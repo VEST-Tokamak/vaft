@@ -1,10 +1,11 @@
-"""The option vocabulary of ``build_model``/``render_entries`` (issue #480).
+"""The option vocabulary of ``build_model``/``render_entries``.
 
 Every keyword an adapter accepts is either an *extraction* option -- it
-shapes the view model -- or a renderer *style* keyword.  The split used to be
-an unvalidated frozenset, so a misspelt ``selecton=`` leaked into Matplotlib
-and failed somewhere else.  The schema below names every extraction option
-with its kind and, where one exists, the vocabulary it draws from; the style
+shapes the view model -- or a renderer *style* keyword.  The split is a
+validated schema rather than a bare set of names, so a misspelt ``selecton=``
+is refused by name instead of leaking into Matplotlib and failing somewhere
+else.  The schema below names every extraction option with its kind and,
+where one exists, the vocabulary it draws from; the style
 set is read off the renderers' own signatures, so a new renderer keyword is
 known here the day it is added.  The discovery-driven control layer
 (:mod:`vaft.plot.controls`) reads the same schema to offer controls.
@@ -74,7 +75,7 @@ def _specs() -> tuple[OptionSpec, ...]:
                                "on a time axis or refused -- never accepted and ignored"),
         OptionSpec("conductivity_model", "choice", "recipes.ZEFF_CONDUCTIVITY_MODELS",
                    "parallel conductivity model of the resistive Z_eff view (#1214)"),
-        # Impurity composition views (#1565 Sec. 8).
+        # Impurity composition views.
         OptionSpec("normalizations", "multi", "recipes.IMPURITY_NORMALIZATIONS",
                    "how the elemental densities are scaled; the first drives the moment panels"),
         OptionSpec("ionization", "choice", "recipes.IMPURITY_IONIZATIONS",
@@ -85,7 +86,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("target_zeff", "float", description="Z_eff the normalization rule closes at"),
         OptionSpec("adf11_tables", description="{element: (acd, scd)} ADF11 tables overriding OPEN-ADAS"),
         OptionSpec("adf11_cache_dir", "str", description="directory OPEN-ADAS ADF11 files are cached in"),
-        # Romero's balance (#1590): the resistance is the caller's estimate,
+        # Romero's balance: the resistance is the caller's estimate,
         # never assumed; the non-inductive current defaults to 0 (Ohmic).
         OptionSpec("plasma_resistance", description="plasma resistance in ohm, one value or one per slice"),
         OptionSpec("non_inductive_current", "float",
@@ -95,7 +96,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         # runs over the PF samples, thousands of them, where time_slice= names
         # one of a handful of stored equilibria.
         OptionSpec("time_index", "int", description="position on a dense time base"),
-        # Startup views (issue #888).
+        # Startup views.
         OptionSpec("p_Pa", "float", description="fill pressure in pascal for a Lloyd threshold"),
         OptionSpec("ec_frequency_Hz", "float",
                    description="EC source frequency in Hz whose resonance is marked; None draws none"),
@@ -135,11 +136,11 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "quantity a 2-D equilibrium map draws; a plot that takes another "
                    "field= vocabulary (an island separatrix's total|vacuum resonant "
                    "pair, a vacuum map, a profile fit) declares its own"),
-        # A composite's panels, by member name (issue #482).  The vocabulary
+        # A composite's panels, by member name.  The vocabulary
         # is the composite's own member list, so it is scoped per plot.
         OptionSpec("members", "multi", description="which panels of an overview to draw"),
         OptionSpec("frequency_range", "range", description="(f0, f1) in Hz: the analysed band"),
-        # The wrapped-n fit (issue #485): which bands to fit, how many to find,
+        # The wrapped-n fit: which bands to fit, how many to find,
         # which n to test, and whether the fitted line is drawn beside the points.
         OptionSpec("frequencies", description="bands to fit, in Hz; None finds the strongest"),
         OptionSpec("num_modes", "int", description="how many bands to fit when none are named"),
@@ -149,7 +150,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("n_frequencies", "int", description="wavelet scales across the band (method='cwt')"),
         OptionSpec("target_df", "float", description="frequency resolution a window is sized for"),
         OptionSpec("highpass_cutoff", "float", description="trend filter cut-off in Hz"),
-        # camera fluctuation views (issue #161): the background and transform
+        # camera fluctuation views: the background and transform
         # windows in frames, the pixel box summed, and the filtered band.
         OptionSpec("background_frames", "int", description="local temporal mean width, in frames"),
         OptionSpec("window_frames", "int", description="short-time transform window, in frames"),
@@ -157,7 +158,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("region", "range", description="(row_start, row_stop, column_start, column_stop) pixel box"),
         OptionSpec("centre_frequency", "float", description="MHD band centre in Hz; the magnetics' dominant mode"),
         OptionSpec("half_width", "float", description="half the filtered bandwidth in Hz"),
-        # Fluctuation diagnostics (issue #1005): the two channels a coherence
+        # Fluctuation diagnostics: the two channels a coherence
         # compares, and the spectral ridge a spectrogram overlays.
         OptionSpec("x_signal", description="reference channel of a coherence: index, 'diagnostic:index|name', IDS path or name"),
         OptionSpec("y_signal", description="channel compared against x_signal, in the same forms"),
@@ -180,12 +181,12 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("log_y", "bool"), OptionSpec("marker_frequencies"), OptionSpec("max_frequency", "float"),
         OptionSpec("max_harmonics", "int"), OptionSpec("max_length_m", "float"), OptionSpec("n_tor", "int"),
         OptionSpec("ncols", "int"), OptionSpec("noverlap", "int"), OptionSpec("nperseg", "int"),
-        # A channel count per family: the #139 vacuum figures read it as
+        # A channel count per family: the eddy-stage vacuum figures read it as
         # int(per_family) (default 2), the vacuum benchmark views as a positive
         # count or None for every usable channel.
         OptionSpec("per_family", "int",
                    description="magnetic channels kept per family (vacuum views and benchmark)"),
-        # The plasma-free vacuum benchmark (#190, roadmap #1242 C3): the one
+        # The plasma-free vacuum benchmark: the one
         # global wall-resistance factor its resistance study varies, and the
         # wall time constants of solver history the validation window waits for.
         # Only recipes.VACUUM_BENCHMARK_PLOTS take them (DECLARED_ONLY_OPTIONS).
@@ -194,7 +195,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("n_tau", "float",
                    description="vacuum benchmark: slowest wall time constants of solver history "
                                "before the validation window opens"),
-        # wall eigenmode views (vaft #473)
+        # wall eigenmode views
         OptionSpec("basis"), OptionSpec("segment"), OptionSpec("mode"), OptionSpec("max_modes", "int"),
         OptionSpec("whole_wall", "bool"), OptionSpec("remap_em_coupling", "bool"), OptionSpec("rows"),
         OptionSpec("rules"), OptionSpec("orders"), OptionSpec("drive"), OptionSpec("metrics"),
@@ -204,13 +205,13 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("rho_range", "range"),
         OptionSpec("ion_index", "int"), OptionSpec("include_stored", "bool"),
         OptionSpec("models"), OptionSpec("order"),
-        # Kinetic profile fits (issue #952): the equilibrium the channels are
+        # Kinetic profile fits: the equilibrium the channels are
         # mapped through (an ODS, a GEQDSK, a path, or {name: equilibrium} to
         # compare mappings) and the model fitted through them.
         OptionSpec("equilibrium", description="equilibrium (or {name: equilibrium}) the channels are mapped through"),
         OptionSpec("fitting_function", "str", description="profile model: polynomial, exponential, gp, linear, ..."),
         OptionSpec("which"), OptionSpec("rule"), OptionSpec("M"), OptionSpec("grid_shape"),
-        # How a field map spaces its value axis (issue #1099). A connection
+        # How a field map spaces its value axis. A connection
         # length runs over decades and is drawn logarithmically by default;
         # "linear" is there for a caller comparing against one.
         OptionSpec("scale", "choice", "recipes.VALUE_SCALES",
@@ -221,13 +222,13 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("show_wall", "bool"), OptionSpec("sigma", "float"), OptionSpec("time_resolution", "float"),
         OptionSpec("title", "str"), OptionSpec("use_wall_boundary", "bool"), OptionSpec("window"),
         OptionSpec("window_size", "float"), OptionSpec("x_limits", "range"), OptionSpec("z0", "float"),
-        # Island and coil-spectrum views (issue #886).
+        # Island and coil-spectrum views.
         OptionSpec("unit", "str", description="display unit of a coil current or perturbed field; 'auto' picks one"),
         OptionSpec("modes", description="toroidal mode numbers of a coil-current spectrum; None draws all"),
         OptionSpec("psi_n", "float", description="normalized poloidal flux of the surface a poloidal spectrum is cut at"),
         OptionSpec("pedestal", description="fitted pedestal whose top is marked on a psi_N abscissa"),
         OptionSpec("phi_deg", "float", description="toroidal angle in degrees of an island cross-section"),
-        # Profile gradient views (issue #551): what the derivative is taken
+        # Profile gradient views: what the derivative is taken
         # against, the length that multiplies it, and a code preset resolving
         # both.  The vocabularies are vaft.process.profile_gradients' own.
         OptionSpec("gradient_coordinate", "choice", "recipes.GRADIENT_COORDINATES",
@@ -237,16 +238,16 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "(an explicit None is refused: in profile_gradient it means 'none')"),
         OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
                    "code preset resolving gradient_coordinate and reference_length"),
-        # Rational-surface overlays (issue #506): flux-surface contours on an
+        # Rational-surface overlays: flux-surface contours on an
         # equilibrium map, vertical markers on a flux-coordinate profile.
         OptionSpec("rational_q", description="safety-factor values whose surfaces are drawn, e.g. [1, 1.5, 2]"),
         OptionSpec("resonances",
                    description="(m, n) harmonics whose q = m/n surfaces are drawn; (2, 1) and (4, 2) share one"),
-        # Predicted mode-frequency tracks over a spectrogram (issue #460).
+        # Predicted mode-frequency tracks over a spectrogram.
         OptionSpec("mode_overlay",
                    description="(m, n) modes whose predicted n * f_phi(q = m/n) tracks are drawn "
                                "(toroidal_rotation model); (2, 1) and (4, 2) give f_phi and 2 f_phi"),
-        # Edge-q estimates (issue #1583): where shape and current come from, the
+        # Edge-q estimates: where shape and current come from, the
         # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
         # Only the summary_time_* edge-q views take them (DECLARED_ONLY_OPTIONS).
         OptionSpec("estimate_from", "choice", "recipes.EDGE_Q_SOURCES",
@@ -257,14 +258,14 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
-        # One matched kinetic state (#1837): the equilibrium occurrence the
+        # One matched kinetic state: the equilibrium occurrence the
         # caller says the input's equilibrium is, refused when it contradicts
         # the occurrence the kinetic state was built on.  Only
         # kinetic_overview_state takes it (DECLARED_ONLY_OPTIONS).
         OptionSpec("equilibrium_occurrence", "int",
                    description="kinetic state: the equilibrium occurrence the Thomson channels are mapped "
                                "through; must match the one the state records"),
-        # Inference stages (#1957): stage= cuts the kinetic state at one stage
+        # Inference stages: stage= cuts the kinetic state at one stage
         # of its chain (and is what animation=True walks); stages= names the
         # columns of its layout="stages" small multiples.
         OptionSpec("stage", "int",
@@ -272,7 +273,7 @@ def _specs() -> tuple[OptionSpec, ...]:
                                "figure's axis limits; default the full figure"),
         OptionSpec("stages", "any",
                    description="kinetic state: the stages layout='stages' draws as columns, increasing"),
-        # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
+        # Linear gyrokinetic spectra: an initial-value eigenmode that
         # reached no growth-rate tolerance is left out unless asked for.  Only
         # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
         OptionSpec("include_unconverged", "bool",
@@ -287,21 +288,21 @@ OPTION_SCHEMA: Mapping[str, OptionSpec] = {spec.name: spec for spec in _specs()}
 #: The extraction option names, the split every adapter applies.
 EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
 
-#: Options only a computed view that declares them takes (issue #551).  Any
+#: Options only a computed view that declares them takes.  Any
 #: other plot refuses them by name, exactly as it refuses an unknown option.
 DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "gradient_coordinate", "reference_length", "convention", "rational_q", "resonances",
-    # issue #1583: the edge-q views' choices.
+    # The edge-q views' choices.
     "estimate_from", "q95_scaling", "start_configuration",
-    # issue #460: the Mirnov spectrogram's predicted mode tracks.
+    # The Mirnov spectrogram's predicted mode tracks.
     "mode_overlay",
-    # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
+    # The linear gyrokinetic spectra's unconverged-mode switch.
     "include_unconverged", "time_tolerance", "comparison_intent", "controlled_differences",
-    # roadmap #1242 C3: the vacuum benchmark's knobs.
+    # The vacuum benchmark's knobs.
     "resistance_scale", "n_tau",
-    # issue #1837: the kinetic state's equilibrium occurrence.
+    # The kinetic state's equilibrium occurrence.
     "equilibrium_occurrence",
-    # issue #1957: the kinetic state's inference stages.
+    # The kinetic state's inference stages.
     "stage", "stages",
 })
 
@@ -403,7 +404,7 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
                 raise ValueError(recipes.no_time_range_option_message(name))
         if key == "estimate_shape":
             # Not a choice, so it cannot be declared through a recipe's choices:
-            # only the edge-q views read it (issue #1583).
+            # only the edge-q views read it.
             from . import recipes
 
             if name not in recipes.EDGE_Q_VIEWS:
@@ -424,9 +425,9 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
 def _plot_scoped_choices(name: str, key: str) -> tuple[Any, ...] | None:
     """A vocabulary the plot itself narrows or widens.
 
-    ``coordinate`` (issue #479), ``x`` (issue #481), ``field`` and
-    ``overlay`` (issue #483) are declared per recipe, so the schema's static
-    list is only the union: what a given plot accepts is asked of the plot.
+    ``coordinate``, ``x``, ``field`` and ``overlay`` are declared per recipe,
+    so the schema's static list is only the union: what a given plot accepts
+    is asked of the plot.
     """
     from . import recipes
 

@@ -1,4 +1,4 @@
-"""Romero's voltage and volt-second balance as a registered plot (#781, #1590)."""
+"""Romero's voltage and volt-second balance as a registered plot."""
 
 from __future__ import annotations
 

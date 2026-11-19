@@ -46,7 +46,7 @@ pipeline 1 writes under it in one of two layouts selected by the `layout:` confi
 `layout: shot_first` (the default) is the legacy server hierarchy, kept so this pipeline stays
 directly diffable against the reference output. Its product names are plain `.json` and stay that
 way: the tree is a read-only record of what the legacy pipeline wrote, so it does not follow the
-canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
+canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz`).
 
 ```text
 {base_dir}/{shot}/
@@ -60,7 +60,7 @@ canonical layout's container (`OMAS_PRODUCT_SUFFIX`, `.json.gz` since #813).
 └── logs/
 ```
 
-`layout: filedb` is the canonical grammar (#77), resolved through
+`layout: filedb` is the canonical grammar, resolved through
 `vaft.database.filedb.FileDB` so no path is reconstructed by hand:
 
 ```text
@@ -173,7 +173,7 @@ it is never an input to a baseline stage, and it records a failure in its own
 manifest instead of raising one -- a broken IMPA branch cannot change the exit
 state of a run whose baseline stages succeeded. Its product is published into
 the sparse `impa` HSDS source rather than into `main`, and a shot missing from
-that source means only that no IMPA product was published for it (issue #305).
+that source means only that no IMPA product was published for it.
 Analysis that wants the array alongside the baseline composes the two
 explicitly with `vaft.database.compose(shot)`.
 
@@ -196,7 +196,7 @@ result = collect_efit_outputs(workdir, EFITConfig(workdir=workdir, shot=shot))
 
 # CHEASE: resolve the binary ($CHEASEHOME/bin/chease, then $CHEASE,
 # then $CHEASE_EXEC_DIR -- there is no $PATH fallback), prepare, run
-# GEQDSK in, GEQDSK out: the adapter selects CHEASE's NIDEAL itself (#516)
+# GEQDSK in, GEQDSK out: the adapter selects CHEASE's NIDEAL itself
 config = CHEASEConfig(executable=exe, timeout=600, target_psin=0.993, nw=513)
 result = run_chease(prepare_chease_inputs(gfile, config), config)
 
@@ -231,11 +231,12 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   developer's home directory, while `base_dir` points at the Linux data server. Repoint them before running.
 * **Dead keys.** `cores`, `raw.offline_only` and `gpec.coil.source` appear in `config.yaml` but are never read
   by the `Snakefile`.
-* **Channel selection is a decision the constraint stage consumes, not one it makes** (issue #296).
+* **Channel selection is a decision the constraint stage consumes, not one it makes**.
   `vaft.validation.efit_channels.decide_efit_channels` reads the validity the diagnostics stage projected
   and emits a per-channel, per-slice decision — usable, suspect, rejected, missing or recovered —
-  that `generate_constraints_ods` only translates into weights. There is no manual channel list any more
-  (issue #295 retired `constraints.broken`; its evidence is in `workflow/efit_channel_selection/README.md`),
+  that `generate_constraints_ods` only translates into weights. There is no manual channel list
+  (`constraints.broken` is retired; the evidence for selecting channels automatically is in
+  `workflow/efit_channel_selection/README.md`),
   so a channel is a constraint unless the assessment says otherwise. `constraints.detect_broken: true` now means
   *require* that assessment: a product without projected validity is refused and must be re-run through the
   diagnostics stage (with `false` every channel is usable by default). No detector runs in this stage.
@@ -252,9 +253,9 @@ dump with no SQL server in reach. Magnetics processing parameters travel as a
   sets is tabulated under [Named configurations]({{ site.baseurl }}/workflows/equilibrium-kinetic-profiles/#named-configurations-presets).
 
 Each constraint is the box average of the diagnostic samples inside `[t_i − w, t_i + w]` — every
-sample once, equal weights, no interpolation grid of its own (issue #433) — with `w =
+sample once, equal weights, no interpolation grid of its own — with `w =
 constraints.average_window` (0.5 ms by default). The window and the reconstruction cadence `tstep` are
-two separate controls; qualifying them together is issue #468.
+two separate controls, and neither is yet qualified against the other for VEST (Open: #468).
 
 Constraint time selection is worth spelling out, because `timeset: auto` is the default and it is not
 obvious. The script takes the shared plasma-analysis range — `diagnostics_time_policies.windows.plasma_analysis`
@@ -262,10 +263,10 @@ in `vest.yaml`, 0.28–0.36 s — and intersects it with the plasma window `vaft
 the product: the slow H-alpha line found by label, else the validated fast line, else the plasma-current
 principal pulse (see [Plasma timing policy]({{ site.baseurl }}/guide/Machine_mapping/#plasma-timing-policy)).
 When no source shows a plasma the window falls back to the whole range, flagged `analysis_range_fallback`
-with the reason. A fallback becomes the shot's "EFIT not applicable: no plasma window ..." verdict (#2195),
+with the reason. A fallback becomes the shot's "EFIT not applicable: no plasma window ..." verdict,
 even when PF pickup lifts a few instants past `CUTIP`, only where the evidence is positive: a usable H-alpha
 line accepted no discharge window while the judged plasma current showed no pulse (a wrong-signed current
-under that light is pickup, as in #205), or, with no usable light, every instant the vacuum cut kept is
+under that light is pickup), or, with no usable light, every instant the vacuum cut kept is
 wrong-signed and the sign-flipped current shows no pulse either. A current the timing could not judge
 (`ip_unusable`, a degenerate detector reference, a condemned Rogowski) never yields the verdict. The k-file,
 EFIT and EFIT-ODS steps pass it on as `skipped: not applicable`, as for any vacuum shot; the diagnostics and
@@ -361,7 +362,7 @@ fit record and, when it has an ion temperature, in that record.
 
 ### The inferred ion temperature
 
-The default scope does not build `ti_inferred` or `resistive_zeff`: `main` gets `⟨Z_eff⟩ = 2` and, on slices with no measured `T_i`, the stated assumption `T_i = T_e` from `composition` (#1842; on the Tier A shots the pressure partition returned `T_i/T_e` ≈ 2 and the resistive `Z_eff` was identifiable on few shots). Name the stages in `stages` to build them; `ti_inferred` replaces an assumed `T_i`, never a measured one.
+The default scope does not build `ti_inferred` or `resistive_zeff`: `main` gets `⟨Z_eff⟩ = 2` and, on slices with no measured `T_i`, the stated assumption `T_i = T_e` from `composition` (because on the Tier A shots the pressure partition returned `T_i/T_e` ≈ 2 and the resistive `Z_eff` was identifiable on few shots). Name the stages in `stages` to build them; `ti_inferred` replaces an assumed `T_i`, never a measured one.
 
 `ti_inferred` gives the slices that have **no measured `T_i`** an ion temperature from the pressure partition of
 pipeline 1's magnetic EFIT: `T_i = p_eq / (e f n_e) - T_e / f`, with `p_eq` sampled on the slice's own flux surfaces
@@ -379,7 +380,8 @@ and `f = n_i,tot / n_e` the composed product's diluted ion density
   and would return that assumption. For the same reason `ti_inferred` is a leaf: the kinetic EFIT stages read
   `composition`, never this product.
 * **`sigma(p_EFIT)`** is the spread over the usable neighbouring slices within `ti_inference.window_s`, floored at
-  `ti_inference.floor` (0.17, #874) of the pressure; `n_e` and `T_e` take the Thomson channels' median relative error.
+  `ti_inference.floor` of the pressure (0.17, borrowed as a relative one-sigma floor on the magnetic-EFIT
+  pressure from the ~17 % profile-model spread of the EFIT plasma area on reference shots 39915, 41524 and 41672); `n_e` and `T_e` take the Thomson channels' median relative error.
 * **Skipped, and named, rather than guessed:** a slice with a measured `T_i`, with no composition (the ion density is
   half the formula), with no equilibrium within the tolerance, or with no significant point.
 * On the archived 40326 / 322 ms case the stage reproduces the notebook's `T_i` to 1e-14 wherever both are valid, and
@@ -387,15 +389,15 @@ and `f = n_i,tot / n_e` the composed product's diluted ion density
 
 ### The resistive Z_eff
 
-`resistive_zeff` stores Lane Z's Romero estimate (issue #1214) in
+`resistive_zeff` stores Romero's resistive estimate in
 `core_profiles.global_quantities.z_eff_resistive`, beside the composition `Z_eff` (`profiles_1d.zeff`) and never over it.
 Romero's transformer balance over the current-carrying window of the magnetic EFIT (boundary flux, `I_p`, `l_i`) gives the
 observed plasma resistance; the one `Z_eff` that makes the conductivity model, run on each kinetic slice's `T_e`, `n_e`
-and Grad-Shafranov geometry, match it is the estimate. The physics is Lane Z's (`vaft.omas.resistive_zeff`,
-`vaft.process.resistive_zeff`); this stage orchestrates it.
+and Grad-Shafranov geometry, match it is the estimate. The physics lives in `vaft.omas.resistive_zeff` and
+`vaft.process.resistive_zeff`; this stage orchestrates it.
 
 * **A window scalar, not a per-slice value.** One slice carries the full noise of a differentiated `V_R`, so the
-  estimate is a single number for the window (#1214 Sec. 9): it is written at every usable kinetic slice and is NaN
+  estimate is a single number for the window: it is written at every usable kinetic slice and is NaN
   elsewhere. The per-slice solutions are in the manifest as a labelled diagnostic and are not stored in the IDS. An
   estimate that sits on a bound (`bound_hit`), or is not identifiable, is recorded and not stored.
 * **Stated settings.** The estimator has no defaults: `resistive_zeff.model` (`redl`), `ln_lambda` (`sauter`), `bounds`
@@ -486,7 +488,7 @@ python gen_volume_averaged_parameter_sheet.py --max-shots 50 --directory public
 | `gen_efit_history.py` | `efit_history.xlsx` | Same columns from EFIT g-files (key column is `shot_number`, not `shot`) |
 | `gen_omas_history.py` | `omas_history_new.xlsx` | One row per shot: onset, pulse duration, peak $I_p$, $B_t$, file-existence flags |
 | `gen_stability_history.py` | `stability_history.xlsx` | Ideal/resistive/ballooning classification per (shot, time) |
-| `gen_core_profiles_history.py` | `core_profiles_history.xlsx` | $\tau_E$ and confinement scalings per time slice: the legacy modelled `p_loss_MW`/`tau_e_s` and the measured-loop Ohmic `v_res_V`, `p_ohm_MW`, `p_net_MW`, `w_mhd_kJ`, `tau_e_net_s` side by side (`CORE_PROFILES_DEFINITIONS`, #1905) |
+| `gen_core_profiles_history.py` | `core_profiles_history.xlsx` | $\tau_E$ and confinement scalings per time slice: the legacy modelled `p_loss_MW`/`tau_e_s` and the measured-loop Ohmic `v_res_V`, `p_ohm_MW`, `p_net_MW`, `w_mhd_kJ`, `tau_e_net_s` side by side (`CORE_PROFILES_DEFINITIONS`) |
 | `gen_equilibrium_global_history.py` | `equilibrium_global_history.xlsx` | 50+ columns: globals, geometry, diamagnetic flux, virial/Shafranov block |
 | `gen_volume_averaged_parameter_sheet.py` | `volume_averaged_parameters.xlsx` | $\langle n_e \rangle$, $\langle T_e \rangle$, $\langle P_e \rangle$ vs. $\langle P_{eq} \rangle$ |
 | `join_chease_stability_history.py` | `chease_stability_history.xlsx` | Inner-join of the CHEASE and stability sheets on `['shot', 'time [ms]']` |
@@ -554,8 +556,8 @@ not a crash: the status reads `partial: ...` and `build_mhd_linear` keeps the sl
 
 The separate `workflow/running_linear_stability/` fan-out is **retired**. It launched DCON, RDCON and STRIDE
 directly, one job per (shot, time, code, n), through environment modules and an absolute path to a runner
-outside the repository. Pipeline 1's `run_gpec_module` / `build_mhd_linear` replace it (migration matrix,
-#2164). Its on-disk layout `{shot}/linear_stability/{time}/{code}/nn={n}/` is also what pipeline 1 still
+outside the repository. Pipeline 1's `run_gpec_module` / `build_mhd_linear` replace it (row `running_linear_stability` of
+`docs/architecture/consolidation/migration_matrix.json`). Its on-disk layout `{shot}/linear_stability/{time}/{code}/nn={n}/` is also what pipeline 1 still
 writes under `layout: shot_first`, because `run_gpec_suite_case` places each run at
 `<workdir>/<time>/<module>/nn=<n>/`. Pipeline 3's `gen_stability_history.py` reads that solver tree, so it
 covers shot_first runs, old and new. It reads neither the `layout: filedb` `gpec/...` cells nor the
@@ -569,7 +571,7 @@ For what these codes compute and how to read their output, see
 
 ## Who runs things in parallel
 
-Three layers can run work concurrently, and each owns one kind of parallelism (#1018):
+Three layers can run work concurrently, and each owns one kind of parallelism:
 
 | Layer | Owns | Does not |
 | --- | --- | --- |

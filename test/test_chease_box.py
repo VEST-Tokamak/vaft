@@ -1,4 +1,4 @@
-"""CHEASE's EQDSK output box as two sizes, NRBOX and NZBOX (#459).
+"""CHEASE's EQDSK output box as two sizes, NRBOX and NZBOX.
 
 Upstream CHEASE reads the two independently; the adapter used to tie them to
 one ``nw``. The output box only interpolates the solution, so a rectangular

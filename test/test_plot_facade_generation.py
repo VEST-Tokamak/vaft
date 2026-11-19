@@ -1,10 +1,10 @@
-"""All three verbs of a canonical plot come from one registry pass (#815).
+"""All three verbs of a canonical plot come from one registry pass.
 
 `dd_*` and `extract_*` were generated; `plot_*` was written out by hand. So
 registering a plot created two of the three and silently not the third, and the
 drift surfaced as a failure of `test_the_three_verbs_cover_the_same_plots` on a
 push to develop rather than on the PR -- that test is outside the `core`
-selection. #810 did exactly that and #814 patched the instance.
+selection. A registered renderer once shipped without its adapters that way (#810).
 
 `install_facades` now generates `plot_*` too, but only where the namespace has
 not written one out: an adapter that does more than call `render`, or whose
@@ -30,7 +30,7 @@ def _install(module_globals):
 
 
 def test_a_plot_the_namespace_has_not_written_gets_generated():
-    """The gap that #810 fell into: registered, two verbs, no third."""
+    """Regression guard for #810: registered, two verbs, no third."""
     stem = next(iter(canonical_names()))
     namespace = {"render": lambda *a, **k: ("figure", "axes")}
 

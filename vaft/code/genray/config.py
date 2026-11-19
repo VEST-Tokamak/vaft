@@ -1,4 +1,4 @@
-"""Configuration, input and result objects for the GENRAY EC ray-tracing adapter (#264).
+"""Configuration, input and result objects for the GENRAY EC ray-tracing adapter.
 
 GENRAY (CompX, https://github.com/compxco/genray) is an external executable.
 VAFT owns the conversion from IMAS ``ec_launchers`` + ``equilibrium`` +
@@ -92,7 +92,7 @@ class GENRAYConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     timeout: Optional[float] = None
     backend: Optional["ExecutionBackend"] = None
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -151,7 +151,7 @@ class GENRAYResult(RunOutcome):
     parsed: Any = None
     provenance: dict[str, Any] = field(default_factory=dict)
 
-    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"``.
     runtime_status: str = "completed"
     #: Wall time from launch to exit or stop [s].
     elapsed_s: Optional[float] = None

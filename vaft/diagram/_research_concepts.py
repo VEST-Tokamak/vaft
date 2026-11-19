@@ -4,21 +4,21 @@ Four fragmented-versus-integrated pairs, one per level of scientific
 integration, share one visual grammar; two further diagrams place the
 research community and the ownership of scientific logic.
 
-``scientific_representation`` (#1641, level 1)
+``scientific_representation`` (level 1)
     one scientific meaning, many encodings, structures, names and words;
-``experimental_research_infrastructure`` (#1636, level 2)
+``experimental_research_infrastructure`` (level 2)
     scattered sources and research paths against a Common Data Model, a FAIR
     scientific data repository and a research framework;
-``scientific_credibility`` (#1638, level 3)
+``scientific_credibility`` (level 3)
     locally reasonable steps that lose evidence, against a common credibility
     and traceability structure ending in a qualified scientific state;
-``research_modality_architecture`` (#1640, level 4)
+``research_modality_architecture`` (level 4)
     science locked into one interface, language or environment, against one
     modular scientific core with many ways to research;
-``fusion_research_ecosystem`` (#1643)
+``fusion_research_ecosystem``
     research roles, activities, shared scientific states and research
     contexts, in a detailed and a presentation rendering of one model;
-``scientific_ownership_architecture`` (#1645)
+``scientific_ownership_architecture``
     where reusable scientific logic belongs, how workflow logic matures into
     it, and where validation, use policy, Study and Research sit.
 
@@ -195,7 +195,7 @@ def _note(items: List, labels: bool, y: float, text: str) -> None:
 
 
 # --------------------------------------------------------------------------------------------------------------
-# Level 2: experimental research infrastructure (#1636)
+# Level 2: experimental research infrastructure
 # --------------------------------------------------------------------------------------------------------------
 
 #: heterogeneous experimental sources, as both variants name them
@@ -204,7 +204,7 @@ INFRA_SOURCES: Tuple[Tuple[str, str], ...] = (
     ("geometry", "Machine geometry"), ("records", "Operation & maintenance records"),
     ("calibration", "Calibration & configuration"),
 )
-#: one pictogram per source, shared by both variants (#2109): the same concept draws the same way
+#: one pictogram per source, shared by both variants: the same concept draws the same way
 INFRA_SOURCE_SYMBOLS: Dict[str, str] = {"daq": "signal", "machine_db": "database", "diagnostic_files": "file",
                                         "geometry": "tokamak", "records": "history", "calibration": "parameters"}
 #: scientific activities, as both variants name them
@@ -251,7 +251,7 @@ _INFRA_HALF_WIDTH = 9.9
 
 
 def experimental_research_infrastructure(organization: str = "integrated", *, labels: bool = True) -> Diagram:
-    r"""Experimental research, fragmented and integrated: why a Common Data Model alone is not enough (#1636).
+    r"""Experimental research, fragmented and integrated: why a Common Data Model alone is not enough.
 
     ``organization`` selects one figure of the pair:
 
@@ -306,7 +306,7 @@ def experimental_research_infrastructure(organization: str = "integrated", *, la
             a = box(xa, y + 0.1, 4.3, 0.95, activities[activity], role=f"activity:{activity}")
             boxes[source], boxes[f"step:{lane}"], boxes[activity] = s, c, a
             items += list(s.items) + list(c.items) + list(a.items)
-            # the source's pictogram (#2109) in the silo's left gutter
+            # the source's pictogram in the silo's left gutter
             items += pictogram(INFRA_SOURCE_SYMBOLS[source], (0.5 * (x0 + xs - 2.15), y + 0.1), 0.7,
                                role=f"symbol:source:{source}").items
             _horizontal(items, edges, s, c, f"source:{source}", f"step:{lane}", style=ADHOC_STYLE)
@@ -412,7 +412,7 @@ def experimental_research_infrastructure(organization: str = "integrated", *, la
 
 
 # --------------------------------------------------------------------------------------------------------------
-# Level 3: scientific credibility and traceability (#1638)
+# Level 3: scientific credibility and traceability
 # --------------------------------------------------------------------------------------------------------------
 
 #: the inference stages of the fragmented figure: (key, title)
@@ -481,7 +481,7 @@ _CRED_HALF_WIDTH = 10.5
 
 
 def scientific_credibility(organization: str = "integrated", *, labels: bool = True) -> Diagram:
-    r"""Scientific credibility, fragmented and qualified: why reproducibility is not enough (#1638).
+    r"""Scientific credibility, fragmented and qualified: why reproducibility is not enough.
 
     ``organization`` selects one figure of the pair:
 
@@ -612,7 +612,7 @@ def scientific_credibility(organization: str = "integrated", *, labels: bool = T
 
 
 # --------------------------------------------------------------------------------------------------------------
-# Level 4: research modality, portability and software architecture (#1640)
+# Level 4: research modality, portability and software architecture
 # --------------------------------------------------------------------------------------------------------------
 
 #: the locked-in research paths, the row of each entry aligned across silos: (key, actor, medium, entries)
@@ -644,7 +644,7 @@ MODALITY_CORRESPONDENCE: Tuple[Tuple[str, str, str, str, str], ...] = (
 MODALITY_SYMPTOM_TAGS: Dict[str, Tuple[str, ...]] = {
     "gui": ("duplicated", "interface"), "notebook": ("monolithic", "knowledge", "unversioned"),
     "matlab": ("duplicated", "language", "machine"), "hpc": ("language", "environment"), "agent": ("human_only",)}
-#: research interfaces, siblings over the same public APIs: (key, name, what it is for, agent-oriented)
+#: research interfaces, siblings over the same public APIs: (key, name, what it is for, agent-facing)
 MODALITY_INTERFACES: Tuple[Tuple[str, str, str, bool], ...] = (
     ("python", "Python", "composition", False), ("jupyter", "Jupyter", "exploration", False),
     ("cli", "CLI", "automation", False), ("gui", "GUI", "interactive work", False),
@@ -678,7 +678,7 @@ _MODALITY_HALF_WIDTH = 10.0
 
 
 def research_modality_architecture(organization: str = "integrated", *, labels: bool = True) -> Diagram:
-    r"""Research software, locked in and modular: one scientific core, many ways to research (#1640).
+    r"""Research software, locked in and modular: one scientific core, many ways to research.
 
     ``organization`` selects one figure of the pair:
 
@@ -694,7 +694,7 @@ def research_modality_architecture(organization: str = "integrated", *, labels: 
         the problem -- the coupling of scientific semantics to one of them is;
     ``"integrated"``
         sibling research interfaces -- Python, Jupyter, CLI, GUI,
-        documentation (human-oriented) and MCP for AI agents -- over the same
+        documentation (human-facing) and MCP for AI agents -- over the same
         public scientific APIs, above one modular scientific core of separate
         responsibilities (formula, process, database, validation, code, plot,
         diagram, machine mapping). Below the core, two different axes:
@@ -765,12 +765,12 @@ def research_modality_architecture(organization: str = "integrated", *, labels: 
             interface_boxes.append(b)
             items += list(b.items)
         humans = ixs[:-1]
-        for xa, xb, text, role in ((humans[0] - 0.5 * iw, humans[-1] + 0.5 * iw, "human-oriented", "audience:human"),
-                                   (ixs[-1] - 0.5 * iw, ixs[-1] + 0.5 * iw, "agent-oriented", "audience:agent")):
+        for xa, xb, text, role in ((humans[0] - 0.5 * iw, humans[-1] + 0.5 * iw, "human-facing", "audience:human"),
+                                   (ixs[-1] - 0.5 * iw, ixs[-1] + 0.5 * iw, "agent-facing", "audience:agent")):
             items += [Polyline.of([(xa, iy + 0.72), (xa, iy + 0.85), (xb, iy + 0.85), (xb, iy + 0.72)], "concept tick",
                                   role=role),
                       Label((0.5 * (xa + xb), iy + 0.9), text, "concept annotation", anchor="south", role=role)]
-        api = box(cx, api_y, span, 0.75, "\\textbf{Public scientific APIs} $\\cdot$ one contract for every interface",
+        api = box(cx, api_y, span, 0.75, "\\textbf{Public scientific APIs} $\\cdot$ shared scientific contracts behind every interface",
                   style="concept state", role="node:api", latex=True)
         items += list(api.items)
         _tag(items, tags, api, "interfaces", cited(MODALITY_RESPONSE_TAGS["interfaces"]))
@@ -839,7 +839,7 @@ def research_modality_architecture(organization: str = "integrated", *, labels: 
 
 
 # --------------------------------------------------------------------------------------------------------------
-# Level 1: multi-layer scientific representation and semantic access (#1641)
+# Level 1: multi-layer scientific representation and semantic access
 # --------------------------------------------------------------------------------------------------------------
 
 #: the four representation layers, top to bottom: (key, row title, what the row holds)
@@ -895,7 +895,7 @@ _REPRESENTATION_HALF_WIDTH = 10.0
 
 
 def scientific_representation(organization: str = "integrated", *, labels: bool = True) -> Diagram:
-    r"""Scientific representation, fragmented and layered: one meaning, many representations and names (#1641).
+    r"""Scientific representation, fragmented and layered: one meaning, many representations and names.
 
     ``organization`` selects one figure of the pair:
 
@@ -1015,7 +1015,7 @@ def scientific_representation(organization: str = "integrated", *, labels: bool 
 
 
 # --------------------------------------------------------------------------------------------------------------
-# The fusion-research community, its activities and shared scientific states (#1643)
+# The fusion-research community, its activities and shared scientific states
 # --------------------------------------------------------------------------------------------------------------
 
 #: research roles: functions a person may combine, not professions (key, name)
@@ -1056,7 +1056,7 @@ PRESENTATION_ROLES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
     ("experiment", "Experiment & Engineering", ("experiment",)), ("theory", "Theory & Modelling", ("theory",)),
     ("data_software", "Data, AI & Software", ("data_ai", "software")),
 )
-#: each role group's pictogram in the presentation rendering only (#2113)
+#: each role group's pictogram in the presentation rendering only
 PRESENTATION_ROLE_SYMBOLS: Dict[str, str] = {"experiment": "tokamak", "theory": "model", "data_software": "computation"}
 PRESENTATION_VERBS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ("Plan", ("ask",)), ("Observe", ("produce",)), ("Infer", ("infer",)), ("Model", ("model",)), ("Test", ("test",)),
@@ -1080,7 +1080,7 @@ _DETAILS = ("full", "presentation")
 
 
 def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> Diagram:
-    r"""Who does fusion research, what they do, and the shared scientific states that connect it (#1643).
+    r"""Who does fusion research, what they do, and the shared scientific states that connect it.
 
     ``detail`` selects one of two renderings of one model:
 
@@ -1286,7 +1286,7 @@ def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> D
 
 
 # --------------------------------------------------------------------------------------------------------------
-# Scientific ownership, maturation and research context (#1645)
+# Scientific ownership, maturation and research context
 # --------------------------------------------------------------------------------------------------------------
 
 #: the bands, top to bottom: (key, name)
@@ -1320,7 +1320,7 @@ OWNERSHIP_VALIDATION: Tuple[str, ...] = ("quality", "credibility", "identifiabil
 
 
 def scientific_ownership_architecture(*, labels: bool = True) -> Diagram:
-    r"""Where scientific logic lives as research software matures (#1645).
+    r"""Where scientific logic lives as research software matures.
 
     Five bands, top to bottom. Scientific context: a Research object -- a
     question, hypothesis and interpretation -- groups Studies by membership,

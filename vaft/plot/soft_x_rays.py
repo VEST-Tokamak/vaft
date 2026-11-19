@@ -135,7 +135,7 @@ def _baseline_correct(
     # A display offset over a caller-chosen closed range [start, stop],
     # NaN-skipping, and a no-op when the range holds no sample -- the window
     # rule differs from sxr_baseline_correction's quiet tail, the operation is
-    # the same, so both go through sxr_offset_baseline (#2162 B3.11).
+    # the same, so both go through sxr_offset_baseline.
     if baseline_range is None:
         return np.asarray(signal, dtype=float).copy()
     return sxr_offset_baseline(signal, _time_mask(time, baseline_range), skip_nan=True, on_empty="keep")

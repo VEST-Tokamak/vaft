@@ -1,4 +1,4 @@
-"""Linear ideal-MHD waves in a uniform plasma: polarization and the branch family (#1063).
+"""Linear ideal-MHD waves in a uniform plasma: polarization and the branch family.
 
 ``shear_alfven_wave``
     field-line bending: displacement, $\\delta\\mathbf v_\\perp$ and

@@ -1,4 +1,4 @@
-"""What operating regime one reconstructed slice belongs to (issue #76).
+"""What operating regime one reconstructed slice belongs to.
 
 A reconstruction outcome is only interpretable against the state the plasma
 was in.  "High-current shots do not converge" and "ramp-up equilibria have
@@ -130,8 +130,9 @@ class EquilibriumRegimePolicy:
         EFIT writes a four-character field naming where the boundary is
         defined.  It is mapped rather than interpreted: an unrecognised value
         is ``unknown``, which is a distinct answer from any of the known ones
-        and must not be read as "not diverted" (issue #76 requires exactly
-        that separation).
+        and must not be read as "not diverted": an unknown state stays
+        distinct from a negative classification, so a cohort grouped by
+        topology does not absorb slices whose topology is not known.
         """
         if limloc is None:
             return "unknown"

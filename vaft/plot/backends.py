@@ -1,4 +1,4 @@
-"""Which library draws a view model: the rendering backends (issue #491).
+"""Which library draws a view model: the rendering backends.
 
 A canonical plot is a *view model* built from data plus a *renderer* that
 draws it.  Matplotlib is the default and canonical renderer, and every spec's
@@ -61,8 +61,8 @@ def supports_backend(model_type: type, backend: str) -> bool:
     from .models import Table, TextSummary
 
     if issubclass(model_type, (Table, TextSummary)):
-        # A table or text view is presented as text by its own renderer
-        # (issue #1180); no drawing library draws it.
+        # A table or text view is presented as text by its own renderer;
+        # no drawing library draws it.
         return False
     if backend == "matplotlib":
         return True
@@ -97,7 +97,7 @@ def renderer_for(spec: PlotSpec, model: Any, backend: str) -> Callable[..., Any]
     only = next((getattr(m, "metadata", {}).get("matplotlib_only") for m in members
                  if getattr(m, "metadata", {}).get("matplotlib_only")), None)
     if only:
-        # A builder states a layout no Plotly renderer can draw (issue #1957).
+        # A builder states a layout no Plotly renderer can draw.
         raise NotImplementedError(f"plot_{spec.stem} draws this with Matplotlib only: {only}")
     kinds = [type(model)] + ([type(member) for member in model.models] if isinstance(model, Panels) else [])
     missing = [kind.__name__ for kind in kinds if kind not in PLOTLY_MODELS]
