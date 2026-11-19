@@ -739,9 +739,10 @@ kinetic_coupling unset`.
 
 **Grouping and queries.**
 - `COMPARISON_KEYS` are the fields two runs must share before they are aggregated as one model: operation, bulk
-  description, fluid model, kinetic equation and coupling, parent theory, distribution, orbit representation,
-  spatial domain, regime, field model, and the realization (a learned surrogate is not the model it emulates).
-  Solver-specific numerical controls are absent on purpose.
+  description, fluid model, kinetic equation, coupling and population, parent theory, distribution, orbit
+  representation, spatial and topology domain, regime, field model, and the realization (a learned surrogate is
+  not the model it emulates). Solver-specific numerical controls are absent on purpose. Every grouping and query
+  function accepts a record or its `as_dict()` mapping.
 - `group_by_formalism` and `assert_comparable` keep ideal and kinetic DCON, CGYRO and TGLF, and guiding-centre and
   full-orbit ASCOT5 in different groups, and name the differing fields.
 - `QUERIES` answers the standing cross-backend questions by field, never by solver name: drift-kinetic

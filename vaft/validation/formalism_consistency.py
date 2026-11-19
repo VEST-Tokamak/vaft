@@ -79,10 +79,12 @@ COMPARISON_KEYS = (
     "fluid_model",
     "kinetic_equation",
     "kinetic_coupling",
+    "kinetic_population",
     "derived_from",
     "distribution_formulation",
     "orbit_representation",
     "spatial_domain",
+    "topology_domain",
     "regime",
     "field_model",
     "realization",
@@ -133,11 +135,34 @@ def _fields() -> tuple[str, ...]:
 def _as_namespace(data: Any) -> Any:
     from vaft.code.formalism import PlasmaFormalism
 
-    if isinstance(data, PlasmaFormalism):
+    if isinstance(data, PlasmaFormalism) or not isinstance(data, Mapping):
         return data
     values = {name: None for name in _fields()}
     values.update({key: value for key, value in dict(data).items() if key in values})
+    if isinstance(values["kinetic_population"], list):
+        values["kinetic_population"] = tuple(values["kinetic_population"])
     return SimpleNamespace(**values)
+
+
+def _extensions(record: Any) -> Mapping[str, Any]:
+    extensions = getattr(record, "extensions", None)
+    return extensions if isinstance(extensions, Mapping) else {}
+
+
+def _extension_problems(record: Any) -> list[FormalismFinding]:
+    """``extensions`` must be a mapping the record can hold: string keys, JSON values only."""
+    from vaft.code.formalism import _canonical_extensions
+
+    extensions = getattr(record, "extensions", None)
+    if extensions is None:
+        return []
+    if not isinstance(extensions, Mapping):
+        return [FormalismFinding("schema", "extensions", f"extensions is a mapping, got {type(extensions).__name__}")]
+    try:
+        _canonical_extensions(extensions)
+    except TypeError as error:
+        return [FormalismFinding("schema", "extensions", str(error))]
+    return []
 
 
 def validate_formalism(data: Any) -> tuple[FormalismFinding, ...]:
@@ -159,6 +184,9 @@ def validate_formalism(data: Any) -> tuple[FormalismFinding, ...]:
     from vaft.code.formalism import SCHEMA_VERSION, _combination_problems, _schema_problems
 
     findings: list[FormalismFinding] = []
+    if not isinstance(data, Mapping) and not all(hasattr(data, name) for name in _fields()):
+        return (FormalismFinding("schema", "*", f"a formalism record is a PlasmaFormalism or a mapping, "
+                                 f"got {type(data).__name__}"),)
     if isinstance(data, Mapping):
         version = data.get("schema_version", SCHEMA_VERSION)
         if version != SCHEMA_VERSION:
@@ -169,6 +197,7 @@ def validate_formalism(data: Any) -> tuple[FormalismFinding, ...]:
             findings.append(FormalismFinding("schema", ", ".join(unknown), f"unknown formalism fields {unknown}"))
     record = _as_namespace(data)
     findings.extend(FormalismFinding("schema", name, message) for _, name, message in _schema_problems(record))
+    findings.extend(_extension_problems(record))
     if not findings:
         findings.extend(FormalismFinding("semantic", name, message) for name, message in _combination_problems(record))
         findings.extend(_ordering_problems(record))
@@ -177,8 +206,7 @@ def validate_formalism(data: Any) -> tuple[FormalismFinding, ...]:
 
 def _ordering_problems(record: Any) -> list[FormalismFinding]:
     """A named ordering limit whose governing formulation the record does not have (#1738 §13)."""
-    extensions = getattr(record, "extensions", None) or {}
-    names = extensions.get("ordering")
+    names = _extensions(record).get("ordering")
     if names is None:
         return []
     findings = []
@@ -210,12 +238,15 @@ def imported_formalism_findings(data: Any, evidence: str) -> tuple[FormalismFind
 
 def realization(record: Any) -> str:
     """How the model is realized computationally: ``"solver"`` unless the record names a surrogate (#1738 §11)."""
-    extensions = getattr(record, "extensions", None) or {}
-    return str(extensions.get("realization", "solver"))
+    return str(_extensions(_as_namespace(record)).get("realization", "solver"))
 
 
 def comparison_key(record: Any) -> tuple[tuple[str, Any], ...]:
-    """The grouping key of a record: :data:`COMPARISON_KEYS` with their values, ``None`` and ``"unknown"`` kept."""
+    """The grouping key of a record: :data:`COMPARISON_KEYS` with their values, ``None`` and ``"unknown"`` kept.
+
+    ``record`` is a :class:`~vaft.code.formalism.PlasmaFormalism` or its ``as_dict()`` mapping.
+    """
+    record = _as_namespace(record)
     return tuple((name, realization(record) if name == "realization" else getattr(record, name))
                  for name in COMPARISON_KEYS)
 
@@ -242,10 +273,11 @@ def assert_comparable(records: Sequence[Any]) -> None:
 def matches(record: Any, **criteria: Any) -> bool:
     """Whether ``record`` has every given field value; ``None`` matches only not-applicable, never unknown.
 
-    A criterion value may be a tuple, meaning any of its members. ``realization``
+    A criterion value may be a tuple, list or set, meaning any of its members. ``realization``
     is accepted as a field. ``kinetic_population`` matches if the record's
     populations intersect the given ones.
     """
+    record = _as_namespace(record)
     for name, wanted in criteria.items():
         value = realization(record) if name == "realization" else getattr(record, name)
         if name == "kinetic_population":
@@ -253,7 +285,7 @@ def matches(record: Any, **criteria: Any) -> bool:
             if not value or not wanted_set.intersection(value):
                 return False
             continue
-        options = wanted if isinstance(wanted, tuple) else (wanted,)
+        options = tuple(wanted) if isinstance(wanted, (tuple, list, set, frozenset)) else (wanted,)
         if value not in options:
             return False
     return True
@@ -286,6 +318,8 @@ def backend_consistency(recorded: Any, authoritative: Any, *, ignore: Iterable[s
     run was prepared with (``vaft.code.gpec._formalism.resolve_plasma_formalism``,
     ``cgyro.plasma_formalism`` ...). ``None`` there means the input could not
     settle the formalism: a recorded value is then reported, never accepted.
+    The realization (``extensions["realization"]``) is compared even when
+    ``extensions`` is ignored: a surrogate is never the solver's run.
     """
     if authoritative is None:
         if recorded is None:
@@ -294,9 +328,15 @@ def backend_consistency(recorded: Any, authoritative: Any, *, ignore: Iterable[s
                                  "but the run records one"),)
     if recorded is None:
         return (FormalismFinding("backend", "*", "the run records no formalism, but its prepared input settles one"),)
+    recorded, authoritative = _as_namespace(recorded), _as_namespace(authoritative)
+    skip = frozenset((ignore,) if isinstance(ignore, str) else ignore)
     findings = []
+    if "extensions" in skip and realization(recorded) != realization(authoritative):
+        findings.append(FormalismFinding("backend", "extensions.realization",
+                                         f"recorded {realization(recorded)!r}, but the prepared input gives "
+                                         f"{realization(authoritative)!r}"))
     for name in _fields():
-        if name in set(ignore):
+        if name in skip:
             continue
         mine, theirs = getattr(recorded, name), getattr(authoritative, name)
         if mine != theirs:
@@ -329,6 +369,8 @@ def _record(**fields: Any):
 
 
 def _reference() -> dict[str, Any]:
+    from vaft.code.formalism import UNKNOWN
+
     return {
         "ideal_mhd_linear_stability": _record(
             scientific_operation="ideal_stability", bulk_description="fluid", fluid_model="ideal_mhd",
@@ -355,7 +397,8 @@ def _reference() -> dict[str, Any]:
             kinetic_population=("all",), spatial_domain="local", regime="quasilinear"),
         "fast_ion_particle_transport": _record(
             scientific_operation="fast_ion_sources", bulk_description="particle", kinetic_equation="fokker_planck",
-            kinetic_coupling="sources", kinetic_population=("beam_ions",), orbit_representation="guiding_center",
+            kinetic_coupling="sources", kinetic_population=("beam_ions",), distribution_formulation=UNKNOWN,
+            orbit_representation="guiding_center",
             spatial_domain="whole_volume", regime="time_dependent",
             extensions={"numerical_representation": "monte_carlo"}),
         "guiding_center_test_particle": _record(
@@ -363,22 +406,27 @@ def _reference() -> dict[str, Any]:
             orbit_representation="guiding_center", kinetic_population=("alphas",), spatial_domain="whole_volume"),
         "full_orbit_test_particle": _record(
             scientific_operation="orbit_following", bulk_description="particle", kinetic_equation="fokker_planck",
-            orbit_representation="full_orbit", kinetic_population=("fast_ions",), spatial_domain="whole_volume",
+            orbit_representation="full_orbit", kinetic_population=("fast_ions",), distribution_formulation=UNKNOWN,
+            spatial_domain="whole_volume",
             extensions={"numerical_representation": "monte_carlo"}),
     }
 
 
 def _future() -> dict[str, Any]:
+    from vaft.code.formalism import UNKNOWN
+
     return {
         "mars_k_kinetic_mhd": _record(
             scientific_operation="ideal_stability", bulk_description="hybrid", fluid_model="ideal_mhd",
             kinetic_equation="drift_kinetic", kinetic_coupling="pressure",
-            kinetic_population=("thermal_ions", "energetic_particles"), orbit_representation="bounce_averaged",
+            kinetic_population=("thermal_ions", "energetic_particles"), distribution_formulation=UNKNOWN,
+            orbit_representation="bounce_averaged",
             spatial_domain="whole_volume", regime="linear", field_model="mhd_displacement"),
         "mhd_with_gyrokinetic_energetic_particles": _record(
-            scientific_operation="ideal_stability", bulk_description="hybrid", fluid_model="resistive_mhd",
+            scientific_operation="resistive_stability", bulk_description="hybrid", fluid_model="resistive_mhd",
             kinetic_equation="gyrokinetic", kinetic_coupling="pressure", kinetic_population=("energetic_particles",),
-            orbit_representation="gyrocenter", spatial_domain="whole_volume", regime="nonlinear",
+            distribution_formulation=UNKNOWN, orbit_representation="gyrocenter", spatial_domain="whole_volume",
+            regime="nonlinear",
             extensions={"numerical_representation": "pic"}),
         "global_deltaf_gyrokinetic_pic": _record(
             scientific_operation="turbulent_transport", bulk_description="kinetic", kinetic_equation="gyrokinetic",
@@ -392,11 +440,13 @@ def _future() -> dict[str, Any]:
             field_model="electromagnetic", extensions={"numerical_representation": "continuum"}),
         "ascot5_full_orbit": _record(
             scientific_operation="orbit_following", bulk_description="particle", kinetic_equation="fokker_planck",
-            kinetic_population=("fast_ions",), orbit_representation="full_orbit", spatial_domain="whole_volume",
+            kinetic_population=("fast_ions",), distribution_formulation=UNKNOWN, orbit_representation="full_orbit",
+            spatial_domain="whole_volume",
             regime="time_dependent", extensions={"numerical_representation": "monte_carlo"}),
         "ascot5_guiding_center": _record(
             scientific_operation="orbit_following", bulk_description="particle", kinetic_equation="fokker_planck",
-            kinetic_population=("fast_ions",), orbit_representation="guiding_center", spatial_domain="whole_volume",
+            kinetic_population=("fast_ions",), distribution_formulation=UNKNOWN,
+            orbit_representation="guiding_center", spatial_domain="whole_volume",
             regime="time_dependent", extensions={"numerical_representation": "monte_carlo"}),
         "simple_collisionless_orbits": _record(
             scientific_operation="orbit_following", bulk_description="particle", kinetic_population=("alphas",),

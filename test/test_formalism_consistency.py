@@ -309,6 +309,46 @@ def test_imported_records_use_the_generic_rules_and_a_declared_evidence_level():
         imported_formalism_findings(legacy, "trust_me")
 
 
+# -- review regressions: populations in the key, mapping inputs, robust validation --
+
+def test_populations_and_topology_separate_groups():
+    thermal = REF["hybrid_mhd_drift_kinetic_stability"]
+    energetic = replace(thermal, kinetic_population=("energetic_particles",))
+    assert len(group_by_formalism([thermal, energetic])) == 2
+    with pytest.raises(ValueError, match="kinetic_population"):
+        assert_comparable([thermal, energetic])
+    closed = replace(FUTURE_FORMULATIONS["full_f_gyrokinetic_across_separatrix"], topology_domain="closed_flux_surface")
+    assert comparison_key(closed) != comparison_key(FUTURE_FORMULATIONS["full_f_gyrokinetic_across_separatrix"])
+
+
+def test_grouping_and_queries_accept_the_serialized_form():
+    records = list(REF.values())
+    dicts = [record.as_dict() for record in records]
+    assert [comparison_key(d) for d in dicts] == [comparison_key(r) for r in records]
+    for name in QUERIES:
+        assert [d["scientific_operation"] for d in query(dicts, name)] == \
+            [r.scientific_operation for r in query(records, name)], name
+    assert matches(REF["resistive_mhd_tearing"], regime=["linear", "nonlinear"])
+    assert backend_consistency(records[0].as_dict(), records[0]) == ()
+
+
+def test_validation_reports_instead_of_raising_on_malformed_extensions():
+    base = REF["ideal_mhd_linear_stability"].as_dict()
+    for extensions in (["x"], {"a": object()}, {1: "a"}):
+        findings = validate_formalism({**base, "extensions": extensions})
+        assert [f.field for f in findings] == ["extensions"], extensions
+    assert [f.layer for f in validate_formalism(None)] == ["schema"]
+
+
+def test_backend_ignore_is_read_once_and_realization_is_never_ignored():
+    record = REF["drift_kinetic_neoclassical"]
+    surrogate = replace(record, extensions={"realization": "learned_surrogate"})
+    assert [f.field for f in backend_consistency(record, surrogate)] == ["extensions.realization"]
+    renamed = replace(record, solver="other", extensions={"note": 1})
+    assert backend_consistency(renamed, record, ignore=(n for n in ("solver", "extensions"))) == ()
+    assert [f.field for f in backend_consistency(renamed, record, ignore="extensions")] == ["solver"]
+
+
 # -- named ordering limits (§13) --
 
 def test_a_named_ordering_must_match_its_governing_formulation():
