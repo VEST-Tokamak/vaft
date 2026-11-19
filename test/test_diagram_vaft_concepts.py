@@ -385,7 +385,9 @@ def test_the_lineage_reuses_the_three_figures_unchanged():
         shift = vc._PARADIGM_X[d.model["paradigms"].index(key)]
         for a, b in zip(mine, theirs):  # the same item, moved by the panel's offset and nothing else
             assert type(a) is type(b) and getattr(a, "text", None) == getattr(b, "text", None)
-            assert _points(a) == pytest.approx([(x + shift, y) for x, y in _points(b)])
+            # flattened: pytest.approx rejects nested tuples on newer pytest
+            assert [c for pt in _points(a) for c in pt] == pytest.approx(
+                [c for x, y in _points(b) for c in (x + shift, y)])
         rows[key] = {k: _box_role_bounds(d, f"panel:{key}:node:{k}")[2:] for k in modes}
         recorded = {(a, b) for a, b, _ in d.model["edges"] if a.startswith(f"{key}:")}
         assert recorded == {(f"{key}:{a}", f"{key}:{b}") for a, b, _ in source.model["edges"]}
