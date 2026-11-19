@@ -84,8 +84,11 @@ for the modes of scientific use.
 ## Intellectual and methodological lineages
 
 This second, distinct diagram records only **defensible named relationships**.
-Solid labelled edges denote published extensions or adaptations; dotted edges
-mean complementary design influences, not ancestry or asserted standards compliance.
+Three edge kinds are used. Solid labelled edges between published frameworks denote
+published extensions or adaptations. Dotted edges mean complementary design influences,
+not ancestry or asserted standards compliance. Thick edges into VAFT point to a
+design concern whose concrete mechanisms, and their limits, are listed row by row in
+the evidence map below; they do not assert conformance with the originating framework.
 
 ```mermaid
 flowchart LR
@@ -100,11 +103,11 @@ flowchart LR
   FAIR4RS -.->|informs| VAFT["VAFT design choices"]
   FAIRWF -.->|informs| VAFT
   SEM -.->|informs| VAFT
-  TRACE -->|realized in| VAFT
-  ARCHIVE -->|supports| VAFT
-  COMPOSE -->|supports| VAFT
-  BORN -->|partially realized in| VAFT
-  VALID -->|supports| VAFT
+  TRACE ==>|native records, see evidence map| VAFT
+  ARCHIVE ==>|partially addressed| VAFT
+  COMPOSE ==>|see evidence map| VAFT
+  BORN ==>|partially realized| VAFT
+  VALID ==>|see evidence map| VAFT
 ```
 
 The diagrams are authored in this Jekyll page using Mermaid so they can be edited
@@ -125,12 +128,12 @@ software feature.
 | Lineage or concern | Design requirement | Implementation evidence | Assessment |
 | --- | --- | --- | --- |
 | FAIR (Wilkinson et al., 2016) | Discoverable, accessible, interoperable and reusable research data | [Data access and IMAS]({{ '/workflows/data-access-imas/' | relative_url }}); [database sources]({{ '/reference/database-data-sources/' | relative_url }}) | Implemented mechanisms; no complete FAIR audit claimed |
-| FAIR4RS (Barker et al., 2022) | Reusable, versioned and documented research software | [Generated API catalog]({{ '/reference/api/' | relative_url }}); [documentation build](https://github.com/VEST-Tokamak/vaft/blob/develop/docs/README.md) | Implemented mechanisms; no principle-by-principle certification |
+| FAIR4RS (Barker et al., 2022) | Reusable, versioned and documented research software | [Generated API catalog]({{ '/reference/api/' | relative_url }}); [documentation build](https://github.com/VEST-Tokamak/vaft/blob/develop/docs/README.md); [release process](https://github.com/VEST-Tokamak/vaft/blob/develop/RELEASING.md) | Implemented documentation and release mechanisms; no principle-by-principle certification |
 | FAIR computational workflows (Goble et al., 2020; Wilkinson et al., 2025) | Inspectable executable composition and workflow provenance | [Automated pipelines]({{ '/workflows/automated-pipelines/' | relative_url }}); [pipeline lineage]({{ '/reference/pipeline-graph/' | relative_url }}) | Implemented workflows; FAIR publishing/discovery not fully assessed |
-| Provenance (W3C PROV, 2013) | Distinguish inputs, activities, agents, versions and derived products | [Pipeline lineage]({{ '/reference/pipeline-graph/' | relative_url }}); [machine mapping provenance](https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/machine_mapping/provenance.py) | Implemented native records; PROV exchange conformance unverified |
+| Provenance (W3C PROV, 2013) | Distinguish inputs, activities, agents, versions and derived products | [Pipeline lineage]({{ '/reference/pipeline-graph/' | relative_url }}); [machine mapping provenance](https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/machine_mapping/provenance.py) | Implemented native records for pipeline stages and VEST shot-processing revisions; not enforced uniformly for every code; PROV exchange conformance unverified |
 | TRUST (Lin et al., 2020) | Explain access, repository governance and long-term responsibility | [Database and data sources]({{ '/reference/database-data-sources/' | relative_url }}); [contacts]({{ '/reference/contacts/' | relative_url }}) | Partial; trustworthy-repository certification not claimed |
 | Semantic interoperability (Vogt et al., 2025) | Explicit concept identity, mapping, relations and unresolved ambiguity | [Ontology explorer]({{ '/reference/ontology/' | relative_url }}); [typed relation generator](https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/_ontology_graph.py) | Implemented typed semantics; no universal semantic equivalence |
-| Born-readable scientific findings (Stocker et al., 2025) | Produce structured scientific resources *during* research, including context and evidence | [Ontology]({{ '/reference/ontology/' | relative_url }}); [validation evidence]({{ '/reference/credibility-applicability/' | relative_url }}); [immutable study/run records](https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/ml/_experiment_store.py) | **Implemented core production-time approach**; publication-linked findings and external knowledge-graph aggregation unverified |
+| Born-readable scientific findings (Stocker et al., 2025) | Produce structured scientific resources *during* research, including context and evidence | [Ontology]({{ '/reference/ontology/' | relative_url }}); [validation evidence]({{ '/reference/credibility-applicability/' | relative_url }}); [immutable study/run records](https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/ml/_experiment_store.py) | Partial: production-time structured registries and validation artifacts, and immutable study records for the ML workflow; publication-linked findings and external knowledge-graph aggregation unverified |
 | Integrated modelling (Meneghini and Lao, 2013; IMAS) | Compose heterogeneous scientific codes and data without conflating methods | [Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}); [computational layers]({{ '/reference/computational-layers/' | relative_url }}) | Implemented design and code interfaces; portability depends on device mapping |
 | Scientific credibility / V&V | Separate source evidence, transformation, inference, applicability, numerical checks and independent validation | [Credibility and applicability]({{ '/reference/credibility-applicability/' | relative_url }}); [validation taxonomy](https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/validation/credibility.py) | Implemented taxonomy and selected assessments; not a universal physical guarantee |
 | Reproducible documentation (Ram, 2013) | Link generated descriptions to source revisions, catch broken relationships | [Documentation build](https://github.com/VEST-Tokamak/vaft/blob/develop/docs/README.md); [diagram guide]({{ '/reference/diagrams/' | relative_url }}) | Implemented for registered catalogs and assets |
