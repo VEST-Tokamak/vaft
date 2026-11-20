@@ -8,6 +8,8 @@ not mutable IMAS/OMAS Python objects.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 import hashlib
 import json
 import os
@@ -297,8 +299,16 @@ class HSDSDomainCache:
         target_dir: Path,
         *,
         transport: Literal["auto", "canonical", "h5image"] = "auto",
-    ) -> tuple[Path, bool, str, dict[str, Any]]:
-        """Put one domain file in ``target_dir`` and report its transport."""
+        defer_download: bool = False,
+    ) -> "tuple[Path, bool, str, dict[str, Any]] | PendingDownload":
+        """Put one domain file in ``target_dir`` and report its transport.
+
+        With ``defer_download`` a domain that needs an hsget is not fetched
+        here: a :class:`PendingDownload` is returned instead.  Its
+        ``download()`` may run on a worker thread (a subprocess and local file
+        work, no h5pyd); its ``finish()`` records the domain in the cache and
+        must run on the calling thread.
+        """
         if not filename.endswith(".h5") or Path(filename).name != filename:
             raise ValueError(f"Expected a simple HDF5 filename, got {filename!r}")
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -351,13 +361,23 @@ class HSDSDomainCache:
                     if transport == "h5image":
                         raise
         if used_transport == "canonical":
-            run_hsget(remote_uri, target)
-            ensure_imas_hdf5_userblock(target, target_dir)
-            transfer = {
-                "transport": "canonical",
-                "remote_uri": remote_uri,
-                "logical_bytes": target.stat().st_size,
-            }
+            pending = PendingDownload(self, filename, target, target_dir, remote_uri, remote)
+            if defer_download:
+                return pending
+            pending.download()
+            return pending.finish()
+        return self._record(filename, target, remote_uri, remote, used_transport, transfer)
+
+    def _record(
+        self,
+        filename: str,
+        target: Path,
+        remote_uri: str,
+        remote: dict[str, str | None] | None,
+        used_transport: str,
+        transfer: dict[str, Any],
+    ) -> tuple[Path, bool, str, dict[str, Any]]:
+        """Store a freshly fetched domain in the cache and report it."""
         if self.enabled:
             self._store(filename, target, remote_uri, remote, used_transport)
         return target, False, used_transport, transfer
@@ -407,6 +427,51 @@ class HSDSDomainCache:
             hsds_cache.enforce(self.base, self.max_bytes)
         except OSError as error:
             logger.warning("could not cache %s: %s", remote_uri, error)
+
+
+
+@dataclass
+class PendingDownload:
+    """A canonical domain whose hsget has not run yet (see ``materialize``)."""
+
+    cache: "HSDSDomainCache"
+    filename: str
+    target: Path
+    target_dir: Path
+    remote_uri: str
+    remote: dict[str, str | None] | None
+    seconds: float = 0.0
+
+    def download(self) -> None:
+        """The hsget and the userblock fix-up: a subprocess and local I/O only."""
+        started = time.perf_counter()
+        run_hsget(self.remote_uri, self.target)
+        ensure_imas_hdf5_userblock(self.target, self.target_dir)
+        self.seconds = time.perf_counter() - started
+
+    def finish(self) -> tuple[Path, bool, str, dict[str, Any]]:
+        """Record the downloaded domain; runs on the thread that owns the cache."""
+        transfer = {
+            "transport": "canonical",
+            "remote_uri": self.remote_uri,
+            "logical_bytes": self.target.stat().st_size,
+        }
+        return self.cache._record(
+            self.filename, self.target, self.remote_uri, self.remote, "canonical", transfer
+        )
+
+
+#: Concurrent hsget downloads per eager load; ``VAFT_HSDS_DOMAIN_WORKERS``
+#: overrides it (``1`` restores the sequential behaviour).
+DEFAULT_DOMAIN_WORKERS = 4
+
+
+def domain_workers() -> int:
+    """How many IDS domains one eager load downloads at once."""
+    try:
+        return max(1, int(os.environ.get("VAFT_HSDS_DOMAIN_WORKERS", DEFAULT_DOMAIN_WORKERS)))
+    except ValueError:
+        return DEFAULT_DOMAIN_WORKERS
 
 
 def stage_imas_shot(
@@ -465,12 +530,43 @@ def stage_imas_shot(
     transports = {"master.h5": master_transport}
     transfers = {"master.h5": master_transfer}
     domain_fetch_seconds: dict[str, float] = {}
+    # Revision probes, cache hits and derived images stay on this thread:
+    # h5pyd 0.24 stalls when several threads open domains at once (about 2 s
+    # per collision, measured on production for #1870, while the server
+    # answers the same concurrent GETs in milliseconds).  Only the hsget
+    # downloads -- separate processes -- overlap, which is where a cold load
+    # spends its time.
+    pending: list[PendingDownload] = []
     for filename in selected:
         started = time.perf_counter()
-        _, hits[filename], transports[filename], transfers[filename] = (
-            cache_store.materialize(filename, staging_dir, transport=transport)
+        result = cache_store.materialize(
+            filename, staging_dir, transport=transport, defer_download=True
         )
         domain_fetch_seconds[filename] = time.perf_counter() - started
+        if isinstance(result, PendingDownload):
+            pending.append(result)
+        else:
+            _, hits[filename], transports[filename], transfers[filename] = result
+    if pending:
+        with ThreadPoolExecutor(max_workers=min(domain_workers(), len(pending))) as executor:
+            futures = [executor.submit(item.download) for item in pending]
+        # Record every domain that did arrive before surfacing a failed one,
+        # as the sequential loop did, so a retry does not fetch them again.
+        failure = next((f.exception() for f in futures if f.exception() is not None), None)
+        if failure is not None:
+            for item, future in zip(pending, futures):
+                if future.exception() is None:
+                    item.finish()
+            raise failure
+        for item in pending:
+            _, hits[item.filename], transports[item.filename], transfers[item.filename] = (
+                item.finish()
+            )
+            domain_fetch_seconds[item.filename] += item.seconds
+        order = ["master.h5", *selected]
+        hits, transports, transfers = (
+            {name: table[name] for name in order} for table in (hits, transports, transfers)
+        )
     return {
         "files": ["master.h5", *selected],
         "cache_hits": hits,
