@@ -686,6 +686,36 @@ def make_turbulent_transport(_sample: ODS) -> ODS:
     return out
 
 
+# transport_hierarchy_*: one state's classical (-1), Chang-Hinton and NEO (5) and
+# TGLF (6) entries, each at its own surfaces, the shape the four mappers write.
+def make_transport_hierarchy(_sample: ODS) -> ODS:
+    out = ODS()
+    out["core_transport.ids_properties.homogeneous_time"] = 0
+    dense, neo, tglf = np.linspace(0.1, 0.8, 15), np.linspace(0.2, 0.7, 6), np.linspace(0.2, 0.7, 4)
+    entries = (
+        (-1, "classical", "vaft.process.transport_state.classical_heat_fluxes", dense, True, 1.0),
+        (5, "neoclassical", "vaft.process.transport_state.chang_hinton_heat_flux", dense, False, 2.0),
+        (5, "neoclassical", "NEO", neo, True, 3.0),
+        (6, "anomalous", "TGLF", tglf, True, 1e3),
+    )
+    for m, (index, name, code, rho, electrons, scale) in enumerate(entries):
+        base = f"core_transport.model.{m}"
+        out[f"{base}.identifier.index"] = index
+        out[f"{base}.identifier.name"] = name
+        out[f"{base}.code.name"] = code
+        profile = f"{base}.profiles_1d.0"
+        out[f"{profile}.time"] = 0.3
+        out[f"{profile}.grid_flux.rho_tor_norm"] = rho
+        if electrons:
+            out[f"{profile}.electrons.energy.flux"] = scale * np.cos(4.0 * rho)
+        out[f"{profile}.ion.0.z_ion"] = 1.0
+        out[f"{profile}.ion.0.energy.flux"] = scale * np.sin(5.0 * rho)
+    return out
+
+
+for _name in ("transport_hierarchy_profile_electron_energy_flux",
+              "transport_hierarchy_profile_ion_energy_flux", "transport_hierarchy_overview"):
+    SYNTHETIC[_name] = make_transport_hierarchy
 for _name in ("gyrokinetics_spectrum_growth_rate", "gyrokinetics_spectrum_frequency",
               "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
               "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview"):

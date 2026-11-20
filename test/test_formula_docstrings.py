@@ -319,6 +319,9 @@ CONVENTION_SENSITIVE = frozenset({
     "redl_bootstrap_coefficients",
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
+    # Chang-Hinton: NEO's v_t = sqrt(T/m) collisionality and the B_unit gyroradius
+    "chang_hinton_ion_heat_coefficients",
+    "chang_hinton_ion_heat_flux",
     # startup: pascal-vs-torr, kelvin-vs-eV, molecular-vs-atomic, and a
     # field magnitude where the flux kernels disagree on sign.
     "neutral_density_from_pressure",
@@ -375,6 +378,9 @@ EMPIRICAL = frozenset({
     "redl_bootstrap_coefficients",
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
+    # Chang and Hinton 1982: rational fit to drift-kinetic solutions
+    "chang_hinton_ion_heat_coefficients",
+    "chang_hinton_ion_heat_flux",
     "lloyd_breakdown_field",
     "townsend_coefficients_for_gas",
     "townsend_breakdown_field_for_gas",

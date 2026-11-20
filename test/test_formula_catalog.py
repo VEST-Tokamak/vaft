@@ -85,7 +85,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "magnetics": 2,
         # Romero's exact transformer identities.
         "transformer": 8,   # +Romero first-order closure
-        "neoclassical": 18,  # +orbit scales and regime orderings
+        "neoclassical": 20,  # +orbit scales and regime orderings, +Chang-Hinton ion heat flux
         # The prefill -> Townsend -> Lloyd breakdown chain, then the
         # post-avalanche equilibrium-field and flux-closure kernels, the
         # limiter-aperture geometry, the generic Townsend inversion and the

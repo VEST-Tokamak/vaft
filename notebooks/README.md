@@ -84,6 +84,7 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `vest_nbi_analysis_with_nubeam.ipynb`: Neutral-beam deposition, heating, current drive and loss accounting for VEST with NUBEAM. Runs the case stored in `vaft/data/nubeam/vest_case` into a temporary directory; needs `$NUBEAMHOME`, and without it each section reports what it would show and skips.
 - `neoclassical_transport_with_neo.ipynb`: Neoclassical transport and bootstrap current for VEST with NEO (GACODE). Converts the packaged 48224 kinetic state to `input.gacode`, runs NEO into a temporary directory, maps the result into IMAS, and compares it with the Sauter and Redl analytic models; needs `$GACODEHOME` and `$GACODE_PLATFORM`, and without them each section reports what it would show and the analytic comparison still runs.
 - `turbulent_transport_with_tglf.ipynb`: Turbulent transport for VEST with TGLF (GACODE) and the TGLF-NN surrogate. Builds the local TGLF input at five surfaces from the packaged 48224 kinetic state, runs TGLF, and audits every public TGLF-NN family against the same input -- none is in domain, because VEST's ion-to-electron temperature ratio is an order of magnitude below every training set. Needs `$GACODEHOME` and `$GACODE_PLATFORM` for the native run and `$TURBULENTTRANSPORTHOME` for the models; the audit needs neither, and without any of them the temperature-ratio finding still runs.
+- `transport_hierarchy_classical_neoclassical_turbulent.ipynb`: Classical (Braginskii), neoclassical (Chang-Hinton closed form and NEO) and turbulent (TGLF SAT3) energy fluxes for one resolved state, the packaged 48224 slice at 300 ms, written to one `core_transport` and overlaid on one rho_tor_norm axis by the `transport_hierarchy_*` plot recipes: closed forms as lines, solver surfaces as markers, symmetric-log axis, main ion only. Needs `$GACODEHOME` and `$GACODE_PLATFORM` for NEO and TGLF; without them the two closed forms still run and are drawn.
 
 ### Analysis, Visualization, Reporting, and Comparison
 
@@ -124,26 +125,27 @@ Use the following order as the main technical path through the notebooks. Existi
 18. `vest_nbi_analysis_with_nubeam.ipynb`
 19. `neoclassical_transport_with_neo.ipynb`
 20. `turbulent_transport_with_tglf.ipynb`
-21. `plotting_sample_using_vaft_plot_module.ipynb`
-22. `shot_characteristics_classification.ipynb`
-23. `vest_daily_monitoring.ipynb`
-24. `fast_camera_video_analysis.ipynb`
-25. `confinement_time_scaling.ipynb`
-26. `single_machine_confinement_scaling_and_dimensional_analysis.ipynb`
-27. `multiple_tokamak_comparison.ipynb`
-28. `multi_machine_confinement_database.ipynb`
-29. `multi_machine_operation_space_database.ipynb`
-30. `vest_ordering_and_model_applicability.ipynb`
-31. `publication_figures.ipynb`
+21. `transport_hierarchy_classical_neoclassical_turbulent.ipynb`
+22. `plotting_sample_using_vaft_plot_module.ipynb`
+23. `shot_characteristics_classification.ipynb`
+24. `vest_daily_monitoring.ipynb`
+25. `fast_camera_video_analysis.ipynb`
+26. `confinement_time_scaling.ipynb`
+27. `single_machine_confinement_scaling_and_dimensional_analysis.ipynb`
+28. `multiple_tokamak_comparison.ipynb`
+29. `multi_machine_confinement_database.ipynb`
+30. `multi_machine_operation_space_database.ipynb`
+31. `vest_ordering_and_model_applicability.ipynb`
+32. `publication_figures.ipynb`
 
 For a shorter review focused only on the notebooks still waiting on an external
 Fortran code, read their **Requirements to run this page** sections:
 
-1. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
-2. `electromagnetic_response_modeling_with_efund.ipynb`
-3. `linear_ideal_stability_analysis_with_dcon.ipynb`
-4. `linear_resistive_stability_analysis_with_rdcon.ipynb`
-5. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
+2. `magnetic_equilibrium_reconstruction_with_efit.ipynb`
+3. `electromagnetic_response_modeling_with_efund.ipynb`
+4. `linear_ideal_stability_analysis_with_dcon.ipynb`
+5. `linear_resistive_stability_analysis_with_rdcon.ipynb`
+6. `perturbed_equilibrium_and_3d_response_with_gpec.ipynb`
 
 ## Current Development Status
 
