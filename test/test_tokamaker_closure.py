@@ -94,6 +94,15 @@ def test_native_density_seed_has_physical_units_and_no_vacuum_current():
     assert actual[1] == 0
 
 
+def test_seed_source_is_in_oft_mu0_current_units():
+    # OFT scales coil currents by mu0 (set_coil_currents) but integrates the
+    # vac_solve rhs_source as given; an A/m^2 seed gave a 1/mu0 too-large flux.
+    from vaft.code.tokamaker.runner import _initial_current_density, _seed_rhs_source
+    eq = solovev_example(resolution=33)
+    points = np.array([eq.magnetic_axis, [.9, .8]])
+    assert _seed_rhs_source(eq, points) == pytest.approx(4e-7*np.pi*_initial_current_density(eq, points))
+
+
 def test_native_saddle_diagnostics_restore_double_null_when_gridded_export_misses_xpoints():
     target = solovev_example('double_null', resolution=65)
     active = closure.derive_boundary_representation(target).x_points
