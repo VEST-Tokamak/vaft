@@ -33,7 +33,14 @@ and verify the result before the session starts:
 bash install/linux.sh          # or macos.sh / windows_wsl.sh / windows_native.ps1
 python install/check_vaft_environment.py
 python -m pip install -e ".[dev]"
+python tutorial/_strip_outputs.py --install
 ```
+
+The last line keeps your run results out of git: it registers a clean filter
+in this clone, so `git diff` shows no change for an executed and saved tutorial
+notebook and `git add` stores it without outputs, while your working copy keeps
+them. (`git status` may still list the file until the next `git add`.) It applies to `tutorial/` notebooks only, and
+`python tutorial/_strip_outputs.py --uninstall` removes it.
 
 Environment setup is not a learning objective of this course. Budget 15-20
 minutes for it beforehand.
@@ -113,9 +120,10 @@ only after the session has its detailed outline, teaching text, executable
 guided analysis, independent exercise, and verification evidence.
 
 Committed notebooks are source artifacts, not result archives. Every code cell
-must have `execution_count: null` and `outputs: []`. Run exploratory or teaching
-copies in `tutorial/outputs/`, then clear the committed source notebook before
-review. Do not add precomputed tables, model results, or tutorial-only datasets.
+must have `execution_count: null` and `outputs: []`. With the clean filter
+installed (see above) git stores that form for you; without it, run
+`python tutorial/_strip_outputs.py tutorial/NN_*.ipynb` to clear a notebook in
+place before review. Do not add precomputed tables, model results, or tutorial-only datasets.
 
 Existing notebooks under `notebooks/` remain specialized references. Reuse
 their public VAFT workflows where mature, but keep detailed theory and narrow
