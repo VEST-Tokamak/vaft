@@ -2053,7 +2053,7 @@ def test_the_nn_audit_refuses_a_non_positive_ratio_scenario(nn_audit):
 
 
 def test_the_nn_audit_reports_containment_when_a_model_carries_its_training_range(nn_audit):
-    """#2274: with exported bounds the rows carry containment and the coverage table fills."""
+    """With exported bounds the rows carry containment and the coverage table fills."""
     from types import SimpleNamespace
 
     audit = SimpleNamespace(bounds_available=True, contained=False, applicable=False,

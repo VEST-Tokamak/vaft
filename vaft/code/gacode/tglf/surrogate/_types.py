@@ -13,7 +13,7 @@ Two measures are kept apart.  The ONNX distribution ships the normalisation mome
 (``xm``/``xsigma``), so every audit carries a standard-deviation distance.  The true
 per-input training bounds -- upstream's data range, clipped at ``xm +/- 3.3 xsigma``
 -- live only inside the upstream Julia ``.bson`` artifacts; when they have been exported beside the ensemble as ``xbounds.txt``
-(``workflow/tglf_nn/export_training_bounds.jl``, #2274) the audit also tests
+(by ``workflow/tglf_nn/export_training_bounds.jl``) the audit also tests
 containment, and :attr:`DomainAudit.bounds_available` says which kind of audit it is.
 """
 

@@ -173,8 +173,8 @@ def _core_coordinate(ods, index: int, coordinate: str,
                      target: float | None) -> np.ndarray | None:
     """The fit's grid in ``coordinate``, or ``None`` when the grid cannot supply it.
 
-    Resolved by :func:`vaft.process.profile.core_profiles_grid_coordinate`
-    (issue #2270), which refuses a stored ``sqrt(psi_N)`` proxy as
+    Resolved by :func:`vaft.process.profile.core_profiles_grid_coordinate`,
+    which refuses a stored ``sqrt(psi_N)`` proxy as
     ``rho_tor_norm``; the view omits what it cannot place.
     """
     if coordinate in ("R", "r_major"):

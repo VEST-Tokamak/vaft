@@ -1,4 +1,4 @@
-"""vest.yaml ``machine_history``: the shot boundaries that used to be Python literals (#2267)."""
+"""vest.yaml ``machine_history``: the shot boundaries, held in vest.yaml rather than as Python literals."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from vaft.machine_mapping import machine_history as mh
 from vaft.machine_mapping.utils import VestConfigurationError, package_data_path
 
 # PRODUCT IDENTITY PIN. An era name is a static product's `machine_version`,
-# and stage products and HSDS sources are keyed by it (#2159 audit gap G14).
+# and stage products and HSDS sources are keyed by it.
 # Changing this tuple re-keys stored products: do it only together with the
 # vest.yaml edit, in a reviewed change that says so.
 PINNED_ERAS = (
@@ -38,7 +38,8 @@ def test_vest_upstream_reexports_the_yaml_eras():
     assert vest_upstream.machine_era("vest-45968-plus-pf2507").first_shot == 45968
 
 
-# The literals each consumer held before #2267, kept here as the oracle.
+# The literals each consumer held before the boundaries moved into vest.yaml,
+# kept here as the oracle.
 def _legacy_trigger_offset(shot: int) -> float:
     if shot < 41446:
         return 0.24

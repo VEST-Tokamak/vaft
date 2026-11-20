@@ -2387,8 +2387,9 @@ def _build_interferometer_spectrogram(ods: Any, *, channel: int = 0, **options: 
             signal_values, highpass_cutoff, sample_rate, order=4, zero_phase=True
         )
     elif highpass_cutoff > 0.0:
-        # A cut-off the record cannot honour leaves the trend in, and the map is
-        # the raw trace's (issue #2270 B5); a cut-off <= 0 is the caller's opt-out.
+        # A cut-off the record cannot honour leaves the trend in and the map is
+        # the raw trace's, which the warning says; a cut-off <= 0 is the
+        # caller's opt-out.
         _warn_at_caller(
             f"interferometer_spectrogram: the {highpass_cutoff:g} Hz trend high-pass is not "
             f"applied ({signal_values.size} samples, Nyquist {nyquist:g} Hz); the map is "
@@ -4725,16 +4726,16 @@ _GRID_PSI_NORM_TOLERANCE = 0.02
 
 
 def _core_profile_psi_norm(ods: Any, profile_slice: int, size: int) -> np.ndarray | None:
-    """psi_N of ``core_profiles.profiles_1d[profile_slice]`` from its ``grid.psi`` (#2253).
+    """psi_N of ``core_profiles.profiles_1d[profile_slice]`` from its ``grid.psi``.
 
     Normalised by ``psi_axis``/``psi_boundary`` of the equilibrium slice stored
     at the profile's time (:func:`_equilibrium_slice_at_core_profile`), else by
     the ends of that slice's ``profiles_1d.psi``.  ``None`` -- the caller then
     draws a sample index under that name -- when there is no ``grid.psi`` of
     the profile's length or no equilibrium at its time.  A ``grid.psi`` that
-    normalises off [0, 1] is in another convention (Wb/rad against Wb, #278)
-    or belongs to another equilibrium; it is refused with a warning, never
-    drawn as psi_N.
+    normalises off [0, 1] is in another convention (a ``grid.psi`` in Wb/rad
+    against an equilibrium in Wb, a factor 2*pi apart) or belongs to another
+    equilibrium; it is refused with a warning, never drawn as psi_N.
     """
     grid_psi = _array(ods, f"core_profiles.profiles_1d.{profile_slice}.grid.psi")
     if grid_psi is None or grid_psi.size != size or not np.all(np.isfinite(grid_psi)):
@@ -4771,7 +4772,7 @@ def _rho_tor_of_psi_norm(ods: Any, time_slice: int) -> tuple[np.ndarray, np.ndar
     """``(psi_N, rho_tor_norm)`` of one equilibrium slice, as an interpolation table.
 
     :func:`vaft.process.profile.equilibrium_rho_tor_norm_table`, the one
-    resolver the views and analysis share (issue #2270): the stored
+    resolver the views and analysis share: the stored
     coordinate when it is authentic, else the one integrated from ``q``; the
     ``sqrt(psi_N)`` proxy is refused.  Its ``CoordinateUnavailableError`` is a
     ``ValueError``.
@@ -4848,8 +4849,8 @@ def _build_core_profile_field(
         psi_rz, float(psi_axis), float(psi_boundary), rho, profile,
         flux_table=_rho_tor_of_psi_norm(ods, int(time_slice)),
     )
-    # The boundary outline decides what is plasma (#2253): psi_N <= 1 also
-    # holds where psi falls below psi_axis near the coils, which painted the
+    # The boundary outline decides what is plasma: psi_N <= 1 also holds
+    # where psi falls below psi_axis near the coils, which would paint the
     # core density on 1,245 exterior cells up to |Z| = 1.4 m of shot 48224.
     # plasma_cell_weights works on the DD's (R, Z) order; the model is (Z, R).
     outline_r = _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r")
@@ -7124,9 +7125,9 @@ def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None
     """``dV`` per rho point from the equilibrium V(rho_tor_norm) of the same time, or ``None``.
 
     The slice is matched BY TIME within :data:`_IMPURITY_SLICE_TOLERANCE`; the
-    weighting is :func:`vaft.process.profile.equilibrium_volume_weights`
-    (issue #2270), which declines a constant V and a proxy radius it cannot
-    re-derive -- the caller then says the stand-in is used.
+    weighting is :func:`vaft.process.profile.equilibrium_volume_weights`,
+    which declines a constant V and a proxy radius it cannot re-derive -- the
+    caller then says the stand-in is used.
     """
     if not np.isfinite(t) or not _count(ods, "equilibrium.time_slice"):
         return None
@@ -10837,7 +10838,7 @@ def _build_profile_1d(
                 x_values.append(float(np.asarray(x, dtype=float).ravel()[0]))
                 position = min(time_slice, y_flat.size - 1) if y_flat.size else 0
                 y_values.append(float(y_flat[position]) if y_flat.size else np.nan)
-                # The channel's stored uncertainty at the same sample (#2253):
+                # The channel's stored uncertainty at the same sample:
                 # <node>_error_upper, and _error_lower when stored beside it.
                 upper, lower = (
                     _array(ods, f"{recipe.y_path}_error_{side}".format(i=index))
@@ -11300,7 +11301,7 @@ def _mapped_field_values(ods: Any, recipe: FieldRecipe, spec: EquilibriumField, 
     edge = float(psi_1d[-1]) if edge is None else edge
     if axis == edge:
         return None
-    # The canonical flux-function projection (issue #2270); "edge" keeps the
+    # The canonical flux-function projection (psi_to_rz); "edge" keeps the
     # clamped profile everywhere and the view blanks beyond the boundary.
     from vaft.process.equilibrium import psi_to_rz
 
@@ -11558,7 +11559,7 @@ SPECTROGRAM_PARAMETERS: dict[str, tuple[str, ...]] = {
     "cwt": ("frequency_range", "n_frequencies"),
 }
 
-#: What a pixel of each method's map is (issue #2270 B5): the three transforms
+#: What a pixel of each method's map is: the three transforms
 #: are scaled differently, so the colour bar says which one it shows rather
 #: than one bare "Magnitude" for all three.
 SPECTROGRAM_VALUE_SCALES: dict[str, str] = {
@@ -11677,8 +11678,8 @@ def _spectrogram_result(
         nperseg = max(2, min(requested, int(values.size)))
         noverlap = options.get("noverlap")
         if noverlap is not None and not 0 <= int(noverlap) < requested:
-            # A named overlap the window cannot hold was clamped in silence
-            # (issue #2270 B5).
+            # A named overlap the window cannot hold is refused rather than
+            # silently clamped.
             raise ValueError(
                 f"noverlap must be 0 <= noverlap < nperseg ({requested} samples); got {noverlap!r}"
             )
@@ -11768,8 +11769,8 @@ def _build_spectrogram(
     time = _first_time(ods, recipe.time_paths, i=index)
     timed = time is not None and time.size == signal.size
     if not timed:
-        # Sample indices drawn as seconds and cycles per sample as Hz (issue
-        # #2270 B5): without a time base the axes need the caller's rate.
+        # Without a time base the axes need the caller's rate; otherwise sample
+        # indices would be drawn as seconds and cycles per sample as Hz.
         time = _untimed_axis(
             signal.size, options, " or ".join(path.format(i=index) for path in candidates)
         )
@@ -12040,7 +12041,7 @@ def _build_power_spectrum(
     from vaft.process.fluctuation import compute_psd, fit_power_law_spectrum
 
     # Spectrogram options the global schema accepts but a Welch PSD has no use
-    # for were dropped in silence (issue #2270 B5): refused by name instead.
+    # for are refused by name rather than dropped in silence.
     foreign = sorted(
         key for key in _SPECTROGRAM_ONLY_OPTIONS if options.get(key) is not None and options[key] is not False
     )
@@ -14760,7 +14761,7 @@ def _gpec_resonant_table(ods: Any, **options: Any) -> dict[str, Any]:
     if real is None or imaginary is None:
         raise ValueError(f"mhd_linear ODS carries a grid but no perturbed flux for n={n_tor}")
     field = np.asarray(real, dtype=float) + 1j * np.asarray(imaginary, dtype=float)
-    # The derivation itself is the process layer's (issue #2270); the view
+    # The derivation itself is the process layer's (resonant_table); the view
     # reads the IDS and the recorded geometry around it.
     rows = resonant_table(cell["psi_n"], cell["m"], field, surfaces, chi1=chi1, n_tor=n_tor)
     if not rows:

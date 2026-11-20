@@ -1,7 +1,7 @@
-"""Issue #2270 P3 (B5): spectral parameter semantics in the plot layer.
+"""Spectral parameter semantics in the plot layer.
 
 No spectral algorithm moved -- every transform already had its owner in
-``vaft.process`` -- so this pins the pass-through defects the audit found:
+``vaft.process`` -- so this pins the pass-through defects an audit of the plot layer found:
 
 * the colour bar names the method's scale, not one "Magnitude" for three
   differently-scaled maps;
@@ -89,7 +89,10 @@ def test_the_default_map_is_still_the_process_layers_stft():
 
 
 def test_both_window_options_are_still_accepted_together():
-    """Deliberate (#484): switching method keeps the resolution the caller chose."""
+    """Deliberate: nperseg and window_size are accepted together.
+
+    Switching method then keeps the resolution the caller chose.
+    """
     for method in ("stft", "hann_fft"):
         _model("mirnov_spectrogram", _probe(), method=method, nperseg=256, window_size=256)
 

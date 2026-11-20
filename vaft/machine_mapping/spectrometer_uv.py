@@ -104,7 +104,7 @@ def legacy_time_shift_s(shot: int) -> float:
     record received, not proof that a given record was shifted.
 
     It is the fast-DAQ trigger offset the raw loader also applies, vest.yaml's
-    ``machine_history.daq.fast_trigger_offset`` (issue #2267).
+    ``machine_history.daq.fast_trigger_offset``.
     """
     return fast_trigger_offset_s(shot)
 

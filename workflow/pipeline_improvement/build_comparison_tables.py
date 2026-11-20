@@ -16,8 +16,8 @@ Inputs
 
 The two sides go through one reader per check: the m-file for measured against
 reconstructed (``magnetic_fit`` of ``workflow/efit_numerics/convergence_study.py``),
-the g-file for the virial pair and the Grad-Shafranov residual (the #891 study's
-definitions), the g-file against HSDS ``public`` Thomson for the pressure check
+the g-file for the virial pair and the Grad-Shafranov residual (the definitions of
+the EFIT uncertainty-calibration weight scan), the g-file against HSDS ``public`` Thomson for the pressure check
 (``thomson_pressure_check.check_gfile``), and the DCON/RDCON outputs of the
 legacy ``linear_stability`` tree read through :mod:`vaft.code.gpec`.
 
@@ -245,7 +245,8 @@ def _equilibrium_ods(gfile: Path):
 def virial_row(entry: Mapping[str, Any]) -> dict[str, Any]:
     """beta_p and l_i from the volume integral against the pair_13 virial closure, plus the GS residual.
 
-    The #891 study's definitions (``weight_scan._virial``): the integral is
+    The EFIT uncertainty-calibration weight scan's definitions
+    (``workflow/efit_uncertainty_calibration/weight_scan.py``, ``_virial``): the integral is
     ``beta_p_boundary_average`` of :func:`derive_global_descriptors`, the closure
     is ``compute_virial_equilibrium_quantities_ods``'s ``pair_13``.
     """
@@ -470,8 +471,8 @@ def onset_rows(ods: Any, onset: float, keep_channels: bool = False) -> tuple[lis
 def onset_qa_rows(ods: Any, onset: float) -> list[dict[str, Any]]:
     """Every channel at :data:`ONSET_QA_MS`, measured against vacuum, with the input QA verdict.
 
-    The diagnostics magnetics QA (:func:`vaft.validation.magnetics.validate_magnetics_signals`,
-    #189) is run afresh on each product, so both sides are judged by one
+    The diagnostics magnetics QA (:func:`vaft.validation.magnetics.validate_magnetics_signals`)
+    is run afresh on each product, so both sides are judged by one
     detector rather than by whatever validity each happened to store, and no
     channel is dropped for its stored validity: ``qa_code`` is the per-sample
     validity at the instant (-2 invalid, -1 suspect, 0 valid, 1 valid but
