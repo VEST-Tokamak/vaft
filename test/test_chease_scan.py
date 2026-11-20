@@ -175,6 +175,39 @@ def test_the_source_is_not_mutated(geqdsk):
     np.testing.assert_array_equal(np.asarray(geqdsk["PRES"], float), before)
 
 
+def test_current_scaling_moves_only_the_total_current(geqdsk):
+    modified, _ = apply_equilibrium_variation(
+        geqdsk, EquilibriumVariation("ip", plasma_current_scale=2.5)
+    )
+    assert float(modified["CURRENT"]) == pytest.approx(float(geqdsk["CURRENT"]) * 2.5)
+    for key in ("PRES", "PPRIME", "FFPRIM", "RBBBS", "ZBBBS"):
+        np.testing.assert_array_equal(
+            np.asarray(modified[key], float), np.asarray(geqdsk[key], float)
+        )
+    with pytest.raises(ValueError, match="positive"):
+        EquilibriumVariation("bad", plasma_current_scale=0.0)
+
+
+def test_only_a_current_scaled_case_solves_with_a_total_current_constraint(monkeypatch, tmp_path):
+    """A q constraint (ncscal=1) would pin the current the variation asked to change."""
+    import vaft.code.chease_scan as module
+
+    seen = {}
+
+    def fake(geqdsk, config):
+        seen[config.workdir.name] = (int(config.ncscal), float(geqdsk["CURRENT"]))
+        return module.CHEASEResult(returncode=0, workdir=config.workdir)
+
+    _patch_solve(monkeypatch, fake)
+    scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("control"), EquilibriumVariation("ip", plasma_current_scale=2.0)],
+        workdir=tmp_path,
+    )
+    assert seen["control"][0] == 1 and seen["ip"][0] == 2
+    assert seen["ip"][1] == pytest.approx(2.0 * seen["control"][1])
+
+
 # ---------------------------------------------------------------------------
 # The solve
 # ---------------------------------------------------------------------------

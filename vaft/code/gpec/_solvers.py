@@ -280,6 +280,8 @@ class DCONSolver:
         # template that cannot express it is an error rather than a silent pass.
         if ctx.config.dcon.con_flag is not None:
             replacements["con_flag"] = ctx.config.dcon.con_flag
+        if ctx.config.dcon.termbycross_flag is not None:
+            replacements["termbycross_flag"] = ctx.config.dcon.termbycross_flag
         rt.write_template(
             ctx.template_dir / "dcon.in", ctx.run_dir / "dcon.in", replacements
         )

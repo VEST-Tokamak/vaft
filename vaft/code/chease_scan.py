@@ -76,6 +76,14 @@ class EquilibriumVariation:
     packaged 48224 case, peaking 0 -> 1 -> 2 moves ``li_3`` 0.52 -> 1.01 ->
     1.57 and ``q0`` 1.86 -> 0.81 -> 0.45.
 
+    ``plasma_current_scale`` multiplies the total plasma current and solves
+    that case with ``ncscal=2`` -- CHEASE matching the total current ``CURRT``
+    instead of q at the constraint surface, which by construction would hold
+    the current near its source value.  Raising it lowers ``q`` everywhere and
+    walks ``q_edge`` down through the rationals, which is how an external kink
+    is reached on a fixed boundary.  The profile *shapes* are the source's;
+    CHEASE rescales them to the new current.
+
     ``boundary`` replaces the source boundary with an explicit closed
     :class:`~vaft.data.equilibrium.Contour` -- evaluated from any shape model,
     Miller, :class:`~vaft.data.equilibrium.FourierSurface` or none -- which is
@@ -92,6 +100,7 @@ class EquilibriumVariation:
     label: str
     pressure_scale: float = 1.0
     current_peaking: float = 0.0
+    plasma_current_scale: float = 1.0
     elongation_scale: float = 1.0
     triangularity_shift: float = 0.0
     boundary: Optional[Contour] = field(default=None, compare=False)
@@ -103,6 +112,8 @@ class EquilibriumVariation:
                 "must be non-negative; a negative exponent is unbounded at the "
                 f"boundary. Got {self.current_peaking}"
             )
+        if self.plasma_current_scale <= 0.0:
+            raise ValueError(f"plasma_current_scale must be positive; got {self.plasma_current_scale}")
         if self.pressure_scale <= 0.0:
             raise ValueError(f"pressure_scale must be positive; got {self.pressure_scale}")
         if self.elongation_scale <= 0.0:
@@ -259,8 +270,9 @@ def apply_equilibrium_variation(
 ) -> tuple[Any, Optional[tuple[float, float, float, float]]]:
     """Return a copy of ``geqdsk`` carrying ``variation``, and its shape.
 
-    Only the three quantities ``EXPEQ`` actually carries are touched -- the
-    boundary, the pressure pair and ``FF'``.  ``FPOL`` is deliberately left
+    Only what the CHEASE inputs actually carry is touched -- the boundary,
+    the pressure pair and ``FF'`` (``EXPEQ``), and ``CURRENT``, which becomes
+    the namelist's ``CURRT`` for a ``plasma_current_scale`` case.  ``FPOL`` is deliberately left
     alone: CHEASE recomputes ``F`` from the ``FF'`` it is given, so rewriting
     it here would put a number in the file that the solve does not read and a
     reader might believe.
@@ -287,6 +299,9 @@ def apply_equilibrium_variation(
         # p and p' scale together: p' is dp/dpsi and psi is untouched here.
         modified["PRES"] = np.asarray(geqdsk["PRES"], dtype=float) * scale
         modified["PPRIME"] = np.asarray(geqdsk["PPRIME"], dtype=float) * scale
+
+    if variation.plasma_current_scale != 1.0:
+        modified["CURRENT"] = float(geqdsk["CURRENT"]) * float(variation.plasma_current_scale)
 
     if variation.current_peaking != 0.0:
         ffprime = np.asarray(geqdsk["FFPRIM"], dtype=float)
@@ -531,7 +546,11 @@ def scan_chease(
                 r_open, z_open = _open_outline(modified["RBBBS"], modified["ZBBBS"])
                 entry.boundary = Contour(r_open, z_open)
                 entry.shape_parameters = contour_shape_parameters(r_open, z_open)
-            entry.submission = _submit_case(modified, replace(solve_config, workdir=case_dir))
+            case_config = replace(solve_config, workdir=case_dir)
+            if variation.plasma_current_scale != 1.0:
+                # A q constraint would pin the current; the scaled one is the target.
+                case_config = replace(case_config, ncscal=2)
+            entry.submission = _submit_case(modified, case_config)
         except Exception as error:  # noqa: BLE001 - recorded, not swallowed
             if not keep_going:
                 raise
