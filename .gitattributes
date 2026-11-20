@@ -14,14 +14,15 @@ test/data/gpec/** text=auto eol=lf
 # registry's `source` block and test_magnetics_registry.py pin; keep the bytes.
 test/data/legacy_magnetics/** -text
 docs/assets/notebook-outputs/** text=auto eol=lf
-# This Atlas snapshot records source-file SHA-256 values, including CRLF CSVs.
-# Preserve the exact bytes on every platform and treat CRLF as a line ending.
-notebooks/data/verification_and_validation/** -text
-notebooks/data/verification_and_validation/v1/*.csv whitespace=cr-at-eol
-# ... and the sha256 of the two scripts that wrote it (snapshot_manifest.json).
+# The Tier A snapshot also pins the sha256 of the two scripts that wrote it (snapshot_manifest.json).
 workflow/kinetic_state/export_virial_identity.py text eol=lf
 workflow/kinetic_state/capture_verification_snapshot.py text eol=lf
 vaft/data/samples/** text=auto eol=lf
+# Below the samples/** rule, which it must override (the later line wins): this snapshot records source-file
+# SHA-256 values, including CRLF CSVs.
+# Preserve the exact bytes on every platform and treat CRLF as a line ending.
+vaft/data/samples/vest_tier_a/** -text
+vaft/data/samples/vest_tier_a/v1/*.csv whitespace=cr-at-eol
 # The EFIT table's text inputs are pinned by efund_table_manifest.json, and
 # mhdin.dat's hash is quoted in its #649 note; a CRLF checkout hashed to
 # 1eb93104... on Windows CI against the LF 38eb936a... it records. `.dat`

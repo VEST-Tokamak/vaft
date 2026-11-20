@@ -9,7 +9,7 @@ regimes, CMA) reuse one layout rather than restating it.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
@@ -63,12 +63,15 @@ def clip(xy: np.ndarray, chart: Chart) -> List[np.ndarray]:
 def render_chart(chart: Chart, *, x_label: str, y_label: str, curve_styles: Dict[str, str],
                   region_text: Dict[str, str], x_ticks: Sequence[float] = (), y_ticks: Sequence[float] = (),
                   note: str = "", star: str = "", x_tick_text: Sequence[str] = (),
-                  y_tick_text: Sequence[str] = (), y_label_at: float = 0.62) -> Scene:
+                  y_tick_text: Sequence[str] = (), y_label_at: float = 0.62,
+                  region_styles: Optional[Dict[str, str]] = None) -> Scene:
     """The chart's scene.
 
     ``x_tick_text``/``y_tick_text`` replace the numbers under the ticks, and
     ``y_label_at`` is the height of the y-axis title as a fraction of the box,
-    for a chart whose tick text would sit under it.
+    for a chart whose tick text would sit under it. ``region_styles`` gives a
+    region label another template style than ``"region"`` (a small tag beside
+    a reference line, say).
     """
     items: List = []
     W, H = CHART_WIDTH, CHART_HEIGHT
@@ -99,7 +102,8 @@ def render_chart(chart: Chart, *, x_label: str, y_label: str, curve_styles: Dict
         items += [Polyline.of([(0.0, cy), (-0.12, cy)], "tick", role="ticks"),
                   Label((-0.18, cy), text, "ticklabel", anchor="east", role="ticks")]
     for name, text in region_text.items():
-        items.append(Label(tuple(chart.to_cm(chart.labels[name])), text, "region", role=f"region_{name}"))
+        style = (region_styles or {}).get(name, "region")
+        items.append(Label(tuple(chart.to_cm(chart.labels[name])), text, style, role=f"region_{name}"))
     if note:
         items.append(Label((W / 2, -x_gap - 1.2), note, "note", role="note"))
     return Scene(tuple(items))

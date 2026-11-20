@@ -1,0 +1,44 @@
+{
+ "collection": "vest_operational_history",
+ "manifest_version": 1,
+ "description": "Archived per-shot VEST operational history, one row per shot 38000-45767 (2257 shots). A historical legacy-pipeline sheet, NOT a vaft.database.summary(preset='shot_overview') result.",
+ "distribution": "repository-only (not in the wheel or sdist)",
+ "files": {
+  "omas_history_new.xlsx": {
+   "sha256": "a3bc24413eada60021275b0852e229ad9e88bcc34db254942c4ab6d5e41b8509",
+   "rows": 2257,
+   "grain": "shot",
+   "original_path": "workflow/automatic_pipeline_3_data_summary/omas_history_new.xlsx",
+   "original_sha256": "a3bc24413eada60021275b0852e229ad9e88bcc34db254942c4ab6d5e41b8509",
+   "relocated": "2026-11-06 (#2277), git mv, byte-identical"
+  }
+ },
+ "provenance": {
+  "generator": "workflow/automatic_pipeline_3_data_summary/gen_omas_history.py as of commit 458a42285 (2025-10-17); the current script is a later rewrite with different columns",
+  "last_committed_in": "458a42285 (2025-10-17, 'update workflows (note that they are obsolute)')",
+  "source_namespace": "legacy public FileDB (/srv/vest.filedb/public/<shot>/), not HSDS main",
+  "used_by": [
+   "Yun et al., PPCF 67 (2025) 115021, Fig. 6",
+   "notebooks/conference_operational_space_atlas.ipynb",
+   "notebooks/publication_figures.ipynb",
+   "tutorial/06_operational_space_and_data_driven_analysis.ipynb"
+  ]
+ },
+ "columns": {
+  "shot": "VEST shot number",
+  "plasma_onset_time": "ms; breakdown onset from spectrometer_uv channel 0 (H-alpha) crossing 5 % of its peak",
+  "pulse_duration": "ms; offset minus onset of the same H-alpha signal (5 % threshold)",
+  "max_plasma_current": "kA; maximum of the median-filtered (kernel 15) magnetics.ip",
+  "toroidal_field": "T; mean vacuum toroidal field at R = 0.4 m between H-alpha onset and offset",
+  "efit_kfile_count": "count of legacy EFIT k-files in the shot directory",
+  "efit_gfile_count": "count of legacy EFIT g-files",
+  "chease_gfile_count": "count of CHEASE g-files (0 for every row)",
+  "has_diagnostics_ods / has_eddy_ods / has_efit_ods / has_chease_ods / has_combined_ods": "legacy file-presence flags"
+ },
+ "limitations": [
+  "No pulse date: pulse_time_begin is not recorded, so history is by shot number only.",
+  "No shot_class, plasma_onset_source or pulse_duty_cycle; every shot has finite values, so failed or vacuum shots appear with near-zero current rather than as a class.",
+  "Onset and duration use the H-alpha 5 % threshold of the legacy script, not vaft.omas.plasma_timing.",
+  "Values were computed by an obsolete pipeline and are not regenerated here."
+ ]
+}

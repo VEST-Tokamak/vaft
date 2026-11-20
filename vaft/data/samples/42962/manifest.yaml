@@ -168,7 +168,7 @@ pipeline:
     issue: https://github.com/VEST-Tokamak/vaft/issues/1644
     criteria_version: 2
     vaft_commit: 2d7d1bdb1d447e6a625511eceefdbb74a1369235
-    cohort_table: notebooks/data/verification_and_validation/equilibrium_quality/cohort_table.csv
+    cohort_table: vaft/data/samples/vest_tier_a/equilibrium_quality/cohort_table.csv
     cohort_table_sha256: 88aafa2ccd9a7cfc2269f17294ec49ab1173332fde6c61f4a2cf7eaf95452d17
     use: Labels stratify, they never filter (VEST-Tokamak/vfit#119); every stored
       slice is kept.

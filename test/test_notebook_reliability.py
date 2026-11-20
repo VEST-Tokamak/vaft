@@ -853,7 +853,7 @@ def test_verification_notebook_snapshot_contract():
     import numpy as np
     import pandas as pd
 
-    snapshot = NOTEBOOKS / "data" / "verification_and_validation"
+    snapshot = NOTEBOOKS.parent / "vaft" / "data" / "samples" / "vest_tier_a"
     manifest = json.loads((snapshot / "snapshot_manifest.json").read_text())
     assert manifest["snapshot_version"] == 2 and not manifest["virial_compute_dirty"]
     for relative, expected in manifest["sha256"].items():
