@@ -22,6 +22,8 @@ kinetic-EFIT data, and legacy diagnostic and digitizer samples.
 | `samples/42962/` | `manifest.yaml`, `omas.json.gz`, `imas.nc` | Complete repository-only example from a fresh pipeline run through the `statistical_891` EFIT (2026-10-21), the second offline shot of VEST-Tokamak/vfit#119's R1 set; the manifest carries each slice's equilibrium-quality cohort label |
 | `samples/42962/source/` | frozen raw input, effective configuration, stage manifests, canonical ODS | Repository-only regeneration inputs; `compose_until_efit_sample.py` builds the canonical ODS from the static, diagnostics, eddy and EFIT products |
 | `samples/48224/` | `manifest.yaml`, `omas.json.gz`, `efit_magnetic_server/`, `equilibria/` | Repository-only kinetic slice (300 ms): the `kineticEfit/` ODS gzipped byte for byte; the server's magnetic EFIT k/g/m/a files; compact magnetic-only and kinetic EFIT equilibria with their constraints (`vaft.omas.sample_equilibria(48224)`) |
+| `samples/vest_tier_a/` | `manifest.json`, `v1/`, `confinement/`, `equilibrium_quality/`, `stability/`, `snapshot_manifest.json`, `README.md` | Repository-only **population collection**: the frozen Tier A operational-space Atlas, 150 EFIT states of 32 shots (39906-43002) with Thomson profiles, the confinement table and the stability atlas v2 (see below) |
+| `samples/vest_operational_history/` | `manifest.json`, `omas_history_new.xlsx` | Repository-only **population collection**: the archived per-shot operational history, shots 38000-45767 (see below) |
 | `kineticEfit/` | `g048224.00300`, `g048224.00300.kinetic_efit`, `g048224.00300.chease`, `NeTe_48224.mat`, `IDS_48224.mat`, `ods_48224_300ms.json` | Paired kinetic-EFIT sample for shot 48224 @ 300 ms (equilibrium + Thomson + ion Doppler) and the stored kinetic-profile ODS |
 | `legacy/` | `41514.h5`, `46051_NeTe.mat`, `CES_47514.mat`, `IDS_47518.mat`, `NeTe_Shot39915_v9_rev.mat`, `digitizer_17592_45531.csv`, `digitizer_22577_45531.csv`, `47230_056789_LID_1_100.mat`, `47230_ALL_LID_1_100.mat`, `shot_44740.json.gz`, `shot_45531.json.gz`, `langmuir_probe_positions.csv`, `langmuir_probes_42699.json.gz`, `sql_table.txt` | Legacy diagnostic samples, raw SQL dump, and DB lookup table |
 | `gpec/` | `*.in`, `vest_*.dat` | VEST GPEC-suite namelist templates and canonical 3D coil geometry |
@@ -259,6 +261,48 @@ VEST SQL database to repair its 52 affected channels.) Data are verified
 bit-identical to the DB waveforms at dump time; reconstructed times agree with
 the DB's stored time strings to within the DB's own ~0.5 microsecond string
 quantization.
+## Population collections
+
+Shot directories under `samples/` (`samples/<shot>/manifest.yaml`) are single
+discharges that `vaft.data.sample()`, `sample_manifest()` and
+`available_samples()` register. The named directories next to them are
+**population collections**: frozen multi-shot tables shared by notebooks,
+tutorials and tests. They carry a `manifest.json` (never `manifest.yaml`, so
+the shot registry and the wheel's `samples/*/manifest.yaml` glob ignore them),
+are **repository-only** (neither the wheel nor the sdist contains them), and
+are read through `data_path`:
+
+```python
+import pandas as pd
+from vaft.data import data_path
+
+state = pd.read_csv(data_path("samples/vest_tier_a/v1/state.csv"))
+atlas_n = pd.read_csv(data_path("samples/vest_tier_a/stability/atlas_n.csv.gz"))
+history = pd.read_excel(data_path("samples/vest_operational_history/omas_history_new.xlsx"))
+```
+
+| Collection | Contents | Grain | Origin |
+| --- | --- | --- | --- |
+| `vest_tier_a/v1/` | `state.csv`, `profiles.csv`, `virial_identity.csv`, schemas | state `(shot, time_efit_s, efit_lineage)`: 133 magnetics + 17 electron-kinetic | Tier A Atlas v1 (2026-10-02), captured 2026-10-14 (`snapshot_manifest.json`) |
+| `vest_tier_a/equilibrium_quality/` | #1644 cohort table, constraint points | EFIT slice | same capture |
+| `vest_tier_a/confinement/` | `table.csv`, `MANIFEST.json` | magnetics state (133) | Lane D confinement table, same capture |
+| `vest_tier_a/stability/` | `atlas_n.csv.gz`, `atlas_surfaces.csv.gz`, `schema.json`, `README.md` | state x n (900); state x n x solver x m (6970) | stability atlas v2 (2026-10-03) |
+| `vest_operational_history/` | `omas_history_new.xlsx` | shot (2257) | legacy pipeline-3 sheet (2025-10-17), the source of Yun et al. PPCF 2025 Fig. 6 |
+
+Each collection's `manifest.json` records the original repository path, the
+SHA-256 of every file, the generator and the known limitations. Files were
+moved byte-for-byte; none were regenerated. Two caveats:
+
+- The stability tables label the lineages `magnetics-only` and
+  `electron-kinetic`; `v1/` and `confinement/` use `magnetics` and
+  `electron_kinetic` for the same states. Join on
+  `round(time_efit_s * 1e6)` after mapping the labels.
+- `confinement/vest_tier_a_confinement.csv` (outside `samples/`) is the compact
+  runtime input of `vaft.data.public.load_vest_tier_a_confinement`: the same
+  133 rows as `vest_tier_a/confinement/table.csv` without its 11 descriptor
+  columns, rounded (rtol 5e-6), with `accepted` equal to `selected`. Both are
+  kept; neither is regenerated from the other.
+
 ## Unified diagnostic fixture
 
 `unified/vest_diagnostics/` contains a small, repository-only, offline **cross-shot composite**;

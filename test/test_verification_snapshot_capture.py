@@ -24,7 +24,7 @@ def _script(name):
 def capture_source(tmp_path, monkeypatch):
     module = _script("capture_verification_snapshot")
     source = tmp_path / "atlas"
-    shutil.copytree(ROOT / "notebooks/data/verification_and_validation", source)
+    shutil.copytree(ROOT / "vaft/data/samples/vest_tier_a", source)
     # The historical v1 snapshot did not retain this source manifest.
     if not (source / "confinement/MANIFEST.json").exists():
         (source / "confinement/MANIFEST.json").write_text('{"rows": 133}\n')

@@ -76,19 +76,23 @@
   },
   "stability_current_atlas_n.csv.gz": {
    "rows": null,
-   "sha256": "0e1bae97682911b620907fb20279e996026b15f942c453d5711b6be42b3f83e8"
+   "sha256": "0e1bae97682911b620907fb20279e996026b15f942c453d5711b6be42b3f83e8",
+   "relocated_to": "vaft/data/samples/vest_tier_a/stability/atlas_n.csv.gz"
   },
   "stability_current_atlas_surfaces.csv.gz": {
    "rows": null,
-   "sha256": "0b9868e20baad32638b207f8bc2f2174bfbc22bb4b73df353e906ab9d200b2c8"
+   "sha256": "0b9868e20baad32638b207f8bc2f2174bfbc22bb4b73df353e906ab9d200b2c8",
+   "relocated_to": "vaft/data/samples/vest_tier_a/stability/atlas_surfaces.csv.gz"
   },
   "stability_current_schema.json": {
    "rows": null,
-   "sha256": "050caccef77eb0b43185f3f865a830788dfbd52311dbd28089c9b12e91e88f73"
+   "sha256": "050caccef77eb0b43185f3f865a830788dfbd52311dbd28089c9b12e91e88f73",
+   "relocated_to": "vaft/data/samples/vest_tier_a/stability/schema.json"
   },
   "stability_current_README.md": {
    "rows": null,
-   "sha256": "6a50ce70d3f23bd270096160ab9e33a28055b23ded5dd51571a4a50dcb3b373a"
+   "sha256": "6a50ce70d3f23bd270096160ab9e33a28055b23ded5dd51571a4a50dcb3b373a",
+   "relocated_to": "vaft/data/samples/vest_tier_a/stability/README.md"
   }
  },
  "runs": {
