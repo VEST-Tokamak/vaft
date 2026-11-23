@@ -219,25 +219,10 @@ class PlasmaFormalism:
     extensions: Mapping[str, Any] = field(default_factory=dict, hash=False, compare=True)
 
     def __post_init__(self) -> None:
-        for name in _REQUIRED:
-            value = getattr(self, name)
-            if value is None or value == UNKNOWN:
-                raise ValueError(f"{name} is required and cannot be unknown")
-        for name, allowed in AXES.items():
-            value = getattr(self, name)
-            if value is not None and value != UNKNOWN and value not in allowed:
-                raise ValueError(f"{name}={value!r} is not one of {allowed} (or None / {UNKNOWN!r})")
-        if self.derived_from is not None and self.derived_from not in (*KINETIC_EQUATIONS, *FLUID_MODELS, UNKNOWN):
-            raise ValueError(f"derived_from={self.derived_from!r} names no known theory")
-        if self.solver is not None and not isinstance(self.solver, str):
-            raise TypeError(f"solver is a name, got {self.solver!r}")
+        for kind, _, message in _schema_problems(self):
+            raise (TypeError if kind == "type" else ValueError)(message)
         if self.kinetic_population is not None:
-            population = self.kinetic_population
-            if not isinstance(population, (tuple, list)):
-                raise TypeError("kinetic_population is an ordered collection (tuple or list) of names")
-            if not population or not all(isinstance(item, str) and item for item in population):
-                raise ValueError("kinetic_population names at least one population, each a non-empty string")
-            object.__setattr__(self, "kinetic_population", tuple(population))
+            object.__setattr__(self, "kinetic_population", tuple(self.kinetic_population))
         object.__setattr__(self, "extensions", _canonical_extensions(self.extensions))
         _check_combination(self)
 
@@ -277,6 +262,38 @@ def _from_dict(data: Mapping[str, Any]) -> PlasmaFormalism:
     return PlasmaFormalism.from_dict(data)
 
 
+def _schema_problems(record: Any) -> list[tuple[str, str, str]]:
+    """Every schema problem of ``record`` (attribute access), as ``(kind, field, message)``.
+
+    ``kind`` is ``"type"`` or ``"value"``. The constructor raises the first one;
+    :func:`vaft.validation.formalism_consistency.validate_formalism` reports all of them.
+    """
+    problems: list[tuple[str, str, str]] = []
+    for name in _REQUIRED:
+        value = getattr(record, name, None)
+        if value is None or value == UNKNOWN:
+            problems.append(("value", name, f"{name} is required and cannot be unknown"))
+    for name, allowed in AXES.items():
+        value = getattr(record, name, None)
+        if value is not None and value != UNKNOWN and value not in allowed:
+            problems.append(("value", name, f"{name}={value!r} is not one of {allowed} (or None / {UNKNOWN!r})"))
+    derived = getattr(record, "derived_from", None)
+    if derived is not None and derived not in (*KINETIC_EQUATIONS, *FLUID_MODELS, UNKNOWN):
+        problems.append(("value", "derived_from", f"derived_from={derived!r} names no known theory"))
+    solver = getattr(record, "solver", None)
+    if solver is not None and not isinstance(solver, str):
+        problems.append(("type", "solver", f"solver is a name, got {solver!r}"))
+    population = getattr(record, "kinetic_population", None)
+    if population is not None:
+        if not isinstance(population, (tuple, list)):
+            problems.append(("type", "kinetic_population",
+                             "kinetic_population is an ordered collection (tuple or list) of names"))
+        elif not population or not all(isinstance(item, str) and item for item in population):
+            problems.append(("value", "kinetic_population",
+                             "kinetic_population names at least one population, each a non-empty string"))
+    return problems
+
+
 def _present(value: Any) -> bool:
     """Has a meaning here -- set, or explicitly unknown."""
     return value is not None
@@ -284,48 +301,70 @@ def _present(value: Any) -> bool:
 
 def _check_combination(record: PlasmaFormalism) -> None:
     """Reject the combinations that are impossible whatever the solver."""
+    for _, message in _combination_problems(record):
+        raise ValueError(message)
+
+
+def _combination_problems(record: Any) -> list[tuple[str, str]]:
+    """Every generically impossible combination in ``record``, as ``(field, message)``.
+
+    Only physical contradictions belong here (#1738 §4): a combination no current
+    backend uses, but that a correct model could, is not one of them.
+    """
+    problems: list[tuple[str, str]] = []
     bulk = record.bulk_description
     kinetic = _present(record.kinetic_equation)
     fluid = _present(record.fluid_model)
     if bulk == "fluid":
         if kinetic:
-            raise ValueError("a fluid formulation solves no kinetic equation; "
-                             "a kinetic response inside a fluid model is bulk_description='hybrid'")
+            problems.append(("kinetic_equation", "a fluid formulation solves no kinetic equation; "
+                             "a kinetic response inside a fluid model is bulk_description='hybrid'"))
         if not fluid:
-            raise ValueError("a fluid formulation needs its fluid_model")
+            problems.append(("fluid_model", "a fluid formulation needs its fluid_model"))
     elif bulk == "kinetic":
         if fluid:
-            raise ValueError("a kinetic formulation has no fluid_model; with one it is 'hybrid'")
+            problems.append(("fluid_model", "a kinetic formulation has no fluid_model; with one it is 'hybrid'"))
         if not kinetic:
-            raise ValueError("a kinetic formulation needs its kinetic_equation")
+            problems.append(("kinetic_equation", "a kinetic formulation needs its kinetic_equation"))
         if record.kinetic_equation == "fokker_planck":
-            raise ValueError("fokker_planck is the test-species equation of a 'particle' formulation, "
-                             "not a bulk kinetic one")
+            problems.append(("kinetic_equation", "fokker_planck is the test-species equation of a 'particle' "
+                             "formulation, not a bulk kinetic one"))
     elif bulk == "hybrid":
         if not (fluid and kinetic and _present(record.kinetic_coupling)):
-            raise ValueError("a hybrid formulation needs fluid_model, kinetic_equation and kinetic_coupling")
+            missing = [name for name, ok in (("fluid_model", fluid), ("kinetic_equation", kinetic),
+                                             ("kinetic_coupling", _present(record.kinetic_coupling))) if not ok]
+            problems.append((missing[0], "a hybrid formulation needs fluid_model, kinetic_equation and "
+                             f"kinetic_coupling; {', '.join(missing)} unset"))
     elif bulk == "particle":
         if fluid:
-            raise ValueError("a test-particle formulation has no fluid_model")
+            problems.append(("fluid_model", "a test-particle formulation has no fluid_model"))
         if record.kinetic_equation not in (None, "fokker_planck", UNKNOWN):
-            raise ValueError("a test-particle formulation solves at most the test-species Fokker-Planck equation")
+            problems.append(("kinetic_equation", "a test-particle formulation solves at most the test-species "
+                             "Fokker-Planck equation"))
         if not _present(record.orbit_representation):
-            raise ValueError("a test-particle formulation needs its orbit_representation")
+            problems.append(("orbit_representation", "a test-particle formulation needs its orbit_representation"))
     elif bulk == "reduced":
         if kinetic:
-            raise ValueError("a reduced model solves no kinetic equation; name its parent theory in derived_from")
+            problems.append(("kinetic_equation", "a reduced model solves no kinetic equation; "
+                             "name its parent theory in derived_from"))
         if fluid:
-            raise ValueError("a reduced model names its parent theory in derived_from, not fluid_model")
+            problems.append(("fluid_model", "a reduced model names its parent theory in derived_from, "
+                             "not fluid_model"))
     if record.derived_from is not None and bulk != "reduced":
-        raise ValueError("derived_from describes a reduced model only")
+        problems.append(("derived_from", "derived_from describes a reduced model only"))
     if record.kinetic_coupling is not None and bulk not in ("hybrid", "particle"):
-        raise ValueError("kinetic_coupling describes how a kinetic result re-enters a fluid or transport model")
+        problems.append(("kinetic_coupling", "kinetic_coupling describes how a kinetic result re-enters a fluid "
+                         "or transport model"))
     if record.kinetic_equation in _GYROPHASE_AVERAGED and record.orbit_representation == "full_orbit":
-        raise ValueError(f"{record.kinetic_equation} removes the gyro-phase; it cannot follow full orbits")
+        problems.append(("orbit_representation", f"{record.kinetic_equation} removes the gyro-phase; "
+                         "it cannot follow full orbits"))
     if not kinetic and _present(record.distribution_formulation):
-        raise ValueError("distribution_formulation has no meaning without a kinetic equation for a distribution")
+        problems.append(("distribution_formulation", "distribution_formulation has no meaning without a kinetic "
+                         "equation for a distribution"))
     if not kinetic and bulk != "particle" and _present(record.orbit_representation):
-        raise ValueError("orbit_representation has no meaning without a kinetic equation or test particles")
+        problems.append(("orbit_representation", "orbit_representation has no meaning without a kinetic equation "
+                         "or test particles"))
     if not kinetic and bulk not in ("particle", "reduced") and _present(record.kinetic_population):
-        raise ValueError("kinetic_population has no meaning without a kinetic equation, test particles "
-                         "or a reduced model's species")
+        problems.append(("kinetic_population", "kinetic_population has no meaning without a kinetic equation, "
+                         "test particles or a reduced model's species"))
+    return problems

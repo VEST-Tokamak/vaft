@@ -6,7 +6,9 @@ run directory. This script concatenates the shards, drops the duplicate rows a
 resumed shard can leave, reduces the per-channel vacuum table to one row per
 source, shot, wall model and channel family, and writes gzip CSVs plus
 ``snapshot_manifest.json`` (row counts, SHA-256, sources) to the notebook data
-directory.
+directory. The stability atlas v2 copy is written only with ``--atlas-output``
+(normally ``vaft/data/samples/vest_tier_a/stability``); its ``manifest.json``
+SHA-256 entries must then be updated with it.
 
 Usage::
 
@@ -89,6 +91,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--tables", nargs="+", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--atlas-output", type=Path, default=None,
+                        help="write the stability atlas copy here, e.g. vaft/data/samples/vest_tier_a/stability; "
+                             "default: not copied, because that collection's manifest.json pins its SHA-256 and "
+                             "replacing it is a deliberate data update")
     args = parser.parse_args(argv)
     tables = [p.expanduser() for p in args.tables]
     args.output.mkdir(parents=True, exist_ok=True)
@@ -125,16 +131,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             for column in ("measured", "vacuum"):
                 frame[column] = pd.to_numeric(frame[column], errors="coerce").map(lambda v: float(f"{v:.5g}"))
         write(frame, name)
-    for root in tables:
+    # The atlas v2 copy is shared with other consumers, so it is written to the
+    # Tier A sample collection (unprefixed names), not into the study directory.
+    atlas_output = args.atlas_output
+    if atlas_output is not None:
+        atlas_output.mkdir(parents=True, exist_ok=True)
+    for root in (tables if atlas_output is not None else ()):
         for name in ATLAS:
             source = root / name
-            if source.exists() and name not in written:
-                target = args.output / (name + ".gz" if name.endswith(".csv") else name)
+            canonical = name.removeprefix("stability_current_")
+            target = atlas_output / (canonical + ".gz" if canonical.endswith(".csv") else canonical)
+            key = name + (".gz" if name.endswith(".csv") else "")
+            if source.exists() and key not in written:
                 if name.endswith(".csv"):
                     pd.read_csv(source).to_csv(target, index=False, compression={"method": "gzip", "mtime": 0})
                 else:
                     target.write_bytes(source.read_bytes())
-                written[target.name] = {"rows": None, "sha256": sha256(target)}
+                root_dir = Path(__file__).resolve().parents[2]
+                location = target.resolve()
+                written[key] = {"rows": None, "sha256": sha256(target),
+                                "relocated_to": str(location.relative_to(root_dir) if location.is_relative_to(root_dir) else location)}
     manifests = {}
     for root in tables:
         for manifest in sorted(root.glob("manifest*.json")):

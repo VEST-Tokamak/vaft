@@ -113,6 +113,13 @@ def render_profile_1d(
         axes.set_title(model.title)
     if model.display is not None and model.display.notation == "scientific":
         axes.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
+    scale = (model.metadata or {}).get("y_scale") or {}
+    if scale.get("scale") == "symlog":
+        # Opt-in by the builder (e.g. the transport hierarchy, whose families differ
+        # by decades and whose sign follows the local gradient): log magnitude above
+        # ``linthresh``, linear and signed beneath it, with the zero line drawn.
+        axes.set_yscale("symlog", linthresh=float(scale["linthresh"]))
+        axes.axhline(0.0, color="0.5", linewidth=0.6, zorder=0)
     if model.x_limits is not None:
         axes.set_xlim(model.x_limits)
     if model.y_limits is not None:

@@ -367,10 +367,12 @@ CORE_MODULES: tuple[str, ...] = (
     # The atlas renderers draw synthetic tables only. The classical core_transport
     # projection and its summary preset use one packaged state plus synthetic
     # records; the neoclassical summary's bootstrap <-> NEO flux correspondence
-    # uses synthetic products plus the recorded 48224 NEO fixture run.
+    # uses synthetic products plus the recorded 48224 NEO fixture run. The
+    # transport-hierarchy writer, its NEO/summary guards and recipes are synthetic.
     "test_classical_transport_summary.py",
     "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
+    "test_transport_hierarchy.py",
     "test_transport_projection.py",
     "test_transport_state.py",
     # Class-shot diagnostics (lane U): the checklist on synthetic ODS,
@@ -471,6 +473,9 @@ CORE_MODULES: tuple[str, ...] = (
     # GACODE-suite formalism: NEO/TGLF/TGLF-NN/CGYRO records derived from the
     # written input, and the distinctions that must not collapse. Pure Python, <1 s.
     "test_gacode_plasma_formalism.py",
+    # Cross-backend formalism consistency: schema/semantic/backend layers,
+    # reference and future fixtures, pairwise non-conflation, queries, grouping keys. Under 10 s.
+    "test_formalism_consistency.py",
     # Ordering contracts: the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",

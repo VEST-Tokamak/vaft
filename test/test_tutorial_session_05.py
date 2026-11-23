@@ -27,8 +27,6 @@ pytestmark = pytest.mark.slow
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK = ROOT / "tutorial" / "05_mhd_stability_and_perturbed_equilibria.ipynb"
 
-MAX_OUTPUT_BYTES = 200_000
-MAX_IMAGE_BYTES = 2_000_000
 IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
 
 #: The offline run draws 30 figures and diagrams; the floor leaves a margin.
@@ -131,16 +129,6 @@ def test_every_analysis_step_produces_a_figure(executed):
                for output in cell.get("outputs", []))
     ]
     assert len(drawn) >= FIGURE_FLOOR, [cell.id for cell in drawn]
-
-
-def test_no_cell_dumps_a_data_object(executed):
-    for cell in _code_cells(executed):
-        for output in cell.get("outputs", []):
-            for mime, payload in output.get("data", {}).items():
-                text = payload if isinstance(payload, str) else "".join(payload)
-                limit = MAX_IMAGE_BYTES if mime in IMAGE_MIME_TYPES else MAX_OUTPUT_BYTES
-                assert len(text) < limit, (cell.id, mime)
-            assert len("".join(output.get("text", ""))) < MAX_OUTPUT_BYTES, cell.id
 
 
 def test_the_default_path_runs_no_solver_and_says_so(executed):

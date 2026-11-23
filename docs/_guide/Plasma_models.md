@@ -699,3 +699,63 @@ This section exists so that every adapter whose results feed the ordering contra
 - A kinetic-profile constraint (§6 category C) does not change this classification.
 - A time series of reconstructions is a sequence of equilibria, not a time-dependent MHD calculation.
 
+
+## 13. Cross-backend validation
+
+`vaft.validation.formalism_consistency` checks that a shared field means the same thing in every backend, so that
+a query or a database grouping across solvers returns the scientifically intended set. It compares no solver
+results, ranks no models and selects no solver.
+
+```python
+from vaft.validation.formalism_consistency import REFERENCE_FORMULATIONS, query, validate_formalism
+
+records = list(REFERENCE_FORMULATIONS.values())
+assert all(validate_formalism(record) == () for record in records)
+print([r.scientific_operation for r in query(records, "drift_kinetic")])
+```
+
+**Three layers, kept apart.**
+
+| layer | what it checks | who owns it |
+| --- | --- | --- |
+| schema | vocabulary values, types, the two required fields, `schema_version`, unknown field names | `vaft.code.formalism` (collected by `validate_formalism`) |
+| semantic | combinations that are physically contradictory whatever the solver (§11), and a named ordering limit outside its formulation | `vaft.code.formalism`, plus `NAMED_ORDERINGS` here |
+| backend | a recorded formalism against the one its backend resolves from the prepared input (`backend_consistency`), or against the adapter mode it claims (`mode_consistency`, on `MODE_KEYS` only) | each backend's resolver; `vaft.validation.model_contracts.ADAPTER_MODES` |
+
+`validate_formalism` reports every problem instead of raising on the first, so an imported or legacy record can be
+read in full. Semantic rules run only once the schema is clean. Each finding names its layer and field and states
+the contradiction, for example `a hybrid formulation needs fluid_model, kinetic_equation and kinetic_coupling;
+kinetic_coupling unset`.
+
+**Four states, not two.**
+- **Physically contradictory:** refused by the semantic layer -- a fluid run with a kinetic equation, a gyrokinetic
+  run that follows full orbits, `kruskal_oberman` on a record without a drift-kinetic response in an MHD model.
+- **Valid but unsupported:** accepted. Full-f, global or PIC gyrokinetics, MHD with gyrokinetic energetic
+  particles, ASCOT5 full-orbit and guiding-centre modes are pinned in `FUTURE_FORMULATIONS`. Whether a backend can
+  run a formulation is that backend's business, not the shared validation's.
+- **Not applicable:** `None`. An ideal-MHD run has no distribution formulation.
+- **Unknown:** `"unknown"`. A legacy product whose distribution formulation nobody documented. `None` and
+  `"unknown"` survive `as_dict()` and are different grouping keys: they never merge.
+
+**Grouping and queries.**
+- `COMPARISON_KEYS` are the fields two runs must share before they are aggregated as one model: operation, bulk
+  description, fluid model, kinetic equation, coupling and population, parent theory, distribution, orbit
+  representation, spatial and topology domain, regime, field model, and the realization (a learned surrogate is
+  not the model it emulates). Solver-specific numerical controls are absent on purpose. Every grouping and query
+  function accepts a record or its `as_dict()` mapping.
+- `group_by_formalism` and `assert_comparable` keep ideal and kinetic DCON, CGYRO and TGLF, and guiding-centre and
+  full-orbit ASCOT5 in different groups, and name the differing fields.
+- `QUERIES` answers the standing cross-backend questions by field, never by solver name: drift-kinetic
+  calculations, first-principles gyrokinetics (`kinetic_equation="gyrokinetic"`, so TGLF is excluded), hybrid
+  kinetic-MHD, guiding-centre orbits, reduced models derived from gyrokinetics, and kinetic energetic-particle
+  treatment (a selected population, not a kinetic bulk).
+
+**Imported provenance.** A record read from a file VAFT did not run (a TRANSP CDF, a legacy product) has no
+prepared input to check. `imported_formalism_findings(record, evidence)` holds it to the schema and semantic
+layers only, under one of `EVIDENCE_LEVELS`: `verified_source`, `inferred_components`, `legacy_ambiguous` or
+`unknown`. The evidence level describes trust in the record, never the physics.
+
+**What stays solver-specific.** Collision operators, saturation rules, geometry, numerical representation
+(continuum, PIC, Monte Carlo) and any named ordering limit outside `NAMED_ORDERINGS` stay in `extensions` and are
+not validated generically. No named limit is inferred from a solver flag. NUBEAM and ASCOT5 have no resolver yet,
+so their backend layer is not checked.
