@@ -987,6 +987,10 @@
       "reason": "shot 48224: ValueError: core_profiles slice 0 carries no zeff and no z_eff was supplied; the coefficients depend on it and this layer does not hold a machine default (CONTRIBUTING.md sends that to vest.yaml with a status)",
       "status": "failed"
     },
+    "ntms_overview_delta_prime": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
     "ntms_time_delta_prime": {
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"

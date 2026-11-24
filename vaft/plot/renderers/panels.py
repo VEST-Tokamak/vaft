@@ -33,6 +33,7 @@ from ..presentation import presented
 from ..style import finalize, resolve_axes
 
 __all__ = [
+    "ntms_overview_delta_prime",
     "equilibrium_overview_constraint_weights",
     "equilibrium_overview_pressure_weight_scan",
     "equilibrium_time_shape",
@@ -1496,6 +1497,75 @@ def mhd_linear_overview_eigenfunction(
 ) -> tuple[Figure, np.ndarray]:
     """Displacement and normal perturbed field of the least-stable mode."""
     return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="mhd_linear", subject="ntms", view="overview", quantity="delta_prime",
+    description="RDCON/STRIDE rational surfaces on q(psi_N) and the classical tearing "
+                "index Delta-prime of each surface.",
+    ids=("ntms", "mhd_linear"),
+    required_paths=(
+        "ntms.time_slice.{i}.mode.{j}.m_pol",
+        "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.value",
+        "mhd_linear.code.parameters",
+    ),
+)
+def ntms_overview_delta_prime(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Rational surfaces on q and the classical tearing index of each one.
+
+    Interpretation
+    --------------
+    The top panel is the resistive solver's own safety factor with every
+    ``q = m/n`` surface it matched across marked on it; the bottom panel is
+    the real part of the diagonal tearing index ``Delta'`` of the same
+    surfaces, at the same ``psi_N``, colour for colour.  A positive value is
+    classical tearing *drive* at that surface under the thin-layer, single
+    surface assumptions; the dashed line at zero is a reference, not a verdict.
+    Read the two panels together: where surfaces crowd towards the edge, a
+    value belongs to a layer that is not thin compared with its neighbours'
+    spacing.
+
+    Options
+    -------
+    ``time_slice=`` (default 0), ``solver=`` (``"rdcon"`` or ``"stride"``) and
+    ``n_tor=`` select one resistive record when the ODS holds several; a
+    selection that is still ambiguous raises.  The bottom panel's values
+    often span decades of both signs: set its scale on the returned axes,
+    ``axes[1].set_yscale("symlog", linthresh=1.0)``.
+
+    Limitations
+    -----------
+    Only the diagonal is drawn: the off-diagonal coupling of the full matrix
+    (kept in ``mhd_linear.code.parameters``) is what decides a coupled-mode
+    answer, and a near-axis surface can carry a value many decades larger than
+    the rest. No resolution check is made here -- compare two mapped runs.
+
+    See Also
+    --------
+    ntms_time_delta_prime : the same diagonal against time, per surface.
+    """
+    import matplotlib.transforms as transforms
+
+    figure, axes = render_panels(model, ax=ax, show=False, **style)
+    bottom = np.ravel(axes)[-1]
+    # The two half-planes stay labelled at the zero line whatever scale or
+    # limits the caller sets afterwards (symlog is the usual one).
+    limits = bottom.get_ylim()
+    bottom.axhspan(0.0, 1e30, color="tab:red", alpha=0.06, zorder=0, linewidth=0)
+    bottom.axhspan(-1e30, 0.0, color="tab:blue", alpha=0.05, zorder=0, linewidth=0)
+    bottom.set_ylim(limits)
+    blended = transforms.blended_transform_factory(bottom.transAxes, bottom.transData)
+    bottom.annotate("$\\Delta' > 0$: unstable (tearing drive)", xy=(0.01, 0.0), xycoords=blended,
+                    xytext=(0, 4), textcoords="offset points", va="bottom", fontsize=8, color="tab:red")
+    bottom.annotate("$\\Delta' < 0$: stable", xy=(0.01, 0.0), xycoords=blended,
+                    xytext=(0, -4), textcoords="offset points", va="top", fontsize=8, color="tab:blue")
+    if show:
+        import matplotlib.pyplot as plt
+
+        plt.show()
+    return figure, axes
 
 
 _CONSTRAINT_IDS = ("equilibrium",)

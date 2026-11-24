@@ -370,6 +370,7 @@ from .renderers.transport_hierarchy import (
     transport_hierarchy_profile_ion_energy_flux,
 )
 from .renderers.panels import (
+    ntms_overview_delta_prime,
     chease_overview_profile_validity,
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,

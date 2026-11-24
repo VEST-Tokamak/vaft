@@ -61,6 +61,13 @@ class DCONOptions:
     bal_flag: bool = False
     thmax0: float = 1.0
     con_flag: Optional[bool] = None
+    #: ``termbycross_flag`` stops the ODE integration at the first zero
+    #: crossing of DCON's ``crit`` -- including crossings DCON's own midpoint
+    #: test then rejects -- and such a run writes no netCDF. The packaged
+    #: template ships ``t``. ``None`` leaves the template's value, as for
+    #: ``con_flag``; ``False`` integrates to the edge and records confirmed
+    #: crossings in ``dcon.out``, which is what a stability verdict wants.
+    termbycross_flag: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -655,6 +662,11 @@ class GPECSuiteConfig:
     coil_data_dir: Path | str | None = None
     psilow: float = 1e-2
     psihigh: float = 0.994
+    #: Radial grid intervals of the equilibrium splines (``equil.in`` ``mpsi``).
+    #: ``None`` keeps the template's value (128 in the packaged one). A sign
+    #: verdict is only trusted when two resolutions agree (#142), so a
+    #: stability study sets this explicitly, e.g. 256 and 512.
+    mpsi: Optional[int] = None
     verify_outputs: bool = False
     timeout: Optional[float] = 1200.0
     env: Mapping[str, str] = field(default_factory=dict)

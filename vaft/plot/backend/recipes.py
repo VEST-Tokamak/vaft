@@ -14283,6 +14283,109 @@ RECIPES["ntms_time_delta_prime"] = CallableRecipe(
 )
 
 
+def _build_ntms_overview_delta_prime(ods: Any, **options: Any) -> Panels:
+    """Safety factor with its rational surfaces, and Delta-prime surface by surface.
+
+    One time slice and one RDCON/STRIDE run (``solver``, ``n_tor``): the top
+    panel is the solver's own ``q(psi_N)`` with every ``q = m/n`` surface it
+    matched across marked on it, the bottom panel the classical (diagonal)
+    tearing index of each of those surfaces at its ``psi_N``.  Both come from
+    the solver's mapped record (:func:`vaft.machine_mapping.mhd_linear.extract_rdcon_stability`),
+    so the surfaces of the two panels are the same surfaces by construction.
+
+    The points are the diagonal; the bottom title names the **least-stable
+    coupled mode** -- the eigenvalue of the full ``Delta'`` matrix with the
+    largest real part, and the surface that dominates its eigenvector -- because
+    the off-diagonal coupling can make that eigenvalue positive while every
+    diagonal entry is negative.  Without a matrix the title falls back to the
+    largest diagonal entry and says so.
+    """
+    from vaft.machine_mapping.mhd_linear import extract_rdcon_stability
+
+    time_slice = int(options.pop("time_slice", 0))
+    solver = options.pop("solver", None)
+    n_tor = options.pop("n_tor", None)
+    rows = [
+        row
+        for row in extract_rdcon_stability(ods)
+        if row["time_slice"] == time_slice
+        and (solver is None or row["solver"] == solver)
+        and (n_tor is None or int(row["n_tor"]) == int(n_tor))
+    ]
+    if not rows:
+        raise ValueError(
+            "ODS carries no RDCON/STRIDE record for this selection "
+            f"(time_slice={time_slice}, solver={solver!r}, n_tor={n_tor!r}); "
+            "only the GPEC-suite mapping of a resistive run writes one"
+        )
+    if len(rows) > 1:
+        names = ", ".join(f"{row['solver']} n={row['n_tor']}" for row in rows)
+        raise ValueError(f"several resistive records match ({names}); choose one with solver= and n_tor=")
+    [row] = rows
+    surfaces = [s for s in row["surfaces"] if s.get("psi_n") is not None and s.get("delta_prime") is not None]
+    if not surfaces:
+        raise ValueError(f"{row['solver']} n={row['n_tor']} carries no rational surface with a Delta-prime")
+    n_value = int(row["n_tor"])
+    colors = [palette(index) for index in range(len(surfaces))]
+
+    q_series = []
+    if row.get("psi_n") is not None and row.get("q") is not None:
+        q_series.append(Series(x=np.asarray(row["psi_n"], float), y=np.asarray(row["q"], float),
+                               label=f"q ({row['solver']})", style={"color": "emphasis:strong"}))
+    dp_series = [Series(x=np.array([0.0, 1.0]), y=np.zeros(2), label="$\\Delta' = 0$",
+                        style={"color": "emphasis:faint", "linestyle": "--", "linewidth": 0.8})]
+    for color, surface in zip(colors, surfaces):
+        m_value = int(surface["m"])
+        label = f"m/n = {m_value}/{n_value}"
+        psi = float(surface["psi_n"])
+        q_value = surface.get("q")
+        if q_value is not None:
+            q_series.append(Series(x=np.array([psi]), y=np.array([float(q_value)]), label="",
+                                   style={"marker": "o", "color": color, "linestyle": "none"}))
+        dp_series.append(Series(x=np.array([psi]), y=np.array([float(np.real(surface["delta_prime"]))]),
+                                label=label, style={"marker": "o", "color": color, "linestyle": "none"}))
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    solver_name = str(row["solver"]).upper()
+    matrix = row.get("delta_prime_matrix")
+    m_values = [int(surface["m"]) for surface in row["surfaces"]]
+    matrix = None if matrix is None else np.asarray(matrix, dtype=complex)
+    if matrix is not None and matrix.ndim == 2 and matrix.shape == (len(m_values), len(m_values)) \
+            and np.all(np.isfinite(matrix)):
+        eigenvalues, eigenvectors = np.linalg.eig(matrix)
+        k = int(np.argmax(eigenvalues.real))
+        least = float(eigenvalues[k].real)
+        m_least = m_values[int(np.argmax(np.abs(eigenvectors[:, k])))]
+        what = "least-stable coupled mode: max Re eig($\\Delta'$)"
+    else:
+        diagonal = [float(np.real(surface["delta_prime"])) for surface in surfaces]
+        k = int(np.argmax(diagonal))
+        least, m_least = diagonal[k], int(surfaces[k]["m"])
+        what = "largest diagonal $\\Delta'$ (no matrix)"
+    verdict = "tearing drive" if least > 0 else "stable"
+    top = LineSeries(series=tuple(q_series), x_label="$\\psi_N$", y_label="q",
+                     title=f"Rational surfaces q = m/{n_value} matched by {solver_name}")
+    bottom = LineSeries(series=tuple(dp_series), x_label="$\\psi_N$", y_label="Re $\\Delta'$ (diagonal)",
+                        title=f"{what} = {least:+.3g} (dominant m/n = {m_least}/{n_value}): {verdict}")
+    return Panels(models=(top, bottom), nrows=2, ncols=1, share_x=True,
+                  suptitle=f"{solver_name} n={n_value} — shot {pulse}".rstrip(" —shot"))
+
+
+RECIPES["ntms_overview_delta_prime"] = CallableRecipe(
+    builder=_build_ntms_overview_delta_prime,
+    description="Safety factor with matched rational surfaces, and the classical tearing index per surface.",
+    reads=(
+        "mhd_linear.code.parameters",
+        "ntms.code.parameters",
+        "ntms.time_slice.{i}.mode.{j}.n_tor",
+        "ntms.time_slice.{i}.mode.{j}.m_pol",
+        "ntms.time_slice.{i}.mode.{j}.deltaw.{k}.value",
+        "dataset_description.data_entry.pulse",
+    ),
+    backend=OMAS_BOUND,
+    reason="vaft.machine_mapping.mhd_linear.extract_rdcon_stability subscripts the ODS",
+)
+
+
 RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
     builder=_build_mhd_linear_energy_perturbed,
     description="DCON perturbed potential energy against time, per toroidal mode.",
