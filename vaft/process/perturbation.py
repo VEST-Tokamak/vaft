@@ -100,6 +100,7 @@ __all__ = [
     "jump_width",
     "JumpWidthModel",
     "LEGACY_WINDOWS",
+    "RESONANT_BOUNDARY_CONVENTIONS",
     "lundquist_number",
     "nearest_surface_spacing",
     "NEGATIVE_EIGENVALUE_POLICIES",
@@ -211,7 +212,15 @@ class ResonantWindow:
         return (psi_norm >= self.low) & (psi_norm <= self.high)
 
 
-def resonant_windows(pedestal=None, *, legacy: bool = False) -> dict[str, ResonantWindow]:
+#: Which pedestal position a core/edge boundary is taken from: the legacy
+#: ``inner_edge`` (``x_c - w/2``, the default, for reproducing earlier
+#: windows), the canonical Groebner ``top`` (``x_c - w``, half the full width
+#: inside the centre) or the tanh ``center``.
+RESONANT_BOUNDARY_CONVENTIONS = ("inner_edge", "top", "center")
+
+
+def resonant_windows(pedestal=None, *, legacy: bool = False,
+                     boundary: str = "inner_edge") -> dict[str, ResonantWindow]:
     """The core, edge and total radial windows a reduction is taken over.
 
     The core/edge boundary comes from the pedestal rather than from a
@@ -227,6 +236,12 @@ def resonant_windows(pedestal=None, *, legacy: bool = False) -> dict[str, Resona
     legacy : bool, optional
         Return :data:`LEGACY_WINDOWS` instead, for reproducing a published
         number that used them [-].
+    boundary : str, optional
+        Which pedestal position divides core from edge, one of
+        :data:`RESONANT_BOUNDARY_CONVENTIONS`: ``"inner_edge"`` (default,
+        ``x_c - w/2``), ``"top"`` (canonical ``x_c - w``) or ``"center"``
+        (``x_c``); a pedestal without a fitted width uses its position for
+        all three [n/a].
 
     Returns
     -------
@@ -237,20 +252,26 @@ def resonant_windows(pedestal=None, *, legacy: bool = False) -> dict[str, Resona
     Raises
     ------
     ValueError
-        Neither a pedestal nor ``legacy=True`` was given, or the pedestal's
-        coordinate is not ``psi_norm``.
+        Neither a pedestal nor ``legacy=True`` was given, the pedestal's
+        coordinate is not ``psi_norm``, or ``boundary`` is not a known
+        convention.
 
     Defaults
     --------
     The 0.8 and 0.95 boundaries of :data:`LEGACY_WINDOWS` are a legacy
     compatibility value, not a physical one: they are what the metrics this
-    module replaces hard-coded.
+    module replaces hard-coded.  ``boundary="inner_edge"`` is a legacy
+    compatibility value too: it reproduces every window built before #2335,
+    while ``"top"`` is the canonical Groebner knee.
 
     Convention
     ----------
     Bounds are normalized poloidal flux, endpoints included at both ends, so
     a rational surface exactly at the boundary is counted in both neighbours
-    rather than dropped by one.
+    rather than dropped by one.  With the pedestal's native tanh scale ``w``
+    and centre ``x_c``, ``inner_edge`` is ``x_c - w/2`` (a quarter of the
+    Groebner full width ``2w`` inside the centre) and ``top`` is
+    ``x_c - w``; the window's ``source`` names the convention used.
 
     Applicability
     -------------
@@ -265,6 +286,10 @@ def resonant_windows(pedestal=None, *, legacy: bool = False) -> dict[str, Resona
     .. [C-16] Conventions register C-16: seven different core/edge/pedestal
        window sets were in use across the code this replaces.
     """
+    if boundary not in RESONANT_BOUNDARY_CONVENTIONS:
+        raise ValueError(
+            f"boundary must be one of {RESONANT_BOUNDARY_CONVENTIONS}, got {boundary!r}"
+        )
     if legacy:
         return {
             name: ResonantWindow(name, low, high, "legacy fixed window")
@@ -291,12 +316,29 @@ def resonant_windows(pedestal=None, *, legacy: bool = False) -> dict[str, Resona
             "normalized poloidal flux, and converting between the two needs an "
             "equilibrium this layer does not have"
         )
-    boundary = pedestal.inner_edge
+    convention = boundary
+    width = getattr(pedestal, "width", None)
+    if convention == "inner_edge":
+        boundary = pedestal.inner_edge
+    elif width is None:
+        boundary = None
+    elif convention == "top":
+        boundary = getattr(pedestal, "top", None)
+        if boundary is None:
+            # A duck-typed pedestal without the canonical property: width is
+            # PedestalTop's native tanh scale w, so the top is x_c - w.
+            boundary = float(pedestal.position) - float(width)
+    else:
+        boundary = float(pedestal.position)
     if boundary is None:
         boundary = float(pedestal.position)
         source = f"pedestal_top position ({pedestal.method})"
-    else:
+    elif convention == "inner_edge":
         source = f"pedestal_top inner edge ({pedestal.method})"
+    elif convention == "top":
+        source = f"pedestal_top canonical top x_c - w ({pedestal.method})"
+    else:
+        source = f"pedestal_top centre ({pedestal.method})"
     if not np.isfinite(boundary) or not 0.0 <= boundary <= 1.0:
         # Out of range the windows still *build*, and one of them silently
         # becomes the whole plasma under another name: a boundary of 1.3 makes

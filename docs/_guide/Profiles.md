@@ -199,7 +199,10 @@ y_eval, y_std_eval, fit_function, coeffs = vaft.formula.fit_profile(
 ```
 
 It returns the profile on `x_eval`, its standard deviation (zeros for methods that carry no uncertainty
-estimate), a callable, and the coefficients. `vaft.formula.make_fit_function(mode)` builds the bare
+estimate; for `eped_tanh` the linearized parameter-covariance uncertainty, `nan` where the covariance
+is unavailable), a callable, and the coefficients. For `eped_tanh` the full fit record -- named
+coefficients, covariance, optimizer status, bound saturation and the multi-start record -- is
+`fit_function.eped_fit`, or call `vaft.formula.utils.fit_eped_tanh` directly. `vaft.formula.make_fit_function(mode)` builds the bare
 `polynomial` / `exponential` basis function if you want to fit it yourself. See
 [Physics formulas]({{ site.baseurl }}/guide/Formula/) for the rest of the formula namespace.
 
@@ -227,19 +230,48 @@ MAST discharge (45453 at 750 ms) $n_e$ gives 0.949 and $p_e$ 0.911, while $T_e$ 
 best tanh is 0.215 wide, which is a ramp rather than a pedestal. That is the behaviour to expect, and
 the reason the result carries the quantity and the method rather than just a number.
 
-`position` is the tanh's centre. The pedestal's inner knee is `inner_edge`, half a width further in;
-which of the two a study calls "the pedestal top" differs, so both are available and neither is
-implied.
+`position` is the tanh's centre and `width` its *native* scale $w$ in
+$\tfrac12[1-\tanh((x-x_c)/w)]$. VAFT's canonical convention is Groebner's full width
+$\Delta = 2w$ (the one `modified_tanh_profile` and `BarrierStep` use): `top` is $x_c - \Delta/2$,
+`foot` is $x_c + \Delta/2$ and `full_width` is $\Delta$. The older `inner_edge`, $x_c - w/2$, is a
+quarter of the full width inside the centre; it keeps that value so earlier windows reproduce, but it
+is not the canonical top. `resonant_windows(pedestal, boundary=...)` selects `"inner_edge"`
+(default, legacy), `"top"` or `"center"`.
 
-The fallback is `PEDESTAL_FALLBACK_PSI_NORM = 0.85`, and it fires when there is nothing to fit: too
-few points in the window, a fit that did not converge, a fitted `x_ped` resting on a bound, or a
-fitted curve that does not vary across the window by `PEDESTAL_RESOLUTION_FACTOR` times the residual
-scatter, or a tanh wider than `PEDESTAL_MAX_WIDTH`. That last width test matters more than it looks:
+### Pedestal characterization
+
+`vaft.process.profile.characterize_pedestal` is what `pedestal_top` now reduces. It returns the
+geometry (top, centre, foot, native and full width), the fitted profile *evaluated* at the top, foot
+and LCFS next to the tanh's asymptotic height, the actual top-to-foot drop, the steepest gradient and
+its position, one-sigma uncertainties propagated from the fit covariance ($J C J^\mathsf{T}$), the
+evidence behind them (samples used and rejected, distinct samples around the top, across the
+gradient region and beyond the foot, extrapolation, correlation of the pedestal coefficients) and a
+detection status:
+
+| status | meaning |
+|---|---|
+| `present` | a localized, significant, spatially resolved step |
+| `absent` | no step, and the data could have shown one (they reach the LCFS densely and quietly enough) |
+| `unresolved` | a step that is not resolved, or a missing step the data could not have shown |
+| `fit_failed` | the fit did not converge |
+| `not_available` | too few valid samples after every mask |
+
+`pedestal_top` returns the fallback position for every status but `present`, and records the status;
+the fallback is a partition policy for region reductions, never an observed pedestal.
+
+The fallback is `PEDESTAL_FALLBACK_PSI_NORM = 0.85`, and it fires when no pedestal is resolved: too
+few points in the window after masking, a fit that did not converge, a fitted pedestal coefficient
+resting on a bound, a top-to-foot drop that does not stand `PEDESTAL_RESOLUTION_FACTOR` times above
+the scatter around the feature or `PEDESTAL_SIGNIFICANCE` times above its own uncertainty, an edge
+gradient no steeper than the core, a width or top the samples do not resolve, or a tanh wider than
+`PEDESTAL_MAX_WIDTH`. That last width test matters more than it looks:
 the model's own box allows a width of 0.3, and over the 171 fits of one MAST campaign 25 came back
 between 0.20 and 0.29 — curves that ramp across half the minor radius while reporting themselves as
 measured pedestals. The variation test is the interesting one — the model's `f_ped - f_sep` is the $\tanh$'s
 *asymptotic* amplitude, which a wide, shallow fit through noise can make look large while the curve
-it actually draws is almost flat. The test is on the curve, not the parameters.
+it actually draws is almost flat. The test is on the curve, not the parameters -- and since #2335
+on the localized drop from top to foot rather than the curve's range over the whole window, which
+also counted core variation as pedestal evidence.
 
 ## Writing `core_profiles`
 

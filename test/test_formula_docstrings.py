@@ -92,6 +92,9 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # native tanh scale w versus the Groebner full width 2w, top = x_c - w (#2335)
+    "fit_eped_tanh",
+    "tanh_pedestal_geometry",
     # diamagnetic-flux sign: B_phi0 * Phi_dia > 0 is paramagnetic, one signed frame, no abs()
     "beta_p_diamagnetic_from_flux_circular",
     "beta_p_diamagnetic_from_flux_elliptic",

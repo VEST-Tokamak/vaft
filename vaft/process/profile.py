@@ -62,7 +62,23 @@ from uncertainties import unumpy
 
 import vaft
 from vaft.formula import fit_profile
-from vaft.formula.utils import eped_tanh_bounds
+
+# Pedestal characterization (#2335) lives in its own module; profile.py is
+# its public import location and pedestal_top below is its legacy wrapper.
+try:  # pragma: no branch - normal package import takes this path
+    from ._pedestal import (  # noqa: F401
+        PEDESTAL_ABSENCE_EDGE_COVERAGE, PEDESTAL_ABSENCE_MAX_GAP, PEDESTAL_ABSENCE_MAX_RELATIVE_SCATTER,
+        PEDESTAL_MAX_CORRELATION, PEDESTAL_MIN_GRADIENT_CONTRAST,
+        PEDESTAL_MAX_WIDTH, PEDESTAL_RESOLUTION_FACTOR, PEDESTAL_SIGNIFICANCE, PEDESTAL_STATUSES,
+        PedestalCharacterization, characterize_pedestal,
+    )
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._pedestal import (  # noqa: F401
+        PEDESTAL_ABSENCE_EDGE_COVERAGE, PEDESTAL_ABSENCE_MAX_GAP, PEDESTAL_ABSENCE_MAX_RELATIVE_SCATTER,
+        PEDESTAL_MAX_CORRELATION, PEDESTAL_MIN_GRADIENT_CONTRAST,
+        PEDESTAL_MAX_WIDTH, PEDESTAL_RESOLUTION_FACTOR, PEDESTAL_SIGNIFICANCE, PEDESTAL_STATUSES,
+        PedestalCharacterization, characterize_pedestal,
+    )
 
 
 __all__ = [
@@ -75,13 +91,18 @@ __all__ = [
     "MappedPositions",
     "NE_DYNAMIC_RANGE_MAX",
     "PEDESTAL_FALLBACK_PSI_NORM",
+    "PEDESTAL_MAX_WIDTH",
     "PEDESTAL_RESOLUTION_FACTOR",
+    "PEDESTAL_SIGNIFICANCE",
+    "PEDESTAL_STATUSES",
+    "PedestalCharacterization",
     "PedestalTop",
     "PHYSICAL_EDGE_MAX",
     "PHYSICAL_PSIN_MAX",
     "TE_POSITIVE_EDGE_MAX",
     "TE_POSITIVE_PSIN_MAX",
     "TOTAL_PRESSURE_LEAVES",
+    "characterize_pedestal",
     "core_profiles",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
@@ -3749,23 +3770,14 @@ def export_electron_profile_txt(
 #: Pedestal top used when a profile cannot support a fit (decision D-05).
 #: A stated fallback, not a canonical boundary: the legacy code base carried
 #: at least six different fixed windows, which is what made region metrics
-#: incomparable between studies.
+#: incomparable between studies.  It is a downstream *partition policy* -- a
+#: place to divide core from edge when no pedestal was resolved -- and never
+#: an observed pedestal: a :class:`PedestalTop` carrying it says
+#: ``method="fallback"`` and its ``status`` says why.
 PEDESTAL_FALLBACK_PSI_NORM = 0.85
 
-#: How far the fitted curve must rise above the residual scatter before a
-#: pedestal counts as resolved.  Measured on a pure-noise profile the ratio is
-#: about 1.3 and on a real pedestal a few hundred, so the exact value is not
-#: delicate; three is comfortably between them.  It is not sufficient on its
-#: own -- see :data:`PEDESTAL_MAX_WIDTH`.
-PEDESTAL_RESOLUTION_FACTOR = 3.0
-
-#: Widest tanh, in the fitted coordinate, that still describes a pedestal.
-#: The model's own box allows 0.3, and a fit that comes back near it is a ramp
-#: across most of the plasma rather than an edge feature: over the 171 fits of
-#: the reference MAST campaign the widths separate into a physical group below
-#: 0.11 and 25 fits between 0.20 and 0.29 whose "pedestal" spans half the
-#: minor radius.  The legacy fitter bounded width at 0.2 for the same reason.
-PEDESTAL_MAX_WIDTH = 0.15
+# PEDESTAL_RESOLUTION_FACTOR and PEDESTAL_MAX_WIDTH, with their rationale, are
+# defined in vaft.process._pedestal and imported above.
 
 
 @dataclass(frozen=True)
@@ -3776,6 +3788,19 @@ class PedestalTop:
     fallback was taken and is empty otherwise.  Carrying both is the point:
     a region reduction that does not record which one produced its boundary
     cannot be compared with another study's.
+
+    ``position`` is the tanh's *centre* and ``width`` its *native* scale
+    ``w`` -- both unchanged since this class was written.  The canonical
+    Groebner boundaries are :attr:`top` (``position - w``) and :attr:`foot`
+    (``position + w``), with :attr:`full_width` ``2 w``.  :attr:`inner_edge`,
+    ``position - w/2``, keeps its historical value for reproducing earlier
+    windows; it is a quarter of the full width inside the centre and is not
+    the canonical top.
+
+    ``status`` is the detection status of :func:`characterize_pedestal`
+    (``present``, ``absent``, ``unresolved``, ``fit_failed``,
+    ``not_available``) and ``characterization`` the full record behind it;
+    both default so that positional construction keeps working.
     """
 
     position: float
@@ -3785,6 +3810,8 @@ class PedestalTop:
     width: float | None = None
     fit: "FittedProfile | None" = None
     reason: str = ""
+    status: str = ""
+    characterization: "PedestalCharacterization | None" = None
 
     @property
     def from_fit(self) -> bool:
@@ -3792,14 +3819,42 @@ class PedestalTop:
         return self.method == "eped_fit"
 
     @property
-    def inner_edge(self) -> float | None:
-        """The pedestal's inner knee, ``position - width/2``; ``None`` without a fit.
+    def detection_status(self) -> str:
+        """``status``, or for a hand-built record ``present``/``not_available`` from ``method``."""
+        if self.status:
+            return self.status
+        return "present" if self.from_fit else "not_available"
 
-        :attr:`position` is the tanh's centre.  Which of the two a study calls
-        "the pedestal top" differs, so both are available and neither is
-        implied.
+    @property
+    def center(self) -> float:
+        """The tanh's centre, identical to :attr:`position` [-]."""
+        return self.position
+
+    @property
+    def inner_edge(self) -> float | None:
+        """Legacy inner boundary ``position - width/2``; ``None`` without a fit.
+
+        Kept at its historical value so that windows built from it reproduce.
+        It is *not* the canonical pedestal top -- that is :attr:`top`,
+        ``position - width``, one native width (half the full width) inside
+        the centre.
         """
         return None if self.width is None else self.position - 0.5 * self.width
+
+    @property
+    def full_width(self) -> float | None:
+        """Groebner full width ``2 * width``; ``None`` without a fit [-]."""
+        return None if self.width is None else 2.0 * self.width
+
+    @property
+    def top(self) -> float | None:
+        """Canonical pedestal top (knee), ``position - full_width/2``; ``None`` without a fit [-]."""
+        return None if self.width is None else self.position - self.width
+
+    @property
+    def foot(self) -> float | None:
+        """Canonical pedestal foot, ``position + full_width/2``; ``None`` without a fit [-]."""
+        return None if self.width is None else self.position + self.width
 
 
 def pedestal_top(
@@ -3851,7 +3906,8 @@ def pedestal_top(
     Returns
     -------
     PedestalTop
-        Position, the method that produced it, and the fit when there was one [-].
+        Position, the method that produced it, the fit when there was one,
+        the detection status and the full characterization [-].
 
     Raises
     ------
@@ -3864,14 +3920,18 @@ def pedestal_top(
 
     Processing steps
     ----------------
-    1. Restrict to ``window`` and drop non-finite samples.
-    2. Fit ``eped_tanh`` there, weighted by ``value_std`` when given.
-    3. Accept ``x_ped`` unless the fit is unusable -- too few points, a fit
-       that did not converge, ``x_ped`` resting on a bound of the model's box,
-       or a fitted curve that does not vary across the window by
-       :data:`PEDESTAL_RESOLUTION_FACTOR` times the residual scatter, which
-       means no pedestal was resolved.
-    4. Otherwise return ``fallback`` and say which of those it was.
+    1. Characterize the profile with :func:`characterize_pedestal`: restrict
+       to ``window``, drop non-finite samples and invalid ``value_std``,
+       fit ``eped_tanh`` (multi-start, covariance kept) weighted by
+       ``value_std`` when given, and qualify the localized edge feature.
+    2. Accept ``x_ped`` when the detection status is ``present``.
+    3. Otherwise return ``fallback`` with the status and its reason -- too
+       few points after masking, a fit that did not converge, a pedestal
+       coefficient resting on a bound of the model's box, a tanh wider than
+       ``max_width``, a top-to-foot drop that does not stand
+       :data:`PEDESTAL_RESOLUTION_FACTOR` times above the local scatter or
+       :data:`PEDESTAL_SIGNIFICANCE` times above its own uncertainty, or a
+       step whose width or top the samples do not resolve.
 
     Defaults
     --------
@@ -3881,14 +3941,20 @@ def pedestal_top(
     ``min_points = 20`` are numerical convenience -- enough of the edge to
     resolve a pedestal, and more samples than the model has parameters.
     :data:`PEDESTAL_RESOLUTION_FACTOR` is an empirical estimate: the measured
-    separation between a pure-noise fit and a real one.
+    separation between a pure-noise fit and a real one, now applied to the
+    localized top-to-foot drop (#2335).  The fallback is a partition policy
+    for downstream region reductions, never an observed pedestal.
 
     Convention
     ----------
     The position is in ``coordinate``, which defaults to ``psi_norm`` because
     that is what kinetic-profile files carry; a caller working in
     ``rho_tor_norm`` must say so, and the value is *not* converted.  ``x_ped``
-    is the tanh's centre, i.e. the mid-point of the pedestal, not its knee.
+    is the tanh's centre, i.e. the mid-point of the pedestal, not its knee;
+    ``width`` is the native tanh scale ``w``.  The canonical Groebner top and
+    foot are ``PedestalTop.top`` and ``PedestalTop.foot``
+    (``position -+ width``); ``PedestalTop.inner_edge`` keeps its legacy
+    value ``position - width/2``.
 
     Applicability
     -------------
@@ -3923,108 +3989,47 @@ def pedestal_top(
     """
     if coordinate not in COORDINATES:
         raise ValueError(f"coordinate must be one of {COORDINATES}, got {coordinate!r}")
-    x = np.asarray(x, dtype=float).ravel()
-    values = np.asarray(values, dtype=float).ravel()
-    if x.shape != values.shape:
-        raise ValueError(
-            f"x and values must have the same length, got {x.size} and {values.size}"
-        )
+    characterization = characterize_pedestal(
+        x, values, quantity=quantity, value_std=value_std, coordinate=coordinate,
+        window=window, min_points=min_points, max_width=max_width,
+    )
 
-    def _fallback(reason):
-        if coordinate != LEGACY_COORDINATE and fallback == PEDESTAL_FALLBACK_PSI_NORM:
-            raise CoordinateUnavailableError(
-                f"the fallback {PEDESTAL_FALLBACK_PSI_NORM} is a psi_norm position and "
-                f"this profile is in {coordinate}; there is no pedestal to fit "
-                f"({reason}), so pass an explicit fallback= in {coordinate} or "
-                "supply the profile in psi_norm"
-            )
+    if characterization.present:
+        fit = characterization.fit
         return PedestalTop(
-            position=float(fallback),
-            method="fallback",
+            position=float(fit.coefficients[3]),
+            method="eped_fit",
             quantity=quantity,
             coordinate=coordinate,
-            reason=reason,
+            width=float(fit.coefficients[4]),
+            fit=FittedProfile(
+                function=fit,
+                coordinate=coordinate,
+                method="eped_tanh",
+                order=None,
+                coefficients=fit.coefficients,
+                span=characterization.span,
+            ),
+            status="present",
+            characterization=characterization,
         )
 
-    low, high = window
-    selected = np.isfinite(x) & np.isfinite(values) & (x >= low) & (x <= high)
-    if int(np.count_nonzero(selected)) < min_points:
-        return _fallback(
-            f"{int(np.count_nonzero(selected))} finite samples in {window}, "
-            f"fewer than min_points={min_points}"
+    reason = characterization.reason
+    if coordinate != LEGACY_COORDINATE and fallback == PEDESTAL_FALLBACK_PSI_NORM:
+        raise CoordinateUnavailableError(
+            f"the fallback {PEDESTAL_FALLBACK_PSI_NORM} is a psi_norm position and "
+            f"this profile is in {coordinate}; there is no pedestal to fit "
+            f"({reason}), so pass an explicit fallback= in {coordinate} or "
+            "supply the profile in psi_norm"
         )
-
-    x_fit, y_fit = x[selected], values[selected]
-    std_fit = None
-    if value_std is not None:
-        std_fit = np.asarray(value_std, dtype=float).ravel()
-        if std_fit.shape != x.shape:
-            raise ValueError(
-                f"value_std has {std_fit.size} samples but the profile has {x.size}"
-            )
-        std_fit = std_fit[selected]
-
-    try:
-        fitted, _, function, coefficients = fit_profile(
-            x_fit, y_fit, std_fit, x_fit, fitting_function="eped_tanh"
-        )
-    except (RuntimeError, ValueError) as error:
-        return _fallback(f"eped_tanh fit did not converge: {error}")
-
-    x_ped, width = float(coefficients[3]), float(coefficients[4])
-    lower, upper = eped_tanh_bounds(x_fit, y_fit)
-    names = {1: "f_ped", 2: "f_sep", 3: "x_ped", 4: "width"}
-    for index, name in names.items():
-        span = upper[index] - lower[index]
-        if min(coefficients[index] - lower[index], upper[index] - coefficients[index]) <= 1e-3 * span:
-            return _fallback(f"{name} rests on a bound of the model's parameter box")
-
-    if not (np.isfinite(x_ped) and np.isfinite(width)):
-        return _fallback("the fit returned a non-finite x_ped or width")
-
-    if width > max_width:
-        return _fallback(
-            f"the fitted tanh is {width:.4g} wide, more than max_width={max_width}: "
-            "that is a ramp across the profile, not a pedestal"
-        )
-
-    low_fit, high_fit = float(x_fit.min()), float(x_fit.max())
-    if not low_fit <= x_ped <= high_fit:
-        return _fallback(
-            f"x_ped={x_ped:.4g} lies outside the fitted data, which spans "
-            f"[{low_fit:.4g}, {high_fit:.4g}]"
-        )
-
-    # How much the fitted curve actually varies where the data is -- not
-    # ``f_ped - f_sep``, which is the tanh's asymptotic amplitude and can be
-    # several times what the model says inside the window when the fit comes
-    # back wide and shallow.  On pure noise the two differ by a factor of
-    # three, and it is the parameter difference that looks like a pedestal.
-    variation = float(np.ptp(fitted))
-    residual = float(np.sqrt(np.mean((y_fit - fitted) ** 2)))
-    if not (np.isfinite(variation) and np.isfinite(residual)):
-        return _fallback("the fit produced non-finite values; no pedestal resolved")
-    if variation <= PEDESTAL_RESOLUTION_FACTOR * residual:
-        return _fallback(
-            f"the fitted curve varies by {variation:.4g} across the window, not "
-            f"{PEDESTAL_RESOLUTION_FACTOR}x the residual scatter {residual:.4g}: "
-            "no pedestal resolved"
-        )
-
     return PedestalTop(
-        position=x_ped,
-        method="eped_fit",
+        position=float(fallback),
+        method="fallback",
         quantity=quantity,
         coordinate=coordinate,
-        width=width,
-        fit=FittedProfile(
-            function=function,
-            coordinate=coordinate,
-            method="eped_tanh",
-            order=None,
-            coefficients=coefficients,
-            span=(float(x_fit.min()), float(x_fit.max())),
-        ),
+        reason=reason,
+        status=characterization.status,
+        characterization=characterization,
     )
 
 

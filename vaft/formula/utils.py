@@ -6,6 +6,7 @@ the formula module.
 """
 
 import warnings
+from dataclasses import dataclass
 
 import numpy as np
 from typing import Union, Tuple, List, Dict, NamedTuple
@@ -25,12 +26,14 @@ __all__ = [
     "calculate_toroidal_flux",
     "calculate_volume_weighted_average",
     "eped_tanh_bounds",
+    "fit_eped_tanh",
     "fit_profile",
     "gp_fit",
     "gradient",
     "make_fit_function",
     "normalize_profile",
     "normalized_gradient_scale_length",
+    "tanh_pedestal_geometry",
     "trapz_integral",
 ]
 
@@ -908,6 +911,442 @@ def eped_tanh_bounds(x, y):
     return lower, upper
 
 
+#: The ``eped_tanh`` coefficients by name, in the order :func:`fit_profile`
+#: returns and serializes them.  The order is the serialized contract and is
+#: never changed; the names only label it.
+EPED_TANH_PARAMETERS = ("f0", "f_ped", "f_sep", "x_ped", "width", "alpha", "beta")
+
+#: The unit of each :data:`EPED_TANH_PARAMETERS` entry: ``"y"`` is the unit of
+#: the fitted samples, ``"x"`` the radial coordinate's, ``"-"`` dimensionless.
+EPED_TANH_PARAMETER_UNITS = ("y", "y", "y", "x", "x", "-", "-")
+
+#: The four coefficients that describe the pedestal itself (``f_ped``,
+#: ``f_sep``, ``x_ped``, ``width``); ``f0``, ``alpha`` and ``beta`` only shape
+#: the core and are routinely unconstrained by an edge-window fit.
+EPED_TANH_PEDESTAL_INDICES = (1, 2, 3, 4)
+
+#: Fraction of a parameter's box within which a fitted value counts as resting
+#: on the bound -- the same criterion :func:`vaft.process.profile.pedestal_top`
+#: has applied since it was written.
+_EPED_BOUND_TOLERANCE = 1e-3
+
+#: Extra ``(x_ped, width)`` seeds tried after the legacy seed, in order.  The
+#: data-driven seed (the steepest descent of the samples) is inserted first.
+_EPED_EXTRA_SEEDS = ((0.97, 0.02), (0.88, 0.06), (0.92, 0.12))
+
+#: Relative improvement in the objective another start must achieve before it
+#: replaces the legacy seed's optimum; a tie keeps the legacy coefficients
+#: bit-for-bit.
+_EPED_IMPROVEMENT = 1e-6
+
+
+@dataclass(frozen=True, eq=False)
+class EpedTanhFit:
+    """Structured result of :func:`fit_eped_tanh`: coefficients, covariance and fit evidence.
+
+    ``coefficients`` keep the legacy order :data:`EPED_TANH_PARAMETERS`, so
+    ``fit.coefficients`` is exactly what ``fit_profile(..., 'eped_tanh')``
+    returns.  ``covariance`` is ``curve_fit``'s parameter covariance -- with
+    ``absolute_sigma=True`` when the fit was weighted by ``y_std``, scaled by
+    the reduced chi-square otherwise -- and is all ``nan`` when it could not
+    be estimated: unavailable uncertainty is never reported as zero.
+
+    ``width`` is the *native* tanh scale ``w`` of
+    ``f_sep + (f_ped - f_sep)/2 [1 - tanh((x - x_ped)/w)]``.  The canonical
+    Groebner full width is ``full_width = 2 w``, with ``top = x_ped - w`` and
+    ``foot = x_ped + w`` (:func:`tanh_pedestal_geometry`).
+    """
+
+    coefficients: np.ndarray
+    covariance: np.ndarray
+    lower: tuple
+    upper: tuple
+    success: bool
+    message: str
+    nfev: int
+    chi_squared: float
+    n_points: int
+    weighted: bool
+    n_starts: int
+    n_converged: int
+    competing_minima: int
+    start_messages: tuple = ()
+
+    parameters = EPED_TANH_PARAMETERS
+    units = EPED_TANH_PARAMETER_UNITS
+
+    def __call__(self, x):
+        return _eped_tanh_model(np.asarray(x, float), *self.coefficients)
+
+    @property
+    def degrees_of_freedom(self) -> int:
+        """``n_points - 7`` [-]."""
+        return int(self.n_points - len(EPED_TANH_PARAMETERS))
+
+    @property
+    def reduced_chi_squared(self) -> float:
+        """``chi_squared / degrees_of_freedom``; ``nan`` without freedom [-]."""
+        dof = self.degrees_of_freedom
+        return float(self.chi_squared / dof) if dof > 0 else float("nan")
+
+    @property
+    def values(self) -> dict:
+        """Coefficients by name [y, x or -]."""
+        return dict(zip(EPED_TANH_PARAMETERS, (float(v) for v in self.coefficients)))
+
+    @property
+    def covariance_available(self) -> bool:
+        """Whether every covariance entry is finite."""
+        return bool(np.all(np.isfinite(self.covariance)))
+
+    @property
+    def std(self) -> np.ndarray:
+        """One-sigma parameter uncertainties; ``nan`` where unavailable."""
+        diag = np.diag(self.covariance).astype(float)
+        with np.errstate(invalid="ignore"):
+            return np.where(np.isfinite(diag) & (diag >= 0.0), np.sqrt(np.abs(diag)), np.nan)
+
+    @property
+    def correlation(self) -> np.ndarray:
+        """Parameter correlation matrix; ``nan`` where a variance is zero or unavailable."""
+        sigma = self.std
+        with np.errstate(invalid="ignore", divide="ignore"):
+            return self.covariance / np.outer(sigma, sigma)
+
+    @property
+    def bound_saturated(self) -> tuple:
+        """Names of the coefficients resting on a bound of the parameter box."""
+        out = []
+        for name, value, low, high in zip(EPED_TANH_PARAMETERS, self.coefficients, self.lower, self.upper):
+            span = high - low
+            if min(value - low, high - value) <= _EPED_BOUND_TOLERANCE * span:
+                out.append(name)
+        return tuple(out)
+
+    @property
+    def pedestal_max_correlation(self) -> float:
+        """Largest ``|rho|`` between two pedestal coefficients (``f_ped, f_sep, x_ped, width``) [-]."""
+        block = self.correlation[np.ix_(EPED_TANH_PEDESTAL_INDICES, EPED_TANH_PEDESTAL_INDICES)]
+        off = block[~np.eye(len(EPED_TANH_PEDESTAL_INDICES), dtype=bool)]
+        return float(np.max(np.abs(off))) if np.all(np.isfinite(off)) else float("nan")
+
+    @property
+    def pedestal_condition_number(self) -> float:
+        """Condition number of the pedestal coefficients' correlation block [-]."""
+        block = self.correlation[np.ix_(EPED_TANH_PEDESTAL_INDICES, EPED_TANH_PEDESTAL_INDICES)]
+        if not np.all(np.isfinite(block)):
+            return float("nan")
+        return float(np.linalg.cond(block))
+
+    def jacobian(self, function, step_fraction=1e-5):
+        """Central-difference Jacobian of ``function(coefficients)`` against the coefficients.
+
+        ``function`` maps a coefficient vector to an output vector.  Steps are
+        ``step_fraction * max(|theta_j|, sigma_j, 1e-3 * box_j)`` so a narrow
+        ``width`` is not stepped across its own size.
+        """
+        from vaft.formula.sensitivity import finite_difference_jacobian
+
+        theta = np.asarray(self.coefficients, float)
+        box = np.asarray(self.upper, float) - np.asarray(self.lower, float)
+        sigma = np.nan_to_num(self.std, nan=0.0)
+        step = step_fraction * np.maximum.reduce([np.abs(theta), sigma, 1e-3 * box])
+        # x_ped and width must stay positive for the model to evaluate.
+        step[3] = min(step[3], 0.5 * theta[3])
+        step[4] = min(step[4], 0.5 * theta[4])
+        return finite_difference_jacobian(lambda t: np.atleast_1d(function(t)), theta, step=step)
+
+    def propagate(self, function):
+        """Linearized covariance ``J C J^T`` of ``function(coefficients)``; ``nan`` without a covariance."""
+        from vaft.formula.sensitivity import linear_covariance_propagation
+
+        jac = self.jacobian(function)
+        if not self.covariance_available:
+            n = jac.shape[0]
+            return np.full((n, n), np.nan)
+        return linear_covariance_propagation(jac, self.covariance)
+
+    def profile_std(self, x):
+        """One-sigma uncertainty of the fitted curve at ``x``, ``sqrt(diag(J C J^T))``; ``nan`` without a covariance."""
+        x = np.asarray(x, float)
+        flat = x.reshape(-1)
+        cov = self.propagate(lambda t: _eped_tanh_model(flat, *t))
+        var = np.diag(cov)
+        with np.errstate(invalid="ignore"):
+            out = np.where(np.isfinite(var), np.sqrt(np.clip(var, 0.0, None)), np.nan)
+        return out.reshape(x.shape)
+
+
+def _eped_steepest_seed(x, y):
+    """``x_ped`` seed at the steepest descent of the sorted samples, inside the model's box."""
+    order = np.argsort(x)
+    xs, ys = x[order], y[order]
+    keep = np.concatenate(([True], np.diff(xs) > 0))
+    xs, ys = xs[keep], ys[keep]
+    if xs.size < 3:
+        return None
+    slope = np.gradient(ys, xs)
+    # A positive profile drops toward the edge (negative slope); an
+    # all-negative one -- a rotation, say -- rises toward zero.
+    toward_edge = 1.0 if abs(float(np.nanmin(y))) <= abs(float(np.nanmax(y))) else -1.0
+    inside = (xs >= 0.75) & (xs <= 0.999)
+    if not np.any(inside):
+        return None
+    candidate = xs[inside][np.argmax(-toward_edge * slope[inside])]
+    return float(candidate)
+
+
+def fit_eped_tanh(x, y, y_std=None, *, uncertainty_option=1, n_starts=4):
+    r"""Fit the seven-parameter EPED-style tanh profile and keep its covariance and fit evidence.
+
+    $$f(x) = f_\mathrm{sep} + \frac{f_\mathrm{ped} - f_\mathrm{sep}}{2}\left[1 - \tanh\frac{x - x_\mathrm{ped}}{w}\right] + C(x)\,\bigl(f_0 - f_\mathrm{axis}\bigr)$$
+
+    with the gated core shape $C(x) = (1 - (x/x_\mathrm{ped})^\alpha)^\beta$
+    for $x \le x_\mathrm{ped}$ and zero outside it.  This is the model behind
+    ``fit_profile(..., fitting_function='eped_tanh')``; that call returns
+    ``fit_eped_tanh(...).coefficients`` unchanged in meaning and order.
+
+    Parameters
+    ----------
+    x : array_like
+        Radial coordinate of the samples, normalized so the LCFS is at one [-].
+    y : array_like
+        Profile samples [any].
+    y_std : array_like, optional
+        One-sigma uncertainty per sample; ``None`` fits unweighted [any].
+    uncertainty_option : int, optional
+        1 (default) weights by ``y_std`` with ``absolute_sigma=True``; 0
+        ignores it, as in :func:`fit_profile` [-].
+    n_starts : int, optional
+        Number of starting points: the legacy seed first, then a data-driven
+        seed at the samples' steepest descent and fixed ``(x_ped, w)``
+        alternatives; default 4 [-].
+
+    Returns
+    -------
+    EpedTanhFit
+        Coefficients ``(f0, f_ped, f_sep, x_ped, width, alpha, beta)``, their
+        covariance (``nan`` when unavailable), the parameter box, the
+        optimizer's status, chi-square and multi-start record [y, x or -].
+
+    Raises
+    ------
+    ValueError
+        Non-finite samples, non-positive ``y_std``, or mismatched lengths.
+    RuntimeError
+        No starting point converged.
+
+    Convention
+    ----------
+    ``width`` is the native tanh scale $w$.  The canonical Groebner full width
+    is $\Delta = 2w$, pedestal top $x_\mathrm{ped} - \Delta/2$ and foot
+    $x_\mathrm{ped} + \Delta/2$ (:func:`tanh_pedestal_geometry`), the
+    convention of :func:`vaft.formula.equilibrium.modified_tanh_profile`.
+    ``f_ped`` and ``f_sep`` are the tanh's *asymptotic* levels, not the
+    profile's value at the top, foot or separatrix.
+
+    Numerical notes
+    ---------------
+    Each start is a bounded ``scipy.optimize.curve_fit`` (trust-region
+    reflective, ``max_nfev = 20000``) in the box of :func:`eped_tanh_bounds`.
+    The legacy seed's optimum is kept unless another start lowers the
+    objective by more than a relative ``1e-6``, so a fit the single-start
+    code already solved returns bit-identical coefficients.  Starts that end
+    within one unit of chi-square (weighted) or one percent (unweighted) of
+    the best but with ``x_ped`` more than one ``w`` away are counted in
+    ``competing_minima``: the data do not single out one pedestal.
+
+    Uncertainty propagation
+    -----------------------
+    ``EpedTanhFit.profile_std`` and ``EpedTanhFit.propagate`` linearize any
+    derived quantity $g(\theta)$ as $\sigma_g^2 = J_g C_\theta J_g^\mathsf{T}$
+    with a central-difference Jacobian; with a weakly identified fit the
+    linear covariance can be unreliable, which the correlation and condition
+    diagnostics on the result report.
+
+    References
+    ----------
+    .. [1] R. J. Groebner and T. N. Carlstrom, *Critical edge parameters for
+           H-mode transition in DIII-D*, Plasma Phys. Control. Fusion 40, 673
+           (1998).
+    .. [2] P. B. Snyder et al., *A first-principles predictive model of the
+           pedestal height and width*, Nucl. Fusion 51, 103016 (2011), for the
+           EPED-style tanh profile.
+    """
+    x = np.asarray(x, dtype=float).reshape(-1)
+    y = np.asarray(y, dtype=float).reshape(-1)
+    if x.shape != y.shape:
+        raise ValueError(f"x and y must have the same length, got {x.size} and {y.size}")
+    if not (np.all(np.isfinite(x)) and np.all(np.isfinite(y))):
+        raise ValueError("fit_eped_tanh needs finite x and y; mask non-finite samples first")
+    weighted = uncertainty_option == 1 and y_std is not None
+    sigma = None
+    if weighted:
+        sigma = np.asarray(y_std, dtype=float).reshape(-1)
+        if sigma.shape != y.shape:
+            raise ValueError(f"y_std has {sigma.size} samples but y has {y.size}")
+        if not np.all(np.isfinite(sigma) & (sigma > 0)):
+            raise ValueError("fit_eped_tanh needs finite, positive y_std; mask invalid sigmas first")
+    p0, lower, upper = _initial_eped_tanh_guess(x, y)
+
+    seeds = [list(p0)]
+    extra = []
+    steep = _eped_steepest_seed(x, y)
+    if steep is not None:
+        extra.append((steep, 0.03))
+    extra.extend(_EPED_EXTRA_SEEDS)
+    for x_ped, width in extra:
+        if len(seeds) >= max(int(n_starts), 1):
+            break
+        seed = list(p0)
+        seed[3] = min(max(x_ped, lower[3]), upper[3])
+        seed[4] = min(max(width, lower[4]), upper[4])
+        if any(np.allclose(seed, other) for other in seeds):
+            continue
+        seeds.append(seed)
+
+    from scipy.optimize import OptimizeWarning
+
+    results = []
+    messages = []
+    for seed in seeds:
+        kwargs = {"p0": seed, "bounds": (lower, upper), "max_nfev": 20000, "full_output": True}
+        if weighted:
+            kwargs.update(sigma=sigma, absolute_sigma=True)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always", OptimizeWarning)
+            try:
+                coeffs, pcov, info, message, status = curve_fit(_eped_tanh_model, x, y, **kwargs)
+            except (RuntimeError, ValueError) as error:
+                messages.append(f"failed: {error}")
+                results.append(None)
+                continue
+        notes = [str(w.message) for w in caught if issubclass(w.category, OptimizeWarning)]
+        cost = float(np.sum(np.asarray(info["fvec"], float) ** 2))
+        messages.append(f"{message}" + (f" ({'; '.join(notes)})" if notes else ""))
+        results.append((np.asarray(coeffs, float), np.asarray(pcov, float), int(info["nfev"]),
+                        cost, str(message), int(status) > 0))
+
+    converged = [i for i, r in enumerate(results) if r is not None and r[5]]
+    if not converged:
+        raise RuntimeError(
+            "eped_tanh: no starting point converged: " + " | ".join(messages)
+        )
+    best = converged[0]
+    for i in converged[1:]:
+        if results[i][3] < results[best][3] * (1.0 - _EPED_IMPROVEMENT):
+            best = i
+    coeffs, pcov, nfev, cost, message, success = results[best]
+    tolerance = 1.0 if weighted else 0.01 * cost
+    competing = sum(
+        1 for i in converged
+        if i != best and results[i][3] - cost <= tolerance
+        and abs(results[i][0][3] - coeffs[3]) > coeffs[4]
+    )
+    if not np.all(np.isfinite(pcov)):
+        pcov = np.full((len(EPED_TANH_PARAMETERS),) * 2, np.nan)
+    return EpedTanhFit(
+        coefficients=coeffs,
+        covariance=pcov,
+        lower=tuple(float(v) for v in lower),
+        upper=tuple(float(v) for v in upper),
+        success=bool(success),
+        message=message,
+        nfev=nfev,
+        chi_squared=cost,
+        n_points=int(x.size),
+        weighted=bool(weighted),
+        n_starts=len(seeds),
+        n_converged=len(converged),
+        competing_minima=int(competing),
+        start_messages=tuple(messages),
+    )
+
+
+def tanh_pedestal_geometry(center, native_width, center_width_covariance=None):
+    r"""Pedestal top, foot and full width of a tanh step, with their linearized uncertainties.
+
+    $$\Delta = 2w,\qquad x_\mathrm{top} = x_c - \frac{\Delta}{2},\qquad x_\mathrm{foot} = x_c + \frac{\Delta}{2}$$
+
+    $$\sigma_\mathrm{top}^2 = \sigma_c^2 + \frac{\sigma_\Delta^2}{4} - \mathrm{Cov}(x_c, \Delta),\qquad \sigma_\mathrm{foot}^2 = \sigma_c^2 + \frac{\sigma_\Delta^2}{4} + \mathrm{Cov}(x_c, \Delta)$$
+
+    for a step written ``(1 - tanh((x - x_c)/w))/2`` -- the native scale $w$
+    of the ``eped_tanh`` model -- or equivalently ``tanh(2(x_c - x)/Delta)``
+    in Groebner's full-width form.
+
+    Parameters
+    ----------
+    center : float
+        Symmetry point $x_c$ of the step, the centre of the steep-gradient region [-].
+    native_width : float
+        Native tanh scale $w > 0$ [-].
+    center_width_covariance : array_like, optional
+        ``2 x 2`` covariance of ``(center, native_width)``; ``None`` returns
+        ``nan`` uncertainties rather than zero [-].
+
+    Returns
+    -------
+    top : float
+        Pedestal top (knee), $x_c - w$ [-].
+    foot : float
+        Pedestal foot, $x_c + w$ [-].
+    full_width : float
+        Full width $\Delta = 2w$ [-].
+    sigma_top : float
+        One-sigma uncertainty of ``top``; ``nan`` without a covariance [-].
+    sigma_foot : float
+        One-sigma uncertainty of ``foot``; ``nan`` without a covariance [-].
+    sigma_full_width : float
+        One-sigma uncertainty of ``full_width``; ``nan`` without a covariance [-].
+
+    Raises
+    ------
+    ValueError
+        ``native_width`` is not positive, or the covariance is not ``2 x 2``.
+
+    Convention
+    ----------
+    Groebner and Carlstrom's fit $A\tanh(2(X_\mathrm{sym} - X)/W) + B$ puts the
+    knee at $X_\mathrm{sym} - W/2$ with the full width $W$; the same step in
+    the native scale has $w = W/2$, so the knee is one native width inside
+    the centre.  This is the convention of
+    :func:`vaft.formula.equilibrium.modified_tanh_profile` and of
+    ``BarrierStep.knee`` / ``BarrierStep.foot``.  The older
+    ``PedestalTop.inner_edge``, ``x_c - w/2``, is a quarter of the full width
+    inside the centre and is *not* this top.
+
+    Uncertainty propagation
+    -----------------------
+    Exact for this linear map: $\sigma_\Delta^2 = 4\sigma_w^2$ and
+    $\mathrm{Cov}(x_c, \Delta) = 2\,\mathrm{Cov}(x_c, w)$.
+
+    References
+    ----------
+    .. [1] R. J. Groebner and T. N. Carlstrom, *Critical edge parameters for
+           H-mode transition in DIII-D*, Plasma Phys. Control. Fusion 40, 673
+           (1998), Fig. 1.
+    """
+    center = float(center)
+    native_width = float(native_width)
+    if not native_width > 0.0:
+        raise ValueError(f"native_width must be positive, got {native_width!r}")
+    full_width = 2.0 * native_width
+    top = center - 0.5 * full_width
+    foot = center + 0.5 * full_width
+    if center_width_covariance is None:
+        nan = float("nan")
+        return top, foot, full_width, nan, nan, nan
+    cov = np.asarray(center_width_covariance, dtype=float)
+    if cov.shape != (2, 2):
+        raise ValueError(f"center_width_covariance must be 2 x 2, got shape {cov.shape}")
+    var_c, var_delta, cov_c_delta = cov[0, 0], 4.0 * cov[1, 1], 2.0 * cov[0, 1]
+    with np.errstate(invalid="ignore"):
+        sigma_top = float(np.sqrt(var_c + var_delta / 4.0 - cov_c_delta)) if np.isfinite(cov).all() else float("nan")
+        sigma_foot = float(np.sqrt(var_c + var_delta / 4.0 + cov_c_delta)) if np.isfinite(cov).all() else float("nan")
+        sigma_delta = float(np.sqrt(var_delta)) if np.isfinite(var_delta) else float("nan")
+    return top, foot, full_width, sigma_top, sigma_foot, sigma_delta
+
+
 def _initial_core_poly_edge_exp_guess(x, y, order):
     """
     Initial guess helper for core_poly_edge_exp fit.
@@ -1001,8 +1440,12 @@ def fit_profile(
         Fitted values on ``x_eval``; ``nan`` outside the data range in the
         ``'linear'`` mode unless ``extrapolate=True`` [any].
     y_std_eval : np.ndarray
-        Fitted uncertainty; non-zero for the GP mode only, and in the
-        ``'linear'`` mode ``nan`` wherever ``y_eval`` is [any].
+        Fitted uncertainty: the GP posterior standard deviation for the GP
+        modes; for ``'eped_tanh'`` the linearized parameter-covariance
+        uncertainty $\sqrt{\mathrm{diag}(J C J^\mathsf{T})}$, ``nan`` where the
+        covariance is unavailable; zero (no uncertainty computed) for the other
+        parametric modes; in the ``'linear'`` mode ``nan`` wherever ``y_eval``
+        is [any].
     fit_function : callable
         ``f(x)`` evaluating the fit at arbitrary ``x`` [n/a].
     coeffs : np.ndarray or None
@@ -1030,7 +1473,10 @@ def fit_profile(
     data cross zero; they warn with the number of clipped points, and report
     zero uncertainty.
     A fit that returns its initial guess unchanged is reported by a warning,
-    not an exception.
+    not an exception.  The ``'eped_tanh'`` mode is :func:`fit_eped_tanh`: its
+    covariance, status, bound saturation and multi-start record are on
+    ``fit_function.eped_fit``; before #2335 its second return was a zero
+    placeholder, which a caller must not read as zero uncertainty.
 
     Numerical notes
     ---------------
@@ -1239,20 +1685,22 @@ def fit_profile(
 
 
     if fitting_function.lower() in {'eped_tanh', 'eped'}:
-        p0, lower, upper = _initial_eped_tanh_guess(x, y)
-        kwargs = {"p0": p0, "bounds": (lower, upper), "max_nfev": 20000}
-        if uncertainty_option == 1 and y_std is not None:
-            coeffs, _ = curve_fit(
-                _eped_tanh_model, x.ravel(), y, sigma=y_std, absolute_sigma=True, **kwargs
-            )
-        else:
-            coeffs, _ = curve_fit(_eped_tanh_model, x.ravel(), y, **kwargs)
+        # fit_eped_tanh keeps what curve_fit used to have discarded here: the
+        # covariance, the optimizer status and a multi-start record.  The
+        # four-tuple is unchanged in shape and coefficient order; the second
+        # entry is now the linearized fit uncertainty sqrt(diag(J C J^T)),
+        # nan where the covariance could not be estimated -- never the zero
+        # placeholder it used to be.  The structured result rides on the
+        # returned callable as ``fit_function.eped_fit``.
+        eped_fit = fit_eped_tanh(x, y, y_std, uncertainty_option=uncertainty_option)
+        coeffs = eped_fit.coefficients
 
         def fit_function(x_input):
             return _eped_tanh_model(np.asarray(x_input, float), *coeffs)
 
+        fit_function.eped_fit = eped_fit
         y_eval = fit_function(x_eval)
-        return y_eval, np.zeros_like(y_eval), fit_function, coeffs
+        return y_eval, eped_fit.profile_std(x_eval), fit_function, coeffs
 
     if fitting_function.lower() in {'core_poly_edge_exp', 'core_poly_edge_exponential'}:
         p0 = _initial_core_poly_edge_exp_guess(x, y, order)

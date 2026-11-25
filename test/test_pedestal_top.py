@@ -218,8 +218,12 @@ def test_uncertainties_actually_weight_the_fit():
 
     plain = pedestal_top(x, y, quantity="p_total")
     weighted = pedestal_top(x, y, quantity="p_total", value_std=sigma)
-    assert plain.method == weighted.method == "eped_fit"
-    assert weighted.position != pytest.approx(plain.position, abs=1e-9)
+    assert plain.method == "eped_fit"
+    # Distrusting everything outside x_ped leaves f_sep and x_ped trading off
+    # (|rho| ~ 0.998), so since #2335 the weighted fit is reported as
+    # unresolved rather than accepted; its fitted centre still has to move.
+    assert weighted.status == "unresolved" and "correlate" in weighted.reason
+    assert weighted.characterization.center != pytest.approx(plain.position, abs=1e-9)
 
 
 def test_a_value_std_of_the_wrong_length_is_refused():
