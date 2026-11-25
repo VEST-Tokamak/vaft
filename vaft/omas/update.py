@@ -359,7 +359,7 @@ def update_equilibrium_global_quantities_volume(ods, time_slice=None):
         if 'equilibrium.time_slice' in ods and len(ods['equilibrium.time_slice']):
             time_slice = range(len(ods['equilibrium.time_slice']))
         else:
-            print("Warning: No time slices found in ODS. Cannot update stored energy.")
+            logger.warning("No time slices found in ODS. Cannot update the volume.")
             return
     # Convert single integer to list for iteration
     if isinstance(time_slice, (int, np.integer)):
@@ -367,7 +367,7 @@ def update_equilibrium_global_quantities_volume(ods, time_slice=None):
     for idx in time_slice:
         ts = ods['equilibrium.time_slice'][idx]
         if 'profiles_1d.volume' not in ts:
-            print(f"Warning: profiles_1d.volume not found for time slice {idx}")
+            logger.warning("profiles_1d.volume not found for time slice %s", idx)
             continue
         ts['global_quantities.volume'] = ts['profiles_1d.volume'][-1]
 
@@ -1065,6 +1065,9 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfac
             beta_normal = beta_normal_from_beta_tor(beta_tor, minor_radius, b0, ip)
             if np.isfinite(beta_normal):
                 ts["global_quantities.beta_normal"] = float(beta_normal)
+        elif np.isfinite(beta_tor):
+            # said, not silent: a stored beta_normal is otherwise kept without a trace
+            logger.warning("boundary minor radius unusable for time slice %s; skipping beta_normal.", idx)
 
         line_integrals = _surface_line_integrals(
             idx, frame, None if surfaces is None else surfaces.get(idx)
@@ -1158,7 +1161,19 @@ def _surface_line_integrals(idx, frame, surfaces=None):
 
 
 def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
-    """``R_0`` for the DD global quantities, cross-checked against the TF IDS.
+    """``R_0`` for the DD global quantities; see :func:`reference_major_radius_source`."""
+    return reference_major_radius_source(ods)[0]
+
+
+def reference_major_radius_source(ods, *, log: bool = True) -> tuple[float, str]:
+    """``R_0`` for the DD global quantities and which leaf it came from.
+
+    The second element names the source in words; it starts with ``"tf.r0"``
+    exactly when the equilibrium's own ``r0`` was rejected, which is the branch
+    that changes ``beta_pol`` and ``li_3``. ``log=False`` reports the rejection
+    at DEBUG instead of WARNING, for a caller that only wants to know the source.
+
+    ``R_0`` is cross-checked against the TF IDS.
 
     ``beta_pol`` and ``li_3`` both divide by ``R_0``, which the DD takes from
     ``equilibrium.vacuum_toroidal_field.r0``. On the VEST database that leaf is
@@ -1185,17 +1200,18 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
     Fixing the reader does not fix the database; the pipeline that writes
     ``vacuum_toroidal_field`` is where that belongs.
     """
-    equilibrium_r0 = _scalar_or_nan(ods, "equilibrium.vacuum_toroidal_field.r0")
+    stored = "equilibrium.vacuum_toroidal_field.r0"
+    equilibrium_r0 = _scalar_or_nan(ods, stored)
     tf_r0 = _scalar_or_nan(ods, "tf.r0")
     if not np.isfinite(tf_r0) or tf_r0 <= 0.0:
-        return equilibrium_r0
+        return equilibrium_r0, f"{stored} (no tf.r0 to check it against)"
     if not np.isfinite(equilibrium_r0) or equilibrium_r0 <= 0.0:
-        logger.warning(
+        (logger.warning if log else logger.debug)(
             "equilibrium.vacuum_toroidal_field.r0 is unusable (%s); using tf.r0 = %.4f m.",
             equilibrium_r0,
             tf_r0,
         )
-        return tf_r0
+        return tf_r0, f"tf.r0 (the stored r0 = {equilibrium_r0} is unusable)"
 
     # Magnitudes: tf and the equilibrium disagree about the sign of the
     # toroidal field on VEST (tf is positive, f is negative), which is a COCOS
@@ -1203,7 +1219,7 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
     tf_field_radius = abs(_finite_median(ods, "tf.b_field_tor_vacuum_r.data"))
     b0 = _finite_median(ods, "equilibrium.vacuum_toroidal_field.b0")
     if not np.isfinite(tf_field_radius) or not np.isfinite(b0) or tf_field_radius == 0.0:
-        return equilibrium_r0
+        return equilibrium_r0, f"{stored} (no tf field or b0 to check it against)"
 
     # b0*r0 is deliberately the thing compared, not profiles_1d.f. f is the
     # vacuum B*R whichever reference radius the file names, so it agrees with tf
@@ -1214,9 +1230,9 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
         abs(equilibrium_field_radius - tf_field_radius)
         <= _TF_CONSISTENCY_TOLERANCE * tf_field_radius
     ):
-        return equilibrium_r0
+        return equilibrium_r0, f"{stored} (b0*r0 agrees with tf within {_TF_CONSISTENCY_TOLERANCE:.0%})"
 
-    logger.warning(
+    (logger.warning if log else logger.debug)(
         "equilibrium.vacuum_toroidal_field is inconsistent with tf: b0*r0 = %.5f T.m "
         "(b0 = %.5f T, r0 = %.5f m) against tf's %.5f T.m. Using tf.r0 = %.4f m for R_0.",
         equilibrium_field_radius,
@@ -1225,7 +1241,10 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
         tf_field_radius,
         tf_r0,
     )
-    return tf_r0
+    return tf_r0, (
+        f"tf.r0 (the stored r0 = {equilibrium_r0:.4f} m was rejected: b0*r0 = "
+        f"{equilibrium_field_radius:.5f} T.m against tf's {tf_field_radius:.5f} T.m)"
+    )
 
 
 #: How far ``b0*r0`` may sit from ``tf``'s ``B*R`` before the equilibrium's ``r0``
@@ -1382,7 +1401,7 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
         if 'equilibrium.time_slice' in ods and len(ods['equilibrium.time_slice']):
             time_slice = range(len(ods['equilibrium.time_slice']))
         else:
-            print("Warning: No time slices found in ODS. Cannot update stored energy.")
+            logger.warning("No time slices found in ODS. Cannot update stored energy.")
             return
     # Convert a single integer to a list for iteration, as the sibling
     # update_equilibrium_global_quantities_volume already did; without it any
@@ -1394,7 +1413,7 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
         ts = ods['equilibrium.time_slice'][idx]
         # check if profiles_1d.pressure and profiles_1d.volume exist
         if 'profiles_1d.pressure' not in ts or 'profiles_1d.volume' not in ts:
-            print(f"Warning: profiles_1d.pressure or profiles_1d.volume not found for time slice {idx}")
+            logger.warning("profiles_1d.pressure or profiles_1d.volume not found for time slice %s", idx)
             continue
         pressure_equil = ts['profiles_1d.pressure']
         volume_equil = ts['profiles_1d.volume']
@@ -1798,7 +1817,7 @@ def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
                 eq_ts["constraints"]["diamagnetic_flux"] = ODS()
             eq_ts["constraints"]["diamagnetic_flux"]["reconstructed"] = recon
         except Exception as e:
-            print(f"Warning: Reconstructed diamagnetic flux failed for time_slice {idx}: {e}")
+            logger.warning("Reconstructed diamagnetic flux failed for time slice %s: %s", idx, e)
 
 
 def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1d):
