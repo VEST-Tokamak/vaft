@@ -290,6 +290,42 @@ def test_strike_points_are_where_the_primary_separatrix_meets_the_targets(name, 
             assert abs(r - 1.0) == pytest.approx(expected, abs=2e-4)
 
 
+def test_no_primary_sol_is_drawn_inside_the_dn_band():
+    """A bias the process calls DN has no secondary X-point, so no primary SOL trace, fill or pointer."""
+    d = vaft.diagram.sol_magnetic_connectivity(bias=0.003)
+    assert d.model["lower_biased"]["topology"] == "double_null"
+    assert "primary_lower" not in {c for _, c, _ in d.model["lower_biased"]["connections"]}
+    assert "primary_sol_lower" not in _fill_roles(d, "lower_biased")
+    assert not [i for i in d.scene.items if i.role.startswith("pointer:primary_sol")]
+
+
+def test_a_hit_on_the_side_wall_is_named_wall_not_target():
+    state = dt.balance_state(0.0)
+    edge = 3  # (1.45, -0.5) -> (1.45, 0.5): the outboard side wall, spanning the midplane
+    assert dt._target_name((1.45, 0.1), edge, state) == "upper wall"
+    assert dt._target_name((1.45, -0.48), edge, state) == "lower outer target"
+
+
+def test_each_pointer_ends_in_the_region_it_names():
+    """Back in metres, the arrow tips of the LSN figure sit where the flux says the region is."""
+    state = dt.balance_state(0.12)
+    scale = 7.0
+    d = vaft.diagram.lower_single_null_topology()
+    tips = {i.role.split(":", 1)[1]: i.end for i in d.scene.items if i.role.startswith("pointer:") and hasattr(i, "end")}
+
+    def metres(p):
+        return (p[0] - 4.2) / scale + 0.55, p[1] / scale - 0.6
+
+    xps = dt._x_points(state)
+    psi_l, psi_u = xps["lower"].psi, xps["upper"].psi
+    r, z = metres(tips["primary SOL:"])
+    assert psi_l < dt.family_flux(r, z, 0.12) < psi_u
+    r, z = metres(tips["common SOL"])
+    assert dt.family_flux(r, z, 0.12) > psi_u
+    r, z = metres(tips["private flux"])  # the last private-flux pointer: the lower divertor
+    assert z < xps["lower"].z and dt.family_flux(r, z, 0.12) < psi_l
+
+
 def test_a_seed_outside_the_wall_is_refused():
     with pytest.raises(ValueError, match="outside the wall"):
         dt.trace_field_line(dt.balance_state(0.0), (1.49, 0.0))
@@ -330,8 +366,10 @@ def test_the_procedure_reports_the_near_double_null_values(diagrams):
     # the process's first-order estimate, against the exact separation (psi = (R-1)^2 on the midplane)
     assert m["linearized"] == pytest.approx(_exact_d_r_sep(0.01), rel=0.02)
     roles = {i.role for i in d.scene.items}
-    assert {"flux_map", "critical_points", "selection", "intersections", "result", "available",
-            "geometric_only", "unavailable"} <= roles
+    assert {"flux_map", "critical_points", "selection", "intersections", "result", "outcome_lsn", "outcome_dn",
+            "outcome_usn", "outcome_limited"} <= roles
+    # the four outcomes are the four classes; "geometric only" is an applicability, not a box
+    assert not {"geometric_only", "unavailable", "available"} & roles
 
 
 # -- rendering contract ---------------------------------------------------------------------
@@ -347,14 +385,18 @@ def test_no_grey_note_text(name, diagrams):
 def test_every_procedure_box_carries_a_picture(diagrams):
     d = diagrams["separatrix_balance_calculation"]
     roles = {i.role for i in d.scene.items}
-    for step in ("flux_map", "critical_points", "selection", "intersections", "result", "available",
-                 "geometric_only", "unavailable"):
+    for step in ("flux_map", "critical_points", "selection", "intersections", "result", "outcome_lsn",
+                 "outcome_dn", "outcome_usn", "outcome_limited"):
         assert f"glyph:{step}" in roles
     # the critical-point glyph marks exactly the saddles the process found
     saddles = [i for i in d.scene.items if isinstance(i, Marker) and i.kind == "x" and i.role == "glyph:critical_points"]
     assert len(saddles) == len(dt.balance_state(0.01)["representation"].x_points)
     assert not [i for i in d.scene.items if i.role.startswith("resolution_limited")]
-    assert d.model["outcome_examples"]["geometric_only"] == ("limited", "geometric_only")
+    assert d.model["outcome_examples"] == {
+        "lower_single_null": ("lower_single_null", "diverted_balance"),
+        "double_null": ("double_null", "diverted_balance"),
+        "upper_single_null": ("upper_single_null", "diverted_balance"),
+        "limited": ("limited", "geometric_only")}
 
 
 @pytest.mark.parametrize("name", BUILDERS)

@@ -289,9 +289,8 @@ def _target_name(point, edge: int, state) -> str:
     side = "lower" if point[1] < z_axis else "upper"
     xp = state["representation"].separatrix_x_points.get(side)
     r_split = xp.r if xp is not None else float(state["equilibrium"].magnetic_axis[0])
-    wall = state["wall"]
-    a, b = wall[edge], wall[(edge + 1) % len(wall)]
-    if min(abs(a[1]), abs(b[1])) < _DIVERTOR_Z - 1e-12:
+    # by the hit point itself: the vessel's side walls run from the floor to the roof
+    if abs(point[1]) < _DIVERTOR_Z - 1e-12:
         return f"{side} wall"
     return f"{side} {'inner' if point[0] < r_split else 'outer'} target"
 
@@ -568,6 +567,19 @@ def _pointer(text: str, at_cm, label_cm, *, anchor: str, role: str) -> List:
             Label(tuple(label_cm), text, "small label,align=center", anchor=anchor, role=f"pointer:{role}")]
 
 
+#: how each diverted class sits against the DN band, as the process decided it
+_RULE_TEXT = {
+    "double_null": "$|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN}$",
+    "lower_single_null": "$dR_\\mathrm{sep} < -\\varepsilon_\\mathrm{DN}$",
+    "upper_single_null": "$dR_\\mathrm{sep} > \\varepsilon_\\mathrm{DN}$",
+}
+
+
+def _rule_text(state) -> str:
+    """The band rule behind the process's class, read from its topology; empty for an undivided class."""
+    return _RULE_TEXT.get(state["topology"], "")
+
+
 def _topology_text(state) -> str:
     """The process's topology in short; a class the grid cannot resolve says so."""
     text = _TOPOLOGY_TEXT.get(state["topology"], state["topology"])
@@ -835,14 +847,8 @@ def _midplane_profile(state, x0: float, y0: float, labels: bool) -> List:
     if labels:
         eps = state["representation"].topology_evidence.get("double_null_tolerance_m")
         text = f"$dR_\\mathrm{{sep}}$ = {_mm(state['d_r_sep'])}"
-        if eps:
-            if abs(d) <= eps:
-                rule = "$|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN}$"
-            elif d < 0:
-                rule = "$dR_\\mathrm{sep} < -\\varepsilon_\\mathrm{DN}$"
-            else:
-                rule = "$dR_\\mathrm{sep} > \\varepsilon_\\mathrm{DN}$"
-            text += f"\\\\ {rule}, $\\varepsilon_\\mathrm{{DN}}$ = {1e3 * eps:.1f} mm"
+        if eps and _rule_text(state):
+            text += f"\\\\ {_rule_text(state)}, $\\varepsilon_\\mathrm{{DN}}$ = {1e3 * eps:.1f} mm"
         items += [Label((x0 + 0.5 + 0.5 * width, y_arrow - 0.15), text, "small label,align=center", anchor="north",
                         role="d_r_sep"),
                   Label((xy(r1, lo)[0] + 0.25, xy(r1, lo)[1]), "$R$", "small label", anchor="west", role="axes"),
@@ -877,7 +883,8 @@ def connectivity_traces(state: dict) -> List[dict]:
     for frac in (0.4, 0.8):
         r = _midplane_crossing(state, psi_ax + frac * (psi_p - psi_ax), "outboard")
         seeds.append(("core", (r, z_ax)))
-    if abs(q["r_lower_m"] - q["r_upper_m"]) > max(q.get("resolution_m", 0.0), 1e-6):
+    # a primary SOL exists only where the process made one X-point secondary (outside the DN band)
+    if state["representation"].topology.is_diverted and any(not p.active for p in xps.values()):
         seeds.append(("between", (0.5 * (q["r_lower_m"] + q["r_upper_m"]), z_ax)))
     r_s = max(q["r_lower_m"], q["r_upper_m"])
     r_wall = float(np.max(state["wall"][:, 0]))
@@ -934,7 +941,7 @@ def _region_pointers(state, cm, key: str, traces) -> List:
                       role=f"common_sol_inboard:{key}")
     between = [t for t in traces if t["region"] == "between"]
     if between:
-        side = "lower" if between[0]["class"] == "primary_lower" else "upper"
+        side = next(p.branch for p in xps.values() if p.active)
         items += _pointer(f"primary SOL\\\\({side} divertor only)", cm(between[0]["seed"]), cm([1.62, z_ax - 0.1]),
                           anchor="west", role=f"primary_sol:{key}")
     for branch, sign in (("lower", -1.0), ("upper", 1.0)):
@@ -1022,7 +1029,7 @@ def _strike_points(state) -> Dict[str, np.ndarray]:
             continue
         for run in _separatrix_runs(state, point):
             for piece, core in _split_at_x_points(run, bounds):
-                if core:
+                if core or float(np.min(np.hypot(piece[:, 0] - point.r, piece[:, 1] - point.z))) >= _NEAR_X:
                     continue
                 for end in (piece[0], piece[-1]):
                     if _on_wall(end, state["wall"]) and abs(end[1]) >= _DIVERTOR_Z - 1e-9:
@@ -1118,13 +1125,14 @@ def _anatomy_labels(kind, state, cm, traces, strikes) -> List:
                    Label(tuple(cm([float(eq.magnetic_axis[0]), z_ax - 0.03])), "magnetic axis", "font=\\scriptsize",
                          anchor="north", role="pointer:axis")]
     r_mid = 0.5 * (q["r_lower_m"] + q["r_upper_m"])
+    r_wall = float(np.max(state["wall"][:, 0]))
 
     def point(text, target, y, side):
         return _pointer(text, cm(target), cm([right if side == "right" else left, y]),
                         anchor="west" if side == "right" else "east", role=text.split("\\\\")[0])
 
     if kind == "limited":
-        tip = np.array([0.72, 0.0])
+        tip = np.array([_ANATOMY["limited"][2], float(eq.magnetic_axis[1])])
         ext = [run for p in xps.values() for run in _separatrix_runs(state, p)]
         items += point("limiter tip:\\\\the LCFS touches it", tip, 0.12, "left")
         items += point("upper external null\\\\(inactive, not a boundary)", [xps["upper"].r, xps["upper"].z],
@@ -1133,24 +1141,27 @@ def _anatomy_labels(kind, state, cm, traces, strikes) -> List:
                        "left")
         items += point("LCFS: the surface\\\\through the limiter tip", _run_point([lcfs], 0.25, True), 0.42, "right")
         items += point("separatrices of the\\\\external nulls", _run_point(ext, -0.3, True), -0.32, "right")
-        items += point("limiter SOL: open lines\\\\end on limiter and wall", [1.4, 0.3], 0.22, "right")
-        items += point(f"$R_L$, $R_U$: {_mm(state['d_r_sep'])}\\\\geometric only, no balance", [r_mid, z_ax],
+        # between the LCFS and the nearer null's flux: lines that close around the core but for the limiter
+        nearer = min(p.psi for p in xps.values())
+        limiter_sol = _outboard_level_point(state, 0.5 * (float(eq.psi_boundary) + nearer), 0.3)
+        items += point("limiter SOL: open lines\\\\end on the limiter", limiter_sol, 0.22, "right")
+        items += point(f"$R_L$, $R_U$: {_mm(state['d_r_sep'])}\\\\geometric only, no balance", [r_mid, z_ax + 0.035],
                        -0.05, "right")
         return items
     upper, lower = xps["upper"], xps["lower"]
     if kind == "lower_single_null":
         items += point("lower X-point\\\\(active: primary)", [lower.r, lower.z], lower.z - 0.06, "right")
-        items += point("upper X-point\\\\(inactive: secondary)", [upper.r, upper.z], 0.64, "left")
+        items += point("upper X-point\\\\(inactive: secondary)", [upper.r, upper.z], 0.4, "left")
         sec = _separatrix_runs(state, upper)
         items += point("secondary separatrix\\\\$\\psi = \\psi_U$", _run_point(sec, 0.3, True), 0.5, "right")
         items += point("LCFS = primary\\\\separatrix, $\\psi = \\psi_L$", _run_point([lcfs], 0.15, True), 0.3, "right")
         band = _outboard_level_point(state, 0.5 * (lower.psi + upper.psi), -0.18)
         items += point("primary SOL:\\\\lower divertor only", band, -0.2, "right")
-        items += point("common SOL", [0.5 * (max(q["r_lower_m"], q["r_upper_m"]) + 1.45), 0.12], 0.1, "right")
+        items += point("common SOL", [0.5 * (max(q["r_lower_m"], q["r_upper_m"]) + r_wall), 0.12], 0.1, "right")
         items += point(f"$dR_\\mathrm{{sep}} = R_L - R_U$ = {_mm(state['d_r_sep'])}\\\\"
-                       "$< -\\varepsilon_\\mathrm{DN}$: LSN", [r_mid, z_ax],
+                       f"{_rule_text(state)}: {_topology_text(state)}", [r_mid, z_ax + 0.035],
                        -0.02, "right")
-        items += point("private flux\\\\(upper divertor)", [upper.r - 0.03, upper.z + 0.06], 0.4, "left")
+        items += point("private flux\\\\(upper divertor)", [upper.r - 0.03, upper.z + 0.06], 0.64, "left")
         items += point("common SOL\\\\(inboard)", seed["inboard"], 0.12, "left")
         items += point("private flux\\\\(lower divertor)", [lower.r - 0.03, lower.z - 0.06], -0.5, "left")
         if "lower inner" in strikes:
@@ -1163,8 +1174,8 @@ def _anatomy_labels(kind, state, cm, traces, strikes) -> List:
     items += point("lower X-point (active)", [lower.r, lower.z], lower.z - 0.06, "right")
     items += point("LCFS through\\\\both X-points", _run_point([lcfs], 0.2, True), 0.3, "right")
     items += point("common SOL (outboard):\\\\lower outer $\\leftrightarrow$ upper outer",
-                   [0.5 * (q["r_upper_m"] + 1.45), -0.15], -0.15, "right")
-    items += point("$R_L = R_U$, $|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN}$\\\\no primary SOL", [r_mid, z_ax],
+                   [0.5 * (q["r_upper_m"] + r_wall), -0.15], -0.15, "right")
+    items += point(f"$R_L = R_U$, {_rule_text(state)}\\\\no primary SOL", [r_mid, z_ax + 0.035],
                    0.05, "right")
     items += point("common SOL (inboard):\\\\lower inner $\\leftrightarrow$ upper inner", seed["inboard"], 0.05,
                    "left")
@@ -1498,17 +1509,22 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
 
     Outcomes
     --------
-    Diverted balance
-        LSN, USN or DN with both crossings: ``d_r_sep.available``,
-        ``applicability == "diverted_balance"``, the signed value $\pm\delta_R$.
-    Geometric only
-        LIMITED or AMBIGUOUS while both crossings still exist: the value is
-        kept with ``applicability == "geometric_only"`` and a reason. A
-        limited plasma with external nulls is not a diverted balance sample.
-    Unavailable
-        No magnetic axis, no upper or no lower X-point, or an X-point flux
-        that does not reach the outboard midplane: ``value is None`` with a
-        reason. Missing is never zero.
+    The four classes the procedure separates, each drawn from a real case:
+
+    LSN, DN, USN
+        Diverted, by the band rule above: ``d_r_sep.available`` with
+        ``applicability == "diverted_balance"`` and the signed value
+        $\pm\delta_R$. A DN keeps its sign; it is never rounded to zero.
+    LIMITED
+        The LCFS rests on the wall or a limiter and no X-point bounds the
+        plasma. If both null fluxes still cross the midplane the value is kept
+        with ``applicability == "geometric_only"`` and a reason: a limited
+        plasma with external nulls is not a diverted balance sample.
+
+    Two results are not classes. AMBIGUOUS, an unsettled boundary, is also
+    reported as geometric only. With no magnetic axis, no upper or no lower
+    X-point, or an X-point flux that misses the outboard midplane, the value
+    is ``None`` with a reason (step 4); a missing value is never zero.
     """
     labels = _check_labels(labels)
     state = balance_state(_check_skew(bias, "bias"))
@@ -1531,7 +1547,8 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
          "$\\psi(R_L, Z_\\mathrm{axis}) = \\psi_L$, $\\psi(R_U, Z_\\mathrm{axis}) = \\psi_U$\\\\[2pt]"
          f"here: $R_L$ = {q['r_lower_m']:.4f} m, $R_U$ = {q['r_upper_m']:.4f} m"),
         ("result", "4. Signed separation", _glyph_signed_line(0.0, glyph_y, 3.2, d, resolution, span=span),
-         "$dR_\\mathrm{sep} = R_L - R_U$, with its grid uncertainty $\\pm\\delta_R$ (bar)\\\\[2pt]"
+         "$dR_\\mathrm{sep} = R_L - R_U$ $\\pm\\delta_R$ (bar); None, never 0, without both X-points or "
+         "the axis\\\\[2pt]"
          f"here: {_mm(d)} $\\pm$ {1e3 * (resolution or float('nan')):.2f} mm"),
         ("selection", "5. Classification", _glyph_signed_line(0.0, glyph_y, 3.2, d, resolution, span=span,
                                                                 tolerance=eps),
@@ -1547,20 +1564,28 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
                                 style="concept box"))
     for a, b in zip(boxes, boxes[1:]):
         items.append(connector(a, b, role="flow"))
-    limited = balance_state(0.08, limiter_tip=0.72)
+    cases = {key: balance_state(skew, limiter_tip=tip) for key, skew, tip in (
+        ("lower_single_null", 0.08, None), ("double_null", 0.0, None), ("upper_single_null", -0.08, None),
+        ("limited", 0.08, 0.72))}
     outcomes = (
-        ("available", "Diverted balance", _glyph_roles(state, 0.0, 0.0, 2.0),
-         "\\textit{when} LSN, USN or DN and both X-point fluxes cross the midplane"
-         "\\\\[2pt]\\textit{gives} the signed value $\\pm\\delta_R$; flagged if $\\delta_R > \\varepsilon_\\mathrm{DN}$"),
-        ("geometric_only", "Geometric only", _glyph_roles(limited, 0.0, 0.0, 2.0),
-         "\\textit{when} LIMITED (here on an inboard tip) or AMBIGUOUS, yet both crossings exist"
-         f"\\\\[2pt]\\textit{{gives}} the value ({_mm(limited['d_r_sep'])}) as geometric\\_only, with a reason"),
-        ("unavailable", "Unavailable: None",
-         _glyph_signed_line(0.0, 0.0, 3.2, None, None, span=span),
-         "\\textit{when} no magnetic axis, no upper or lower X-point, or its flux misses the midplane"
-         "\\\\[2pt]\\textit{gives} None and a reason, never 0"),
+        ("outcome_lsn", "LSN", _glyph_roles(cases["lower_single_null"], 0.0, 0.0, 2.0),
+         "\\textit{when} $dR_\\mathrm{sep} < -\\varepsilon_\\mathrm{DN}$: lower X-point primary, upper "
+         "secondary\\\\[2pt]\\textit{gives} a diverted balance, signed $\\pm\\delta_R$ "
+         f"(here {_mm(cases['lower_single_null']['d_r_sep'])})"),
+        ("outcome_dn", "DN", _glyph_roles(cases["double_null"], 0.0, 0.0, 2.0),
+         "\\textit{when} $|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN}$: both X-points primary"
+         "\\\\[2pt]\\textit{gives} a diverted balance, its sign kept, never rounded to 0"
+         f" (here {_mm(cases['double_null']['d_r_sep'])})"),
+        ("outcome_usn", "USN", _glyph_roles(cases["upper_single_null"], 0.0, 0.0, 2.0),
+         "\\textit{when} $dR_\\mathrm{sep} > +\\varepsilon_\\mathrm{DN}$: upper X-point primary, lower "
+         "secondary\\\\[2pt]\\textit{gives} a diverted balance, signed $\\pm\\delta_R$ "
+         f"(here {_mm(cases['upper_single_null']['d_r_sep'])})"),
+        ("outcome_limited", "LIMITED", _glyph_roles(cases["limited"], 0.0, 0.0, 2.0),
+         "\\textit{when} the LCFS rests on the wall or limiter and no X-point bounds the plasma"
+         "\\\\[2pt]\\textit{gives} $dR_\\mathrm{sep}$ as geometric only, never a diverted balance "
+         f"(here {_mm(cases['limited']['d_r_sep'])})"),
     )
-    out_height = 6.0
+    out_height = 6.2
     y = -0.5 * height - 1.6 - 0.5 * out_height
     bus = -0.5 * height - 0.8
     # every outcome leaves step 5: one bus from its bottom edge, an arrow down to each outcome
@@ -1580,8 +1605,8 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
                           "double_null_tolerance": eps,
                           "unresolved_on_grid": bool(evidence.get("topology_unresolved_on_grid")),
                           "roles": {k: v.role for k, v in xps.items()}, "linearized": q.get("linearized_m"),
-                          "outcome_examples": {"geometric_only": (limited["topology"],
-                                                                  limited["quality"].get("applicability"))}})
+                          "outcome_examples": {key: (case["topology"], case["quality"].get("applicability"))
+                                               for key, case in cases.items()}})
 
 
 def _shift(item, dx: float, dy: float):
