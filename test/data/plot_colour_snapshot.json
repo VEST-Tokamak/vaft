@@ -73,7 +73,7 @@
    ".models.series:color=red": 3
   },
   "equilibrium_time_d_r_sep": {
-   ".series:color=#377eb8": 2,
+   ".series:color=#377eb8": 1,
    ".series:color=0.35": 1
   },
   "machine_geometry3d": {
