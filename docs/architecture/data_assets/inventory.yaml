@@ -19,7 +19,7 @@ limitations:
 - packed (on-disk) bytes depend on the local repository's packing
 - wheel membership is evaluated from pyproject.toml plus the setup.py 39915 swap, not by building a wheel;
   the sdist is not modelled
-- in a partial clone, absent blobs are counted as missing, not measured
+- in a partial clone, absent blobs are counted as missing, not measured (lazy fetch is disabled)
 excluded_audit_paths:
 - workflow/data_asset_audit/**
 - test/test_data_asset_audit.py
@@ -699,7 +699,8 @@ groups:
   category: reference
   current_placement: git-lfs
   proposed_placement: github-release (single baseline) + VAFT_CACHE_DIR/generated/efund for other identities
-  retrieval: exact-identity local table -> EFUND generation -> baseline download -> explicit failure (#2330)
+  retrieval: 'baseline identity: verified local copy -> baseline download; other identities: exact-identity
+    local table -> EFUND generation; otherwise explicit failure (#2330)'
   migration:
   - '#2330'
   - '#2331'
@@ -755,8 +756,8 @@ groups:
     - workflow/efit_tables/reference/legacy-39915-129129.manifest.json
     - workflow/efit_tables/table_geometry_ab.py
   notes: 'Umbrella #2304 section 3.3. The published baseline is a reference, not a cache entry: #695 showed
-    table generations change EFIT yield. Two earlier generations exist only in LFS history (see the measurement''s
-    lfs_history).'
+    table generations change EFIT yield. Seven objects of the two earlier generations exist only in LFS
+    history (see the measurement''s lfs_history); ep129129.ddd is unchanged since #695.'
 - id: efit.generated_tables_plain
   paths:
   - vaft/data/efit/brzgfc.dat
@@ -797,7 +798,7 @@ groups:
     - workflow/efit_tables/reference/compare_bundled_vs_legacy-39915-129129.json
     - workflow/efit_tables/reference/legacy-39915-129129.manifest.json
   notes: Written by the same EFUND run as the .ddd tables and listed under table.files of efund_table_manifest.json
-    (identity e28142c7...), but stored as plain Git (6.9 MB). mhdout.dat is excluded from the table identity
+    (identity e28142c7...), but stored as plain Git (7.0 MB). mhdout.dat is excluded from the table identity
     (#793).
 - id: efit.gfile_fixtures
   paths:
@@ -1340,9 +1341,10 @@ groups:
   tree: not applicable
   consumers: not searched
   notes: 'Earlier sample layouts: vaft/data/omas/{39915,41524,41672}.json, an IMAS HDF5 set under vaft/data/imas,
-    vaft/data/{39915,39916,39917}.json, 44740_imas_equilibrium.h5 and packaging/wheel_samples/39915. 39916,
-    39917 and 44740 have no registered sample (39917 is a confinement reference shot), and the others
-    are not proven identical to the registered samples. None is superseded until shown to be.'
+    vaft/data/{39915,39916,39917}.json, 44740_imas_equilibrium.h5 and packaging/wheel_samples/39915. packaging/wheel_samples
+    holds bytes recorded by vest-39915-until-efit-v1 (see historical_sample_references). 39916, 39917
+    and 44740 have no registered sample (39917 is a confinement reference shot); the others are not proven
+    identical to a registered sample. None is superseded until shown to be.'
 - id: history.gh_pages_current
   paths: []
   category: docs_media
@@ -1372,6 +1374,7 @@ groups:
     this space means deleting a backup branch and an archive tag.'
 samples:
 - shot: 39915
+  kind: registered
   directory: vaft/data/samples/39915
   reference_id: vest-39915-until-efit-v5
   imas_dd_version: 3.41.0
@@ -1591,6 +1594,7 @@ samples:
     - workflow/reference_validation/build_unified_diagnostics.py
     - workflow/tutorial_05_mhd_samples/build_mhd_stability_sample.py
 - shot: 40600
+  kind: registered
   directory: vaft/data/samples/40600
   reference_id: vest-40600-camera-fluctuation-v2
   imas_dd_version: 3.41.0
@@ -1653,6 +1657,7 @@ samples:
     - test/test_plot_video_pyav.py
     - test/verify_dist.py
 - shot: 41524
+  kind: registered
   directory: vaft/data/samples/41524
   reference_id: vest-41524-pipeline-full-imas-v6
   imas_dd_version: 3.41.0
@@ -1756,6 +1761,7 @@ samples:
     - test/verify_dist.py
     - workflow/efit_reference_set/build_reference_set.py
 - shot: 41672
+  kind: registered
   directory: vaft/data/samples/41672
   reference_id: vest-41672-pipeline-full-imas-v6
   imas_dd_version: 3.41.0
@@ -1856,6 +1862,7 @@ samples:
     - vaft/validation/studies/nice_issue_666/synthetic_equilibria/plot_overviews.py
     - workflow/efit_reference_set/build_reference_set.py
 - shot: 42962
+  kind: registered
   directory: vaft/data/samples/42962
   reference_id: vest-42962-pipeline-full-imas-v1
   imas_dd_version: 3.41.0
@@ -1939,6 +1946,7 @@ samples:
     - test/test_summary_preset_contract.py
     - test/verify_dist.py
 - shot: 45531
+  kind: registered
   directory: vaft/data/samples/45531
   reference_id: vest-45531-fluctuation-v2
   imas_dd_version: 3.41.0
@@ -2009,6 +2017,7 @@ samples:
     - test/verify_dist.py
     - workflow/reference_validation/build_unified_diagnostics.py
 - shot: 48224
+  kind: registered
   directory: vaft/data/samples/48224
   reference_id: vest-48224-kinetic-300ms-v2
   imas_dd_version: 3.41.0
@@ -2129,6 +2138,389 @@ samples:
     - test/verify_dist.py
     - vaft/diagram/_density_semantics.py
     - workflow/reference_validation/build_unified_diagnostics.py
+- shot: 39915
+  kind: wheel_projection
+  directory: vaft/data/wheel_samples/39915
+  reference_id: vest-39915-until-efit-v5
+  imas_dd_version: 3.41.0
+  source_kind: not recorded
+  source_git_commit: not recorded
+  authority: not recorded
+  canonical_source: vaft/data/wheel_samples/39915/source/pipeline-until-efit.json.gz
+  generation_command: python workflow/reference_validation/generate_paired_sample.py --canonical-source
+    vaft/data/samples/39915/source/pipeline-until-efit.json.gz --manifest vaft/data/samples/39915/manifest.yaml
+  required_ids:
+  - wall
+  - barometry
+  - tf
+  - pf_active
+  - magnetics
+  - spectrometer_uv
+  - pf_passive
+  - equilibrium
+  - ec_launchers
+  recorded_sections:
+  - acceptance
+  - corrections
+  - generation
+  - imas_dd_version
+  - machine
+  - packaging_policy
+  - pipeline
+  - reference_id
+  - representations
+  - schema_version
+  - semantic_comparison
+  - shot
+  representations:
+  - name: imas
+    path: vaft/data/wheel_samples/39915/imas.nc
+    package: repository-only
+    bytes: 10699347
+  - name: omas
+    path: vaft/data/wheel_samples/39915/omas.json.gz
+    package: wheel-and-sdist
+    bytes: 10071144
+  pins:
+  - field: pipeline.config
+    path: source/pipeline-config.yaml
+    sha256: 9f40911b63967c49446d1205b3b243e235f592eb49181d7be57df11f75c4377a
+    status: not in tree
+  - field: pipeline.raw_source
+    path: source/vest_39915_daq_raw.json.gz
+    sha256: ac94261a218fbd9f4a84f94fc6d0ccf5dcde99ef4df2b6a8b12f5def616bf07e
+    status: not in tree
+  - field: pipeline.diagnostics_manifest
+    path: source/diagnostics-manifest.json
+    sha256: 71edb3996e6184438eabaef2bc7057352e17e44426802629c52a73bd1cff3d7f
+    status: not in tree
+  - field: pipeline.efit_artifact_manifest
+    path: source/efit-artifact-manifest.json
+    sha256: df15eb043638082081a49358ffaa26c8c5eeb6fa0e2b6e0ec0235772fb15ea55
+    status: not in tree
+  - field: representations.omas
+    path: vaft/data/wheel_samples/39915/omas.json.gz
+    sha256: 85eb39ea03e4f33fe6ff521d6ede60e3ef24fa7a2f1a20ead0028195f662a33b
+    status: match
+  - field: representations.imas
+    path: vaft/data/wheel_samples/39915/imas.nc
+    sha256: 77cf94a3ae79f60d5365aa45af7d779e336b6c2cea8084f17d97b7bd5778073e
+    status: match
+  - field: generation.canonical_source
+    path: source/pipeline-until-efit.json.gz
+    sha256: 035ac79e667dac45dd0dc9de5fac5c5656a3097f443a8f3a4ccebdb7356205b2
+    status: not in tree
+  - field: generation.efit_constraints.executable
+    path: $EFITHOME/bin/efit
+    sha256: b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d
+    status: not in tree
+  pin_status:
+    match: 2
+    not in tree: 6
+  directory_files: 3
+  directory_bytes: 20786701
+  consumers:
+    by_area:
+      docs: 6
+      notebooks: 10
+      test: 107
+      tutorial: 2
+      vaft: 1
+      workflow: 4
+    files:
+    - docs/_guide/Data_structures.md
+    - docs/_guide/Examples.md
+    - docs/_guide/Installation.md
+    - docs/_guide/Magnetics.md
+    - docs/architecture/consolidation/qualification_results.json
+    - docs/machine_geometry.md
+    - notebooks/_plotting_revision_review.py
+    - notebooks/database_initialization_and_load.ipynb
+    - notebooks/fast_camera_video_analysis.ipynb
+    - notebooks/imas_omas_data_conversion.ipynb
+    - notebooks/multi_machine_operation_space_database.ipynb
+    - notebooks/multiple_tokamak_comparison.ipynb
+    - notebooks/plotting_sample_using_vaft_plot_module.ipynb
+    - notebooks/publication_figures.ipynb
+    - notebooks/read_and_convert_data_structure.ipynb
+    - notebooks/vest_experimental_data_list.ipynb
+    - test/_sample_fixtures.py
+    - test/data/consolidation/baseline_75b154e31.json
+    - test/data/consolidation/case_manifest.yaml
+    - test/data/efit_reference_set.json
+    - test/test_camera_visible_image_api.py
+    - test/test_channel_selection.py
+    - test/test_cli_plot.py
+    - test/test_consolidation_baseline_capture.py
+    - test/test_current_overview_reconstruction.py
+    - test/test_database_plot_adapters.py
+    - test/test_database_summary_equilibrium_magnetics.py
+    - test/test_diagnostics_interactive.py
+    - test/test_diamagnetism_volume_normaliser.py
+    - test/test_display_policy.py
+    - test/test_eddy_vacuum_validation.py
+    - test/test_edge_q_estimate.py
+    - test/test_emission_selection.py
+    - test/test_equilibrium_camera_section.py
+    - test/test_equilibrium_field_2d.py
+    - test/test_equilibrium_interactive.py
+    - test/test_equilibrium_psi_styles.py
+    - test/test_equilibrium_psi_to_weber.py
+    - test/test_equilibrium_slice_overview.py
+    - test/test_equilibrium_state.py
+    - test/test_equilibrium_teaching_views.py
+    - test/test_figure_options.py
+    - test/test_figure_presentation_extras.py
+    - test/test_fluctuation_diagnostics_plots.py
+    - test/test_formula_scaling_default.py
+    - test/test_grad_shafranov_residual.py
+    - test/test_gui_app.py
+    - test/test_gui_diagnostics.py
+    - test/test_gui_equilibrium.py
+    - test/test_gui_explorer.py
+    - test/test_gui_layout.py
+    - test/test_gui_sequence_player.py
+    - test/test_gui_sessions.py
+    - test/test_gui_shell.py
+    - test/test_gui_state.py
+    - test/test_gui_video_export.py
+    - test/test_imas_omas_plot_equivalence.py
+    - test/test_imas_plot_adapters.py
+    - test/test_impurity_plots.py
+    - test/test_kinetic_overview_state.py
+    - test/test_layout_contract.py
+    - test/test_line_abscissa.py
+    - test/test_load_sample.py
+    - test/test_magnetic_decomposition.py
+    - test/test_magnetics_geometry_registry.py
+    - test/test_magnetics_spatial.py
+    - test/test_mcp_phase2.py
+    - test/test_mcp_tools.py
+    - test/test_mirnov_spatial_phase.py
+    - test/test_mode_frequency_overlay.py
+    - test/test_notebook_reliability.py
+    - test/test_omas_confinement.py
+    - test/test_omas_plot_adapters.py
+    - test/test_packaging_issue45.py
+    - test/test_parametric_equilibrium.py
+    - test/test_plot_3d_adapters.py
+    - test/test_plot_animation_contract.py
+    - test/test_plot_backend_access.py
+    - test/test_plot_composition.py
+    - test/test_plot_controls.py
+    - test/test_plot_declared_bridge.py
+    - test/test_plot_discovery.py
+    - test/test_plot_environment.py
+    - test/test_plot_extract.py
+    - test/test_plot_geometry_sets.py
+    - test/test_plot_intent.py
+    - test/test_plot_line_time_range.py
+    - test/test_plot_presentation.py
+    - test/test_plot_recipe_reads.py
+    - test/test_plot_science_consolidation_p2.py
+    - test/test_plot_signal_selection.py
+    - test/test_plot_submodule.py
+    - test/test_plot_video_pyav.py
+    - test/test_plotly_backend.py
+    - test/test_power_balance_cache.py
+    - test/test_power_balance_stored_energy.py
+    - test/test_probe_orientation_convention.py
+    - test/test_profile_coordinates.py
+    - test/test_profile_gradient.py
+    - test/test_psi_display_convention.py
+    - test/test_psi_weber_convention.py
+    - test/test_public_equilibria.py
+    - test/test_render_controls.py
+    - test/test_resistive_zeff_ods.py
+    - test/test_romero_balance_plot.py
+    - test/test_romero_flux_balance_ods.py
+    - test/test_selection_validity.py
+    - test/test_sequence_navigation.py
+    - test/test_signal_orientation.py
+    - test/test_spectrogram_methods.py
+    - test/test_synthetic_overlay.py
+    - test/test_table_text_views.py
+    - test/test_tau_e_engineering_parameters_reads.py
+    - test/test_tes_inputs.py
+    - test/test_transients.py
+    - test/test_tutorial05_mhd_sample.py
+    - test/test_tutorial_session_05.py
+    - test/test_uncertainty_and_validity.py
+    - test/test_vacuum_benchmark_negative_controls.py
+    - test/test_vacuum_benchmark_plots.py
+    - test/test_validation_verdict_table.py
+    - test/test_verify_dist.py
+    - test/verify_dist.py
+    - tutorial/05_mhd_stability_and_perturbed_equilibria.ipynb
+    - tutorial/README.md
+    - vaft/omas/sample.py
+    - workflow/efit_numerics/make_iteration_history_sample.py
+    - workflow/efit_reference_set/build_reference_set.py
+    - workflow/reference_validation/build_unified_diagnostics.py
+    - workflow/tutorial_05_mhd_samples/build_mhd_stability_sample.py
+reference_ids_shared_by_different_bytes:
+- reference_id: vest-39915-until-efit-v5
+  directories:
+  - vaft/data/samples/39915
+  - vaft/data/wheel_samples/39915
+pinned_manifests:
+- manifest: test/data/consolidation/case_manifest.yaml
+  reference_id: not recorded
+  pin_status:
+    match: 33
+  not_matching: []
+- manifest: test/data/vest_reference/manifest.yaml
+  reference_id: vest-legacy-2026-08-19-v1
+  pin_status:
+    match: 3
+    not in tree: 43
+  not_matching: []
+- manifest: vaft/data/confinement/manifest.json
+  reference_id: not recorded
+  pin_status:
+    not in tree: 1
+  not_matching: []
+- manifest: vaft/data/efit/efund_table_manifest.json
+  reference_id: not recorded
+  pin_status:
+    not in tree: 1
+  not_matching: []
+- manifest: vaft/data/samples/39915/mhd_stability/manifest.yaml
+  reference_id: not recorded
+  pin_status:
+    match: 14
+  not_matching: []
+- manifest: vaft/data/samples/39915/source/efit-artifact-manifest.json
+  reference_id: not recorded
+  pin_status:
+    not in tree: 48
+  not_matching: []
+- manifest: vaft/data/samples/41524/source/efit-artifact-manifest.json
+  reference_id: not recorded
+  pin_status:
+    not in tree: 40
+  not_matching: []
+- manifest: vaft/data/samples/41672/source/efit-artifact-manifest.json
+  reference_id: not recorded
+  pin_status:
+    not in tree: 80
+  not_matching: []
+- manifest: vaft/data/samples/42962/source/efit-artifact-manifest.json
+  reference_id: not recorded
+  pin_status:
+    not in tree: 48
+  not_matching: []
+- manifest: vaft/data/samples/vest_tier_a/equilibrium_quality/manifest.json
+  reference_id: not recorded
+  pin_status:
+    not in tree: 2
+  not_matching: []
+- manifest: vaft/data/samples/vest_tier_a/snapshot_manifest.json
+  reference_id: not recorded
+  pin_status:
+    match: 2
+  not_matching: []
+- manifest: vaft/data/unified/vest_diagnostics/manifest.yaml
+  reference_id: not recorded
+  pin_status:
+    match: 4
+    mismatch: 11
+  not_matching:
+  - vaft/machine_mapping/ec_launchers.py
+  - vaft/machine_mapping/interferometer.py
+  - vaft/machine_mapping/interferometer.py
+  - vaft/machine_mapping/nbi.py
+  - vaft/machine_mapping/registry.py
+  - vaft/machine_mapping/registry.py
+  - vaft/machine_mapping/registry.py
+  - vaft/machine_mapping/thomson_scattering.py
+  - vaft/machine_mapping/vest.yaml
+  - vaft/machine_mapping/vest.yaml
+  - vaft/machine_mapping/vest.yaml
+data_dependent_skips:
+  method: git grep -E '(pytest\.skip|skipif)\(.*(sample|repository-only|not available|unavailable|not
+    archived|lfs|LFS|pointer)' over test/ (one-line reasons only), plus users of test/lfs_assets.py
+  files:
+  - path: test/_plasma_timing_fixtures.py
+    skip_sites: 2
+  - path: test/test_adapter_ordering_provenance.py
+    skip_sites: 1
+  - path: test/test_beta_volume.py
+    skip_sites: 1
+  - path: test/test_camera_fluctuation_real.py
+    skip_sites: 1
+  - path: test/test_database_summary.py
+    skip_sites: 1
+  - path: test/test_diagram_density_semantics.py
+    skip_sites: 1
+  - path: test/test_digitizer_hdf5.py
+    skip_sites: 1
+  - path: test/test_eddy_vacuum_validation.py
+    skip_sites: 3
+  - path: test/test_equilibrium_2d_current.py
+    skip_sites: 2
+  - path: test/test_equilibrium_derived_profiles.py
+    skip_sites: 1
+  - path: test/test_equilibrium_global_scalars.py
+    skip_sites: 3
+  - path: test/test_fast_objective.py
+    skip_sites: 2
+  - path: test/test_flux_surface_convergence.py
+    skip_sites: 1
+  - path: test/test_genray_integration.py
+    skip_sites: 1
+  - path: test/test_kinetic_stage_alignment.py
+    skip_sites: 1
+  - path: test/test_kinetic_state_inference.py
+    skip_sites: 1
+  - path: test/test_magnetics_array_review.py
+    skip_sites: 1
+  - path: test/test_magnetics_geometry_registry.py
+    skip_sites: 1
+  - path: test/test_magnetics_signal_quality.py
+    skip_sites: 2
+  - path: test/test_mcp_phase2.py
+    skip_sites: 1
+  - path: test/test_mitim_adapter.py
+    skip_sites: 1
+  - path: test/test_notebook_reliability.py
+    skip_sites: 4
+  - path: test/test_operational_space_atlas_base.py
+    skip_sites: 1
+  - path: test/test_plot_declared_bridge.py
+    skip_sites: 1
+  - path: test/test_psi_weber_convention.py
+    skip_sites: 1
+  - path: test/test_public_confinement.py
+    skip_sites: 1
+  - path: test/test_quality_gate.py
+    skip_sites: 2
+  - path: test/test_resistive_zeff_stage.py
+    skip_sites: 1
+  - path: test/test_shafranov_integral.py
+    skip_sites: 2
+  - path: test/test_tglf_surrogate.py
+    skip_sites: 1
+  - path: test/test_ti_inferred_archive.py
+    skip_sites: 1
+  - path: test/test_toroidal_array_eras.py
+    skip_sites: 1
+  - path: test/test_tutorial05_mhd_sample.py
+    skip_sites: 1
+  - path: test/test_vacuum_benchmark.py
+    skip_sites: 1
+  - path: test/test_validation_credibility.py
+    skip_sites: 1
+  - path: test/test_wall_mode_basis_ods.py
+    skip_sites: 1
+  - path: test/test_wall_reduction_packaged.py
+    skip_sites: 1
+  - path: test/test_wall_resistance.py
+    skip_sites: 2
+  lfs_pointer_skip_users:
+  - test/test_efit_packaged_table.py
+  - test/test_efit_tables_workflow.py
+  - test/test_efund_adapter.py
 unassigned_large_files:
 - path: workflow/automatic_pipeline_3_data_summary/stability_limit.png
   bytes: 1136365
