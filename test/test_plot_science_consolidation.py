@@ -116,6 +116,23 @@ def test_the_core_profile_field_is_bit_identical_to_the_pre_move_view(sample, qu
     extract = getattr(vo, f"extract_electron_{quantity}_field")
     drawn = np.asarray(extract(ods, time_slice=slice_index).values)
     expected = _frozen_core_field(ods, slice_index, 0, quantity)
+    # The view has since masked the map by the boundary outline as well as
+    # psi_N <= 1 (an intended change on top of the move): apply the same mask.
+    from vaft.process.equilibrium import plasma_cell_weights
+
+    ts = f"equilibrium.time_slice.{slice_index}"
+    r = np.asarray(ods[f"{ts}.profiles_2d.0.grid.dim1"], dtype=float)
+    z = np.asarray(ods[f"{ts}.profiles_2d.0.grid.dim2"], dtype=float)
+    psi_2d = np.asarray(ods[f"{ts}.profiles_2d.0.psi"], dtype=float)
+    axis = float(ods[f"{ts}.global_quantities.psi_axis"])
+    edge = float(ods[f"{ts}.global_quantities.psi_boundary"])
+    psi_norm_rz = (psi_2d - axis) / (edge - axis)
+    plasma = plasma_cell_weights(
+        r, z, psi_norm_rz,
+        np.asarray(ods[f"{ts}.boundary.outline.r"], dtype=float),
+        np.asarray(ods[f"{ts}.boundary.outline.z"], dtype=float),
+    ).T >= 0.5
+    expected = np.where(plasma, expected, np.nan)
     assert np.isfinite(drawn).any()
     np.testing.assert_array_equal(drawn, expected)
 

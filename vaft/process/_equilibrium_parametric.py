@@ -136,10 +136,23 @@ def _is_ods_branch(value: Any) -> bool:
 
 
 def _holds_data(node: Any) -> bool:
-    """Whether any leaf under ``node`` is not ``None``; stops at the first one."""
+    """Whether any leaf under ``node`` is not ``None``; stops at the first one.
+
+    An OMAS ODS is walked through its ``omas_data`` store rather than by
+    subscripting: the probe only asks whether the branch is empty, so it must
+    not read every leaf beneath it as if the caller depended on it.
+    """
     if not _is_ods_branch(node):
         return node is not None
-    return any(_holds_data(node[key]) for key in node.keys())
+    store = getattr(node, "omas_data", _MISSING_PATH)
+    # A dynamic (lazily loaded) ODS has not fetched what it has not been asked
+    # for: only its own keys()/subscript path knows what the store holds.
+    if store is _MISSING_PATH or getattr(node, "active_dynamic", False):
+        return any(_holds_data(node[key]) for key in node.keys())
+    if store is None:
+        return False
+    children = store.values() if isinstance(store, Mapping) else store
+    return any(_holds_data(child) for child in children)
 
 
 def _array(value: Any) -> np.ndarray | None:

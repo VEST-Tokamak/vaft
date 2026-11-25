@@ -149,7 +149,7 @@ def _compare_tree(new: Path, ref: Path, ignored: Iterable[str] = DEFAULT_IGNORED
         if not root.is_dir():
             return {}
         return {
-            str(p.relative_to(root)): p
+            p.relative_to(root).as_posix(): p
             for p in root.rglob("*")
             if p.is_file() and "log" not in p.relative_to(root).parts[:1] and not p.name.endswith(".log")
         }

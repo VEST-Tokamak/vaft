@@ -99,7 +99,9 @@ def test_the_filter_covers_tutorial_notebooks_only():
 @pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
 def test_installed_filter_keeps_outputs_out_of_the_index(tmp_path):
     def git(*args):
-        return subprocess.run(["git", *args], cwd=tmp_path, capture_output=True, text=True, check=True).stdout
+        # The notebooks are UTF-8; Windows would decode git's output with the locale code page.
+        return subprocess.run(["git", *args], cwd=tmp_path, capture_output=True, encoding="utf-8",
+                              check=True).stdout
 
     git("init", "-q")
     git("config", "user.email", "test@example.invalid")

@@ -190,7 +190,7 @@ def test_time_axis_defaults():
 def test_the_database_guide_table_matches_the_declared_contracts():
     from pathlib import Path
 
-    guide = (Path(__file__).resolve().parents[1] / "docs/_guide/Database.md").read_text()
+    guide = (Path(__file__).resolve().parents[1] / "docs/_guide/Database.md").read_text(encoding="utf-8")
     block = guide.split("<!-- preset-contract-table", 1)[1].split("<!-- /preset-contract-table -->", 1)[0]
     rows = [line for line in block.splitlines() if line.startswith("| `")]
     documented = {line.split("|")[1].strip().strip("`"): line for line in rows}

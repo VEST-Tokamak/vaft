@@ -180,6 +180,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("frame_index", "int"), OptionSpec("frame_indices"), OptionSpec("intrinsics_path"),
         OptionSpec("log_y", "bool"), OptionSpec("marker_frequencies"), OptionSpec("max_frequency", "float"),
         OptionSpec("max_harmonics", "int"), OptionSpec("max_length_m", "float"), OptionSpec("n_tor", "int"),
+        # Which resistive stability record (RDCON or STRIDE) a Delta-prime view draws.
+        OptionSpec("solver", "str", description="resistive stability solver whose record is drawn: 'rdcon' or 'stride'"),
         OptionSpec("ncols", "int"), OptionSpec("noverlap", "int"), OptionSpec("nperseg", "int"),
         # A channel count per family: the eddy-stage vacuum figures read it as
         # int(per_family) (default 2), the vacuum benchmark views as a positive

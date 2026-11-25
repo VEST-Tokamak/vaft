@@ -32,6 +32,11 @@ from vaft.database.campaign import (
 )
 from vaft.database.campaign.__main__ import main as campaign_main
 
+POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="campaign lanes lock with fcntl and meter children with resource: POSIX only",
+)
+
 WORKFLOW = Path(__file__).resolve().parents[1] / "workflow" / "automatic_pipeline_1_routine_data_processing"
 SPEC = WorkflowSpec.load(WORKFLOW)
 RUN_SCOPED = SPEC.run_scoped_rules
@@ -106,6 +111,28 @@ WorkflowError:
 At least one job did not complete successfully.
 """
 
+# Snakemake >= 8 logs a failed ``run:`` job as this chained traceback.
+_SPAWNED_JOB = """Traceback (most recent call last):
+
+  File "snakemake/executors/local.py", line 231, in spawn_job
+    subprocess.check_call(cmd, shell=True)
+
+subprocess.CalledProcessError: Command 'python -m snakemake ...' returned non-zero exit status 1.
+
+
+During handling of the above exception, another exception occurred:
+
+
+Traceback (most recent call last):
+
+  File "snakemake/executors/local.py", line 233, in spawn_job
+    raise SpawnedJobError()
+
+snakemake.exceptions.SpawnedJobError
+
+"""
+_CRASH = 'Traceback (most recent call last):\n  File "x.py", line 1\nKeyError: 1\n'
+
 
 @pytest.mark.parametrize(
     ("returncode", "log", "eligible", "done", "reason"),
@@ -118,6 +145,8 @@ At least one job did not complete successfully.
         (1, "Error in rule a:\n", True, False, "did not finish its keep-going"),
         (1, _PER_SHOT + "LockException\n", True, False, "LockException"),
         (1, _PER_SHOT + "Traceback (most recent call last):\n", True, False, "traceback"),
+        (1, _SPAWNED_JOB + _PER_SHOT, True, True, ""),
+        (1, _SPAWNED_JOB + _CRASH + _PER_SHOT, True, False, "traceback"),
         (1, _PER_SHOT.replace("generate_eddy_ods", "preflight_raw_dumps"), True, False, "run-scoped"),
         (1, _PER_SHOT + "WorkflowError:\nSomething else broke\n", True, False, "Something else broke"),
     ],
@@ -416,6 +445,7 @@ def _records(lane):
 
 @pytest.mark.skipif(subprocess.run([sys.executable, "-c", "import snakemake"], capture_output=True).returncode != 0,
                     reason="needs snakemake")
+@POSIX_ONLY
 def test_a_lane_runs_its_chunks_here_resumes_and_measures(tmp_path):
     lane, options = _toy(tmp_path, [1, 2, 3])
     assert run_lane(lane, options) == 0
@@ -435,6 +465,7 @@ def test_a_lane_runs_its_chunks_here_resumes_and_measures(tmp_path):
 
 @pytest.mark.skipif(subprocess.run([sys.executable, "-c", "import snakemake"], capture_output=True).returncode != 0,
                     reason="needs snakemake")
+@POSIX_ONLY
 def test_a_failed_shot_finishes_the_chunk_and_a_missing_input_keeps_it_open(tmp_path):
     lane, options = _toy(tmp_path, [1, 2], bad_shot=2, raw=[2])
     assert run_lane(lane, options) == 0
@@ -444,6 +475,7 @@ def test_a_failed_shot_finishes_the_chunk_and_a_missing_input_keeps_it_open(tmp_
     assert (lane / "missing_raw.txt").read_text() == "shots.000 1\n"
 
 
+@POSIX_ONLY
 def test_a_lane_refuses_a_different_pin_or_chunk_size(tmp_path):
     lane, options = _toy(tmp_path, [1])
     LaneState(lane).ensure("PIN_SHA", "aaa")
@@ -472,6 +504,7 @@ def test_launch_runs_every_pending_lane_through_a_backend(tmp_path, monkeypatch)
 
 @pytest.mark.skipif(subprocess.run([sys.executable, "-c", "import snakemake"], capture_output=True).returncode != 0,
                     reason="needs snakemake")
+@POSIX_ONLY
 def test_launch_with_the_local_backend_runs_every_lane_end_to_end(tmp_path, monkeypatch):
     lane, options = _toy(tmp_path, [1, 2, 3])
     for key, value in options.env.items():
@@ -499,6 +532,7 @@ _SITE = Path(__file__).resolve().parents[1] / "workflow" / "cluster_regeneration
 
 @pytest.mark.skipif(subprocess.run(["cp", "--version"], capture_output=True).returncode != 0
                     or shutil.which("bash") is None, reason="needs GNU cp (-l)")
+@POSIX_ONLY
 def test_the_site_raw_hook_links_complete_dumps_only(tmp_path):
     root = tmp_path / "root"
     for shot, files in ((1, ("raw.json.gz", "manifest.json")), (2, ("raw.json.gz",))):
@@ -547,6 +581,7 @@ def test_a_site_lane_command_gets_the_lanes_cores_and_memory(tmp_path):
     assert (request.env["CORES"], request.env["MEM_MB"]) == ("12", "4096")
 
 
+@POSIX_ONLY
 def test_the_usage_meter_reports_a_child_peak_only_for_its_own_interval():
     from vaft.code.accounting import UsageMeter
 

@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -53,8 +54,9 @@ def test_found_is_not_ready(tmp_path):
     assert executable_ready(None) == (False, "not found")
     plain = tmp_path / "dcon"
     plain.write_text("")
-    plain.chmod(0o644)
-    assert executable_ready(plain)[0] is False
+    if os.name == "posix":  # Windows has no executable bit: os.access(X_OK) holds for any file
+        plain.chmod(0o644)
+        assert executable_ready(plain)[0] is False
     plain.chmod(0o755)
     assert executable_ready(plain) == (True, str(plain))
     assert executable_ready(tmp_path)[0] is False

@@ -29,6 +29,11 @@ from vaft.code.accounting import (
 from vaft.code.policy import ExecutionPolicy, SubmissionRefused, load_policy, open_gate
 from vaft.code.slurm import _job_outcome
 
+POSIX_ONLY = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Slurm accounting locks its audit log with fcntl, meters with resource and samples Linux cgroups: POSIX only",
+)
+
 
 def _cgroup(root, usage_us=1_000_000, user_us=800_000, system_us=200_000, peak=2**30):
     job = root / "system.slice" / "slurmstepd.scope" / "job_42"
@@ -75,6 +80,7 @@ def test_a_usage_record_is_the_difference_of_its_first_and_last_samples():
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+@POSIX_ONLY
 def test_the_job_script_snippet_samples_the_job_cgroup(tmp_path):
     job = _cgroup(tmp_path)
     record = tmp_path / "usage"
@@ -89,6 +95,7 @@ def test_the_job_script_snippet_samples_the_job_cgroup(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+@POSIX_ONLY
 def test_the_snippet_writes_nothing_outside_a_job_cgroup(tmp_path):
     record = tmp_path / "usage"
     script = "\n".join(usage_record_lines(str(record))) + "\nvaft_job_cg=\nvaft_usage_sample\n"
@@ -214,6 +221,7 @@ def test_the_default_entry_covers_clusters_the_file_does_not_name(tmp_path):
     assert not policy.check(cluster="somewhere", cpus=1, mem_mb=None, partition=None).allowed
 
 
+@POSIX_ONLY
 def test_a_refusal_raises_and_is_audited(tmp_path):
     _write_policy(tmp_path, {"cluster-a": {"requires_approval": True}})
     env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
@@ -258,6 +266,7 @@ def test_an_unknown_active_count_refuses_under_max_concurrent(tmp_path):
     assert "cannot count active jobs" in decision.reasons[0]
 
 
+@POSIX_ONLY
 def test_a_failed_audit_write_after_sbatch_warns_instead_of_raising(tmp_path, monkeypatch):
     _write_policy(tmp_path, {"cluster-a": {}})
     env = {"VAFT_EXECUTION_POLICY": str(tmp_path / "policy.yaml")}
@@ -337,19 +346,38 @@ def test_exclusive_with_memory_per_cpu_books_the_whole_node(tmp_path):
     assert any("whole memory" in reason or "whole node" in reason for reason in decision.reasons), decision.reasons
 
 
+@POSIX_ONLY
 def test_the_usage_meter_measures_children_outside_any_scheduler():
-    from vaft.code.accounting import UsageMeter
+    # The child peak is known only when it raises the process's lifetime child
+    # peak, and a pytest worker may already have reaped a larger child: measure
+    # from a fresh interpreter that has reaped nothing.
+    probe = (
+        "import json, subprocess, sys\n"
+        "from vaft.code.accounting import UsageMeter\n"
+        "meter = UsageMeter(booked_cpus=2, cgroup=None).start()\n"
+        "work = \"b = bytearray(768 * 1024 * 1024)\\nb[::4096] = b'x' * len(b[::4096])\\n"
+        "s = 0\\nfor i in range(3_000_000): s += i\"\n"
+        "subprocess.run([sys.executable, '-c', work], check=True)\n"
+        "u = meter.stop()\n"
+        "print(json.dumps({k: getattr(u, k) for k in ("
+        "'source', 'cpu_s', 'wall_s', 'peak_mem_mb', 'max_process_rss_mb', 'utilization')}))\n"
+    )
+    import os
+    from pathlib import Path
 
-    meter = UsageMeter(booked_cpus=2, cgroup=None).start()
-    # Larger than any child this test process reaped before, so the interval's peak is known.
-    work = "b = bytearray(768 * 1024 * 1024)\nb[::4096] = b'x' * len(b[::4096])\ns = 0\nfor i in range(3_000_000): s += i"
-    subprocess.run([sys.executable, "-c", work], check=True)
-    usage = meter.stop()
-    assert usage.source == "rusage" and usage.cpu_s > 0.05 and usage.wall_s >= usage.cpu_s / 2 * 0.5
-    assert usage.peak_mem_mb is None and usage.max_process_rss_mb > 700
-    assert 0 < usage.utilization <= 1.5
+    # The child imports the vaft under test, not whichever one is installed.
+    root = str(Path(__file__).resolve().parents[1])
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [root, os.environ.get("PYTHONPATH")]))}
+    result = subprocess.run([sys.executable, "-c", probe], check=True, capture_output=True, text=True, env=env)
+    usage = json.loads(result.stdout.strip().splitlines()[-1])
+    assert usage["source"] == "rusage" and usage["cpu_s"] > 0.05
+    assert usage["wall_s"] >= usage["cpu_s"] / 2 * 0.5
+    # 768 MiB touched; a loaded macOS compresses part of it out of the resident set.
+    assert usage["peak_mem_mb"] is None and usage["max_process_rss_mb"] > 512
+    assert 0 < usage["utilization"] <= 1.5
 
 
+@POSIX_ONLY
 def test_the_usage_meter_reads_a_job_cgroup(tmp_path):
     from vaft.code.accounting import UsageMeter
 
