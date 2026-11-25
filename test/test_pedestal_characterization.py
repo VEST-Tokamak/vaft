@@ -147,6 +147,13 @@ def test_fit_eped_tanh_refuses_unmasked_input():
         fit_eped_tanh(X, y, np.zeros_like(y))
 
 
+def test_fit_profile_is_the_single_start_legacy_fit():
+    y = _h_mode(noise=0.15, seed=11, f_ped=0.8)
+    _, _, function, coeffs = fit_profile(X, y, None, X, fitting_function="eped_tanh")
+    assert function.eped_fit.n_starts == 1
+    np.testing.assert_array_equal(coeffs, fit_eped_tanh(X, y, n_starts=1).coefficients)
+
+
 def test_the_legacy_seed_wins_ties_so_coefficients_are_reproducible():
     """With one start the fit is the pre-#2335 single curve_fit; the multi-start
     keeps exactly that answer unless another start is strictly better."""
@@ -271,11 +278,25 @@ def test_a_weak_pedestal_in_noise_is_unresolved_not_absent():
 
 
 def test_a_spatially_unresolved_pedestal_is_unresolved():
-    """Seven samples in the window: the step is there but its width is not."""
+    """Seven positions, each sampled three times within 2e-4: twenty-one
+    samples pass min_points, but only seven are independent and the step's
+    width is not resolved."""
     x = np.array([0.45, 0.6, 0.72, 0.82, 0.9, 0.99, 1.04] * 3) + np.repeat([0, 1e-4, 2e-4], 7)
     y = _h_mode(x, noise=0.005, seed=2)
     result = characterize_pedestal(x, y, quantity="T_e")
+    assert result.evidence["n_used"] == 21 and result.evidence["n_unique"] == 7
+    assert result.evidence["n_gradient_region"] <= 1
     assert result.status == "unresolved", result.reason
+
+
+@pytest.mark.parametrize("seed", [0, 3, 8])
+def test_an_insignificant_real_pedestal_is_never_absent(seed):
+    """Thirty noisy samples of a true pedestal: failing to resolve it is not
+    evidence that it is not there."""
+    x = np.linspace(0.4, 1.05, 30)
+    y = _h_mode(x, noise=0.1, seed=seed, f_ped=0.5)
+    result = characterize_pedestal(x, y, quantity="T_e")
+    assert result.status in {"present", "unresolved"}, result.reason
 
 
 def test_irregular_sampling_is_characterized():
@@ -359,3 +380,27 @@ def test_positional_construction_still_works():
     assert legacy.status == "" and legacy.detection_status == "present"
     assert legacy.inner_edge == pytest.approx(0.90) and legacy.top == pytest.approx(0.87)
     assert PedestalTop(0.85, "fallback", "p_total", "psi_norm").detection_status == "not_available"
+
+
+@pytest.mark.parametrize("seed, noise, method, position, width, reason", [
+    # Recorded with the pre-#2335 pedestal_top on develop f878d31ae.
+    (0, 0.02, "eped_fit", 0.9293154875825744, 0.03174426351505591, ""),
+    (0, 0.1, "eped_fit", 0.9266388859869035, 0.022182527668107205, ""),
+    (0, 0.3, "fallback", 0.85, None, "width rests on a bound of the model's parameter box"),
+])
+def test_legacy_acceptance_reproduces_the_pre_2335_result(seed, noise, method, position, width, reason):
+    y = _h_mode(noise=noise, seed=seed)
+    legacy = pedestal_top(X, y, quantity="T_e", acceptance="legacy")
+    assert legacy.method == method and legacy.reason == reason
+    assert legacy.position == pytest.approx(position, abs=1e-7)
+    if width is None:
+        assert legacy.width is None
+    else:
+        assert legacy.width == pytest.approx(width, abs=1e-7)
+    # The status of the characterization is still recorded.
+    assert legacy.status in PEDESTAL_STATUSES
+
+
+def test_an_unknown_acceptance_is_refused():
+    with pytest.raises(ValueError, match="acceptance"):
+        pedestal_top(X, _h_mode(), quantity="T_e", acceptance="strict")

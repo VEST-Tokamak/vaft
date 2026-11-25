@@ -3857,6 +3857,75 @@ class PedestalTop:
         return None if self.width is None else self.position + self.width
 
 
+def _pedestal_top_legacy(x, values, *, quantity, value_std, coordinate, fallback, window,
+                         min_points, max_width, characterization):
+    """The pre-#2335 ``pedestal_top`` decision, kept verbatim for reproducing earlier windows."""
+    x = np.asarray(x, dtype=float).ravel()
+    values = np.asarray(values, dtype=float).ravel()
+
+    def _fallback(reason):
+        if coordinate != LEGACY_COORDINATE and fallback == PEDESTAL_FALLBACK_PSI_NORM:
+            raise CoordinateUnavailableError(
+                f"the fallback {PEDESTAL_FALLBACK_PSI_NORM} is a psi_norm position and "
+                f"this profile is in {coordinate}; there is no pedestal to fit "
+                f"({reason}), so pass an explicit fallback= in {coordinate} or "
+                "supply the profile in psi_norm"
+            )
+        return PedestalTop(position=float(fallback), method="fallback", quantity=quantity,
+                           coordinate=coordinate, reason=reason,
+                           status=characterization.status, characterization=characterization)
+
+    low, high = window
+    selected = np.isfinite(x) & np.isfinite(values) & (x >= low) & (x <= high)
+    if int(np.count_nonzero(selected)) < min_points:
+        return _fallback(
+            f"{int(np.count_nonzero(selected))} finite samples in {window}, "
+            f"fewer than min_points={min_points}"
+        )
+    x_fit, y_fit = x[selected], values[selected]
+    std_fit = None if value_std is None else np.asarray(value_std, dtype=float).ravel()[selected]
+    try:
+        fitted, _, function, coefficients = fit_profile(
+            x_fit, y_fit, std_fit, x_fit, fitting_function="eped_tanh"
+        )
+    except (RuntimeError, ValueError) as error:
+        return _fallback(f"eped_tanh fit did not converge: {error}")
+    x_ped, width = float(coefficients[3]), float(coefficients[4])
+    saturated = function.eped_fit.bound_saturated
+    for name in ("f_ped", "f_sep", "x_ped", "width"):
+        if name in saturated:
+            return _fallback(f"{name} rests on a bound of the model's parameter box")
+    if not (np.isfinite(x_ped) and np.isfinite(width)):
+        return _fallback("the fit returned a non-finite x_ped or width")
+    if width > max_width:
+        return _fallback(
+            f"the fitted tanh is {width:.4g} wide, more than max_width={max_width}: "
+            "that is a ramp across the profile, not a pedestal"
+        )
+    low_fit, high_fit = float(x_fit.min()), float(x_fit.max())
+    if not low_fit <= x_ped <= high_fit:
+        return _fallback(
+            f"x_ped={x_ped:.4g} lies outside the fitted data, which spans "
+            f"[{low_fit:.4g}, {high_fit:.4g}]"
+        )
+    variation = float(np.ptp(fitted))
+    residual = float(np.sqrt(np.mean((y_fit - fitted) ** 2)))
+    if not (np.isfinite(variation) and np.isfinite(residual)):
+        return _fallback("the fit produced non-finite values; no pedestal resolved")
+    if variation <= PEDESTAL_RESOLUTION_FACTOR * residual:
+        return _fallback(
+            f"the fitted curve varies by {variation:.4g} across the window, not "
+            f"{PEDESTAL_RESOLUTION_FACTOR}x the residual scatter {residual:.4g}: "
+            "no pedestal resolved"
+        )
+    return PedestalTop(
+        position=x_ped, method="eped_fit", quantity=quantity, coordinate=coordinate, width=width,
+        fit=FittedProfile(function=function, coordinate=coordinate, method="eped_tanh", order=None,
+                          coefficients=coefficients, span=(low_fit, high_fit)),
+        status=characterization.status, characterization=characterization,
+    )
+
+
 def pedestal_top(
     x,
     values,
@@ -3868,6 +3937,7 @@ def pedestal_top(
     window=(0.4, 1.05),
     min_points=20,
     max_width=PEDESTAL_MAX_WIDTH,
+    acceptance="characterized",
 ):
     """Pedestal-top position of a profile, from an EPED-style fit.
 
@@ -3902,6 +3972,12 @@ def pedestal_top(
         Fewest samples inside ``window`` that can support seven parameters [-].
     max_width : float, optional
         Widest tanh still counted as a pedestal, in ``coordinate`` [-].
+    acceptance : str, optional
+        ``"characterized"`` (default) accepts a fit only when
+        :func:`characterize_pedestal` reports ``present``; ``"legacy"``
+        reproduces the pre-#2335 decision exactly -- single-start fit,
+        ``min_points`` counted before sigma masking, and the whole-window
+        variation test -- for re-deriving earlier windows [n/a].
 
     Returns
     -------
@@ -3940,6 +4016,8 @@ def pedestal_top(
     the legacy windows rather than derived.  ``window = (0.4, 1.05)`` and
     ``min_points = 20`` are numerical convenience -- enough of the edge to
     resolve a pedestal, and more samples than the model has parameters.
+    ``acceptance = "characterized"`` is a validated-workflow default since
+    #2335; ``"legacy"`` is a legacy compatibility value.
     :data:`PEDESTAL_RESOLUTION_FACTOR` is an empirical estimate: the measured
     separation between a pure-noise fit and a real one, now applied to the
     localized top-to-foot drop (#2335).  The fallback is a partition policy
@@ -3989,10 +4067,18 @@ def pedestal_top(
     """
     if coordinate not in COORDINATES:
         raise ValueError(f"coordinate must be one of {COORDINATES}, got {coordinate!r}")
+    if acceptance not in ("characterized", "legacy"):
+        raise ValueError(f"acceptance must be 'characterized' or 'legacy', got {acceptance!r}")
     characterization = characterize_pedestal(
         x, values, quantity=quantity, value_std=value_std, coordinate=coordinate,
         window=window, min_points=min_points, max_width=max_width,
     )
+    if acceptance == "legacy":
+        return _pedestal_top_legacy(
+            x, values, quantity=quantity, value_std=value_std, coordinate=coordinate,
+            fallback=fallback, window=window, min_points=min_points, max_width=max_width,
+            characterization=characterization,
+        )
 
     if characterization.present:
         fit = characterization.fit

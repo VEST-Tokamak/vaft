@@ -201,7 +201,14 @@ def _descriptors(theta):
     ], dtype=float)
 
 
-def _unique_count(values, tolerance=1e-9):
+#: Positions closer than this, in the fitted coordinate, count as one
+#: independent observation: repeated or densely resampled channels do not
+#: add spatial information.  Numerical convenience; the diagnostic's own
+#: spatial response is not modelled.
+PEDESTAL_DISTINCT_SPACING = 1e-3
+
+
+def _unique_count(values, tolerance=PEDESTAL_DISTINCT_SPACING):
     """Number of distinct positions: dense resampling is not independent data."""
     values = np.sort(np.asarray(values, dtype=float))
     if values.size == 0:
@@ -325,7 +332,10 @@ def characterize_pedestal(
        (they reach :data:`PEDESTAL_ABSENCE_EDGE_COVERAGE` with no gap above
        :data:`PEDESTAL_ABSENCE_MAX_GAP` in ``[0.8, 1]``, and their local
        scatter is below :data:`PEDESTAL_ABSENCE_MAX_RELATIVE_SCATTER` of the
-       profile) and ``unresolved`` otherwise.
+       profile) *and* the fit excludes a relevant step (``|drop| + 2 sigma``
+       below three times that scatter fraction of the profile, or for the
+       gradient test ``contrast + 2 sigma`` below its threshold); otherwise
+       ``unresolved``.
     5. A qualified feature is still ``unresolved`` when the width is not
        spatially resolved (fewer than ``min_gradient_points`` distinct samples
        between top and foot, or ``min_top_points`` inside the top), when the
@@ -364,6 +374,8 @@ def characterize_pedestal(
     -----------
     One edge pedestal; an internal transport barrier or a second step is not
     modelled, and no smooth-versus-pedestal model comparison is made yet.
+    Distinct samples are counted at :data:`PEDESTAL_DISTINCT_SPACING`; the
+    diagnostic's spatial response is not compared with the width.
     Uncertainties are linearized; with a weakly identified fit the
     correlation diagnostic flags it, but profile-likelihood or bootstrap
     intervals are not computed.  Mapping and separatrix-position uncertainty
@@ -489,36 +501,67 @@ def characterize_pedestal(
     # significance test, which weighs the drop against its propagated
     # uncertainty.
     if std_fit is None:
-        scatter = float(np.sqrt(np.mean(pool**2)))
+        local_scatter = float(np.sqrt(np.mean(pool**2)))
+        all_weights = np.ones_like(residual)
     else:
         weights = 1.0 / (std_fit[local] if np.count_nonzero(local) >= 3 else std_fit) ** 2
-        scatter = float(np.sqrt(np.sum(weights * pool**2) / np.sum(weights)))
+        local_scatter = float(np.sqrt(np.sum(weights * pool**2) / np.sum(weights)))
+        all_weights = 1.0 / std_fit**2
+    # A seven-parameter fit absorbs part of the noise where few samples sit,
+    # so the local RMS alone underestimates it; the whole-window residual,
+    # corrected for the fitted parameters, floors it.
+    dof = max(residual.size - 7, 1)
+    global_scatter = float(np.sqrt(
+        np.sum(all_weights * residual**2) / np.sum(all_weights) * residual.size / dof
+    ))
+    scatter = max(local_scatter, global_scatter)
     inner = span[0]
-    core_gradient = (
-        abs(float(fit(np.array([inner]))[0]) - descriptor["value_top"]) / (top - inner)
-        if top > inner else float("nan")
-    )
-    contrast = (
-        abs(descriptor["gradient_max"]) / core_gradient if core_gradient > 0 else float("inf")
-    )
+
+    def _contrast(t):
+        d = _descriptors(t)
+        top_t, value_top_t, gradient_t = d[0], d[5], d[10]
+        if not top_t > inner:
+            return np.array([np.nan])
+        core = abs(float(_eped_tanh_model(np.array([inner]), *t)[0]) - value_top_t) / (top_t - inner)
+        return np.array([abs(gradient_t) / core if core > 0 else np.inf])
+
+    contrast = float(_contrast(theta)[0])
+    with np.errstate(invalid="ignore"):
+        s_contrast = (
+            float(np.sqrt(max(fit.propagate(_contrast)[0, 0], 0.0)))
+            if np.isfinite(contrast) and fit.covariance_available else float("nan")
+        )
     evidence["gradient_contrast"] = contrast
+    evidence["gradient_contrast_std"] = s_contrast
     drop, s_drop = descriptor["drop"], uncertainties["drop"]
     significance = abs(drop) / s_drop if np.isfinite(s_drop) and s_drop > 0 else float("nan")
-    evidence.update(local_scatter=scatter, drop_significance=significance,
+    evidence.update(local_scatter=local_scatter, global_scatter=global_scatter,
+                    scatter=scatter, drop_significance=significance,
                     drop_over_scatter=abs(drop) / scatter if scatter > 0 else float("inf"))
 
     result = dict(
         **descriptor, foot_location=foot_location, uncertainties=uncertainties,
         descriptor_covariance=covariance, fit=fit, span=span, **common,
     )
-    adequate, why_not = _absence_evidence(x_fit, scatter, float(np.median(np.abs(y_fit))))
+    magnitude = float(np.median(np.abs(y_fit)))
+    adequate, why_not = _absence_evidence(x_fit, scatter, magnitude)
     evidence["absence_evidence_adequate"] = adequate
+    # The smallest drop counted as a physically relevant pedestal: the step
+    # the resolution test can see at the largest scatter absence allows.
+    relevant_drop = PEDESTAL_RESOLUTION_FACTOR * PEDESTAL_ABSENCE_MAX_RELATIVE_SCATTER * magnitude
+    drop_excluded = bool(np.isfinite(s_drop) and abs(drop) + 2.0 * s_drop <= relevant_drop)
+    evidence["relevant_drop"] = relevant_drop
+    evidence["relevant_drop_excluded"] = drop_excluded
 
-    def _missing(reason):
-        if adequate:
+    def _missing(reason, excluded):
+        """``absent`` only when the data could show a pedestal *and* the fit excludes one."""
+        if adequate and excluded:
             return PedestalCharacterization(status="absent", reason=reason, **result)
+        why = why_not if not adequate else (
+            "the fit's uncertainty does not exclude a relevant pedestal"
+        )
         return PedestalCharacterization(
-            status="unresolved", reason=f"{reason}; absence not established: {why_not}", **result,
+            status="unresolved", reason=f"{reason}; absence not established: {why}", **result,
         )
 
     x_ped, width = theta[3], theta[4]
@@ -533,28 +576,33 @@ def characterize_pedestal(
         )
     resolved_drop = abs(drop) > PEDESTAL_RESOLUTION_FACTOR * scatter
     significant = np.isfinite(significance) and significance >= PEDESTAL_SIGNIFICANCE
+    if width > max_width:
+        return _missing(
+            f"the fitted tanh is {width:.4g} wide, more than max_width={max_width}: "
+            "that is a ramp across the profile, not a pedestal",
+            fit.covariance_available,
+        )
     saturated = [name for name in ("f_ped", "f_sep", "x_ped", "width") if name in fit.bound_saturated]
     if saturated:
         reason = f"{saturated[0]} rests on a bound of the model's parameter box"
         if not (resolved_drop and significant):
-            return _missing(reason + ", and no localized step stands above the scatter")
+            return _missing(reason + ", and no localized step stands above the scatter",
+                            drop_excluded)
         return PedestalCharacterization(status="unresolved", reason=reason, **result)
-    if width > max_width:
-        return _missing(
-            f"the fitted tanh is {width:.4g} wide, more than max_width={max_width}: "
-            "that is a ramp across the profile, not a pedestal"
-        )
     if not resolved_drop:
         return _missing(
             f"the fitted edge feature varies by {abs(drop):.4g} from top to foot, not "
             f"{PEDESTAL_RESOLUTION_FACTOR}x the local scatter {scatter:.4g}: "
-            "no pedestal resolved"
+            "no pedestal resolved",
+            drop_excluded,
         )
     if np.isfinite(contrast) and contrast < PEDESTAL_MIN_GRADIENT_CONTRAST:
         return _missing(
             f"the steepest edge gradient is only {contrast:.3g} times the mean gradient "
             f"inside the top (need {PEDESTAL_MIN_GRADIENT_CONTRAST}): a smooth profile, "
-            "no localized steepening"
+            "no localized steepening",
+            bool(np.isfinite(s_contrast)
+                 and contrast + 2.0 * s_contrast < PEDESTAL_MIN_GRADIENT_CONTRAST),
         )
     if not fit.covariance_available:
         return PedestalCharacterization(
@@ -566,7 +614,8 @@ def characterize_pedestal(
         return _missing(
             f"the fitted edge feature varies by {abs(drop):.4g} from top to foot, only "
             f"{significance:.3g} times its uncertainty {s_drop:.3g} (need "
-            f"{PEDESTAL_SIGNIFICANCE}): no pedestal resolved"
+            f"{PEDESTAL_SIGNIFICANCE}): no pedestal resolved",
+            drop_excluded,
         )
     if evidence["n_gradient_region"] < min_gradient_points:
         return PedestalCharacterization(

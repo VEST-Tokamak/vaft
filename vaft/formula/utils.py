@@ -1150,9 +1150,12 @@ def fit_eped_tanh(x, y, y_std=None, *, uncertainty_option=1, n_starts=4):
     Each start is a bounded ``scipy.optimize.curve_fit`` (trust-region
     reflective, ``max_nfev = 20000``) in the box of :func:`eped_tanh_bounds`.
     The legacy seed's optimum is kept unless another start lowers the
-    objective by more than a relative ``1e-6``, so a fit the single-start
-    code already solved returns bit-identical coefficients.  Starts that end
-    within one unit of chi-square (weighted) or one percent (unweighted) of
+    objective by more than a relative ``1e-6``: where the legacy seed already
+    found the best optimum the coefficients are bit-identical to the
+    single-start fit, and otherwise the better optimum wins (``n_starts=1``
+    reproduces the legacy fit exactly).  Starts that end within one unit of
+    chi-square (weighted) or one percent of the objective (unweighted, i.e.
+    about ``0.01 (N - 7)`` in reduced-chi-square units) of
     the best but with ``x_ped`` more than one ``w`` away are counted in
     ``competing_minima``: the data do not single out one pedestal.
 
@@ -1222,6 +1225,9 @@ def fit_eped_tanh(x, y, y_std=None, *, uncertainty_option=1, n_starts=4):
                 results.append(None)
                 continue
         notes = [str(w.message) for w in caught if issubclass(w.category, OptimizeWarning)]
+        for w in caught:  # recorded only to read OptimizeWarning; pass the rest on
+            if not issubclass(w.category, OptimizeWarning):
+                warnings.warn_explicit(w.message, w.category, w.filename, w.lineno)
         cost = float(np.sum(np.asarray(info["fvec"], float) ** 2))
         messages.append(f"{message}" + (f" ({'; '.join(notes)})" if notes else ""))
         results.append((np.asarray(coeffs, float), np.asarray(pcov, float), int(info["nfev"]),
@@ -1474,8 +1480,10 @@ def fit_profile(
     zero uncertainty.
     A fit that returns its initial guess unchanged is reported by a warning,
     not an exception.  The ``'eped_tanh'`` mode is :func:`fit_eped_tanh`: its
-    covariance, status, bound saturation and multi-start record are on
-    ``fit_function.eped_fit``; before #2335 its second return was a zero
+    covariance, status and bound saturation are on ``fit_function.eped_fit``.
+    It runs a single start from the legacy seed so its coefficients
+    reproduce earlier results exactly; call :func:`fit_eped_tanh` for the
+    multi-start fit.  Before #2335 its second return was a zero
     placeholder, which a caller must not read as zero uncertainty.
 
     Numerical notes
@@ -1692,7 +1700,10 @@ def fit_profile(
         # nan where the covariance could not be estimated -- never the zero
         # placeholder it used to be.  The structured result rides on the
         # returned callable as ``fit_function.eped_fit``.
-        eped_fit = fit_eped_tanh(x, y, y_std, uncertainty_option=uncertainty_option)
+        # n_starts=1: the pre-#2335 single curve_fit from the legacy seed,
+        # so coefficients reproduce exactly; fit_eped_tanh's multi-start is
+        # what pedestal characterization uses.
+        eped_fit = fit_eped_tanh(x, y, y_std, uncertainty_option=uncertainty_option, n_starts=1)
         coeffs = eped_fit.coefficients
 
         def fit_function(x_input):
