@@ -219,3 +219,29 @@ def test_audit_files_are_excluded_from_counts(repo):
     _git(repo, "commit", "-q", "-m", "audit files")
     after = AUDIT.build_inventory("HEAD")
     assert after == before
+
+
+def test_shared_reference_id_and_data_skips_are_reported(repo):
+    good = gzip.compress(b'{"wheel": {}}', mtime=0)
+    _write(repo, "vaft/data/wheel_samples/11111/omas.json.gz", good)
+    manifest = {
+        "schema_version": 1,
+        "shot": 11111,
+        "reference_id": "test-11111-v1",
+        "representations": {"omas": {"path": "omas.json.gz", "sha256": hashlib.sha256(good).hexdigest()}},
+    }
+    _write(repo, "vaft/data/wheel_samples/11111/manifest.yaml", yaml.safe_dump(manifest).encode())
+    _write(repo, "test/test_needs_data.py", b'import pytest\npytest.skip("the 11111 sample is repository-only")\n')
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "wheel copy")
+
+    inventory = AUDIT.build_inventory("HEAD")
+    assert inventory["reference_ids_shared_by_different_bytes"] == [
+        {
+            "reference_id": "test-11111-v1",
+            "directories": ["vaft/data/samples/11111", "vaft/data/wheel_samples/11111"],
+        }
+    ]
+    kinds = {(row["directory"], row["kind"]) for row in inventory["samples"]}
+    assert ("vaft/data/wheel_samples/11111", "wheel_projection") in kinds
+    assert inventory["data_dependent_skips"]["files"] == [{"path": "test/test_needs_data.py", "skip_sites": 1}]

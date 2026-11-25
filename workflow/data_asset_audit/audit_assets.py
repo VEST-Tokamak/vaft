@@ -17,7 +17,8 @@ Two products:
     consumers) -- plus one row per registered reference sample, read from its
     ``manifest.yaml``, with every SHA-256 the manifest pins checked against the
     stored blob. The audit's own files (:data:`AUDIT_PATHS`) are left out of
-    every count, so the inventory does not depend on itself. ``--check`` exits
+    every count in both products, so a regenerated product does not depend on
+    itself. ``--check`` exits
     1 when the committed file differs from a fresh build. It is a review aid,
     not a CI gate: the consumer lists change with every test that mentions a
     sample.
@@ -46,7 +47,8 @@ Limitations (also written into both products):
   wheel. The sdist (``MANIFEST.in``) is not modelled; its published size is
   reported.
 * In a partial clone (``--filter=blob:none``) absent blobs are counted as
-  missing, not measured.
+  missing, not measured: git runs with ``GIT_NO_LAZY_FETCH=1`` so the audit
+  never downloads objects.
 
 Usage::
 
@@ -61,6 +63,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
+import os
 import fnmatch
 import functools
 import hashlib
@@ -113,7 +116,7 @@ LIMITATIONS = (
     "a blob stored under several paths is attributed to the first path rev-list reports",
     "packed (on-disk) bytes depend on the local repository's packing",
     "wheel membership is evaluated from pyproject.toml plus the setup.py 39915 swap, not by building a wheel; the sdist is not modelled",
-    "in a partial clone, absent blobs are counted as missing, not measured",
+    "in a partial clone, absent blobs are counted as missing, not measured (lazy fetch is disabled)",
 )
 
 # Storage categories of #2307 section 4.
@@ -284,14 +287,17 @@ GROUPS: tuple[Group, ...] = (
         category="reference",
         current_placement="git-lfs",
         proposed_placement="github-release (single baseline) + VAFT_CACHE_DIR/generated/efund for other identities",
-        retrieval="exact-identity local table -> EFUND generation -> baseline download -> explicit failure (#2330)",
+        retrieval=(
+            "baseline identity: verified local copy -> baseline download; other identities: exact-identity "
+            "local table -> EFUND generation; otherwise explicit failure (#2330)"
+        ),
         migration=("#2330", "#2331", "#207"),
         decision="decided",
         consumers=(r"\.ddd", r"efund_table_manifest", r"rv129129|ec129129|ep129129|rfcoil"),
         notes=(
             "Umbrella #2304 section 3.3. The published baseline is a reference, not a cache entry: #695 "
-            "showed table generations change EFIT yield. Two earlier generations exist only in LFS history "
-            "(see the measurement's lfs_history)."
+            "showed table generations change EFIT yield. Seven objects of the two earlier generations exist "
+            "only in LFS history (see the measurement's lfs_history); ep129129.ddd is unchanged since #695."
         ),
     ),
     Group(
@@ -306,7 +312,7 @@ GROUPS: tuple[Group, ...] = (
         consumers=(r"brzgfc", r"mhdout\.dat"),
         notes=(
             "Written by the same EFUND run as the .ddd tables and listed under table.files of "
-            "efund_table_manifest.json (identity e28142c7...), but stored as plain Git (6.9 MB). "
+            "efund_table_manifest.json (identity e28142c7...), but stored as plain Git (7.0 MB). "
             "mhdout.dat is excluded from the table identity (#793)."
         ),
     ),
@@ -473,9 +479,10 @@ GROUPS: tuple[Group, ...] = (
         notes=(
             "Earlier sample layouts: vaft/data/omas/{39915,41524,41672}.json, an IMAS HDF5 set under "
             "vaft/data/imas, vaft/data/{39915,39916,39917}.json, 44740_imas_equilibrium.h5 and "
-            "packaging/wheel_samples/39915. 39916, 39917 and 44740 have no registered sample "
-            "(39917 is a confinement reference shot), and the others are not proven identical to the "
-            "registered samples. None is superseded until shown to be."
+            "packaging/wheel_samples/39915. packaging/wheel_samples holds bytes recorded by "
+            "vest-39915-until-efit-v1 (see historical_sample_references). 39916, 39917 and 44740 have no "
+            "registered sample (39917 is a confinement reference shot); the others are not proven identical "
+            "to a registered sample. None is superseded until shown to be."
         ),
     ),
     Group(
@@ -557,6 +564,10 @@ def is_audit_path(path: str) -> bool:
 # --------------------------------------------------------------------------- git helpers
 
 
+#: Never let cat-file fetch absent objects from a promisor remote (partial clone).
+GIT_ENV = {**os.environ, "GIT_NO_LAZY_FETCH": "1"}
+
+
 def git(*args: str, input: bytes | None = None) -> bytes:
     return subprocess.run(
         ["git", "-C", str(REPO_ROOT), *args],
@@ -564,6 +575,7 @@ def git(*args: str, input: bytes | None = None) -> bytes:
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=GIT_ENV,
     ).stdout
 
 
@@ -604,6 +616,7 @@ def read_blobs(oids: Iterable[str]) -> Iterator[tuple[str, bytes | None]]:
         ["git", "-C", str(REPO_ROOT), "cat-file", "--batch"],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
+        env=GIT_ENV,
     )
     assert proc.stdin and proc.stdout
     try:
@@ -820,7 +833,7 @@ def sample_rows(ref: str, files: list[TreeFile]) -> list[dict[str, Any]]:
     """One row per registered sample manifest, every pin checked against the stored blob."""
     tree = {f.path: f for f in files}
     manifests = sorted(
-        f for f in tree if re.fullmatch(r"vaft/data/samples/\d{5}/manifest\.yaml", f)
+        f for f in tree if SAMPLE_MANIFEST.fullmatch(f) and f.startswith("vaft/data/")
     )
     loaded = {}
     wanted_oids = set()
@@ -869,6 +882,7 @@ def sample_rows(ref: str, files: list[TreeFile]) -> list[dict[str, Any]]:
         rows.append(
             {
                 "shot": shot,
+                "kind": "wheel_projection" if "/wheel_samples/" in directory else "registered",
                 "directory": directory,
                 "reference_id": manifest.get("reference_id", "not recorded"),
                 "imas_dd_version": manifest.get("imas_dd_version", "not recorded"),
@@ -892,6 +906,86 @@ def sample_rows(ref: str, files: list[TreeFile]) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+#: Other files that pin bytes by SHA-256 (``*manifest*.json|yaml`` under data roots).
+PINNED_MANIFEST_GLOBS = ("vaft/data/**/*manifest*.yaml", "vaft/data/**/*manifest*.json",
+                         "test/data/**/*manifest*.yaml", "test/data/**/*manifest*.json")
+
+
+def pinned_manifest_rows(ref: str, files: list[TreeFile], skip: set[str]) -> list[dict[str, Any]]:
+    """Pin status of every other manifest that records SHA-256 values."""
+    tree = {f.path: f for f in files}
+    paths = sorted(
+        p for p in tree
+        if p not in skip and any(glob_match(p, g) for g in PINNED_MANIFEST_GLOBS)
+    )
+    loaded = []
+    wanted = set()
+    for path in paths:
+        text = git("show", f"{ref}:{path}")
+        try:
+            data = json.loads(text) if path.endswith(".json") else yaml.safe_load(text)
+        except (ValueError, yaml.YAMLError):
+            continue
+        directory = posixpath.dirname(path)
+        resolved = [(raw, sha, resolve_pin(raw, directory, tree)) for _, raw, sha in manifest_pins(data)]
+        if not resolved:
+            continue
+        wanted.update(tree[r].oid for *_, r in resolved if r)
+        loaded.append((path, data, resolved))
+    digests = {oid: content_sha256(d) for oid, d in read_blobs(wanted) if d is not None}
+    rows = []
+    for path, data, resolved in loaded:
+        counts: dict[str, int] = defaultdict(int)
+        mismatched = []
+        for raw, sha, target in resolved:
+            if target is None:
+                status = "not in tree"
+            else:
+                stored = digests.get(tree[target].oid)
+                status = "missing blob" if stored is None else ("match" if stored == sha else "mismatch")
+            counts[status] += 1
+            if status in ("mismatch", "missing blob"):
+                mismatched.append(target)
+        rows.append(
+            {
+                "manifest": path,
+                "reference_id": data.get("reference_id", "not recorded") if isinstance(data, dict) else "not recorded",
+                "pin_status": dict(sorted(counts.items())),
+                "not_matching": sorted(mismatched),
+            }
+        )
+    return rows
+
+
+#: A skip whose reason names missing data (one-line ``pytest.skip``/``skipif`` calls).
+SKIP_PATTERN = (
+    r"(pytest\.skip|skipif)\(.*(sample|repository-only|not available|unavailable|"
+    r"not archived|lfs|LFS|pointer)"
+)
+
+
+def data_dependent_skips(ref: str) -> dict[str, Any]:
+    """Test files that skip, rather than fail, when a data file is absent."""
+    try:
+        out = git("grep", "-n", "-I", "-E", "-e", SKIP_PATTERN, ref, "--", "test",
+                  *(f":!{p}" for p in CONSUMER_EXCLUDES)).decode()
+    except subprocess.CalledProcessError as exc:
+        if exc.returncode != 1:
+            raise
+        out = ""
+    prefix = f"{ref}:"
+    hits: dict[str, int] = defaultdict(int)
+    for line in out.splitlines():
+        line = line[len(prefix):] if line.startswith(prefix) else line
+        hits[line.split(":", 1)[0]] += 1
+    lfs_users = consumers(ref, (r"lfs_assets",))
+    return {
+        "method": f"git grep -E '{SKIP_PATTERN}' over test/ (one-line reasons only), plus users of test/lfs_assets.py",
+        "files": [{"path": p, "skip_sites": n} for p, n in sorted(hits.items())],
+        "lfs_pointer_skip_users": [p for p in lfs_users if p.startswith("test/") and p != "test/lfs_assets.py"],
+    }
 
 
 def build_inventory(ref: str) -> dict[str, Any]:
@@ -955,6 +1049,17 @@ def build_inventory(ref: str) -> dict[str, Any]:
                 "notes": group.notes,
             }
         )
+    samples = sample_rows(ref, files)
+    by_id: dict[str, set[tuple[str, ...]]] = defaultdict(set)
+    where: dict[str, list[str]] = defaultdict(list)
+    for row in samples:
+        by_id[row["reference_id"]].add(tuple(sorted(p["sha256"] for p in row["pins"])))
+        where[row["reference_id"]].append(row["directory"])
+    shared = [
+        {"reference_id": rid, "directories": sorted(where[rid])}
+        for rid in sorted(by_id)
+        if len(by_id[rid]) > 1
+    ]
     return {
         "schema_version": SCHEMA_VERSION,
         "generator": "workflow/data_asset_audit/audit_assets.py inventory",
@@ -967,7 +1072,12 @@ def build_inventory(ref: str) -> dict[str, Any]:
             "bytes": sum(f.size for f in files),
         },
         "groups": rows,
-        "samples": sample_rows(ref, files),
+        "samples": samples,
+        "reference_ids_shared_by_different_bytes": shared,
+        "pinned_manifests": pinned_manifest_rows(
+            ref, files, {f"{row['directory']}/manifest.yaml" for row in samples}
+        ),
+        "data_dependent_skips": data_dependent_skips(ref),
         "unassigned_large_files": sorted(unassigned, key=lambda r: r["path"]),
     }
 
@@ -983,6 +1093,13 @@ def clone_refs() -> list[str]:
     """Refs a fresh ``git clone`` downloads: every origin branch and every tag."""
     out = git("for-each-ref", "--format=%(refname)", "refs/remotes/origin", "refs/tags").decode()
     return [r for r in out.splitlines() if r and not r.endswith("/HEAD")]
+
+
+#: Repository, wheel and retired-wheel sample manifests.
+SAMPLE_MANIFEST = re.compile(r"(vaft/data/(samples|wheel_samples)|packaging/wheel_samples)/\d{5}/manifest\.yaml")
+
+#: The published site branch, its backups and archive tags.
+PAGES_REF = re.compile(r"(^|/)(backup/)?gh-pages(-[\w.-]+)?$|(^|/)archive/gh-pages")
 
 
 def _objects(refs: list[str]) -> dict[str, str]:
@@ -1003,7 +1120,7 @@ def _first_commit(blob: str, refs: list[str]) -> str:
     return out[0] if out else "unknown"
 
 
-def history(refs: list[str]) -> dict[str, Any]:
+def history(refs: list[str], current_lfs: frozenset[str] = frozenset()) -> dict[str, Any]:
     empty = {"blobs": 0, "raw": 0, "packed": 0, "missing": 0}
     if not refs:
         return {
@@ -1013,9 +1130,11 @@ def history(refs: list[str]) -> dict[str, Any]:
             "largest_blobs": [],
             "lfs_history": [],
             "historical_sample_references": [],
+            "historical_sample_summary": {},
+            "lfs_history_summary": {},
             "retired_paths": [],
         }
-    pages_refs = [r for r in refs if "gh-pages" in r]
+    pages_refs = [r for r in refs if PAGES_REF.search(r)]
     code_refs = [r for r in refs if r not in pages_refs]
     current_pages = [r for r in pages_refs if r.endswith("/origin/gh-pages")]
     code = _objects(code_refs)
@@ -1030,10 +1149,12 @@ def history(refs: list[str]) -> dict[str, Any]:
     total = dict(empty)
     largest = []
     small_blobs: dict[str, str] = {}
-    sample_blobs: dict[str, str] = {}
+    large_blobs: dict[str, tuple[int, str]] = {}
     manifest_blobs: dict[str, str] = {}
     retired: dict[str, dict[str, int]] = defaultdict(lambda: {"blobs": 0, "raw": 0, "packed": 0})
     for oid, path in names.items():
+        if oid in code and is_audit_path(path):
+            continue
         meta = info.get(oid)
         if oid in code:
             group = group_of(path, HISTORY_ORDER)
@@ -1057,9 +1178,9 @@ def history(refs: list[str]) -> dict[str, Any]:
         if oid in code:
             if raw < 1024:
                 small_blobs[oid] = path
-            if key == "samples.shot.representations":
-                sample_blobs[oid] = path
-            if re.fullmatch(r"vaft/data/samples/\d{5}/manifest\.yaml", path):
+            else:
+                large_blobs[oid] = (raw, path)
+            if SAMPLE_MANIFEST.fullmatch(path):
                 manifest_blobs[oid] = path
             if key == "history.retired_layouts":
                 bucket = retired[path]
@@ -1075,22 +1196,24 @@ def history(refs: list[str]) -> dict[str, Any]:
         if pointer is None:
             continue
         digest = pointer["oid"].removeprefix("sha256:")
-        local = (lfs_store / digest[:2] / digest[2:4] / digest).is_file()
+        first = _first_commit(oid, code_refs)
         lfs_history.append(
             {
                 "path": small_blobs[oid],
                 "object_sha256": digest,
                 "bytes": pointer["size"],
-                "first_commit": _first_commit(oid, code_refs),
-                "object_in_local_store": local,
+                "first_commit": first,
+                "in_measured_trees": digest in current_lfs,
+                "object_in_local_store": (lfs_store / digest[:2] / digest[2:4] / digest).is_file(),
             }
         )
+    lfs_history.sort(key=lambda r: (r["first_commit"].split(" ")[-1], r["path"]))
 
-    # Every sample reference_id ever registered, and whether its bytes survive in history.
-    present = {
-        content_sha256(data) for _, data in read_blobs(sample_blobs) if data is not None
-    }
+    # Every sample reference_id ever registered (repository and wheel manifests), and
+    # where in history the bytes each one recorded can still be found.
     references: dict[str, dict[str, Any]] = {}
+    sizes: set[int] = set()
+    unsized = False
     for oid, data in read_blobs(manifest_blobs):
         if data is None:
             continue
@@ -1103,16 +1226,52 @@ def history(refs: list[str]) -> dict[str, Any]:
             continue
         entry = references.setdefault(
             reference_id,
-            {"reference_id": reference_id, "shot": manifest.get("shot"), "representations": {}},
+            {
+                "reference_id": reference_id,
+                "shot": manifest.get("shot"),
+                "manifest_paths": set(),
+                "representations": {},
+            },
         )
+        entry["manifest_paths"].add(manifest_blobs[oid])
         for name, record in (manifest.get("representations") or {}).items():
-            sha = record.get("sha256") if isinstance(record, dict) else None
-            if sha:
-                entry["representations"][f"{name}:{sha}"] = {
-                    "name": name,
-                    "sha256": sha,
-                    "bytes_in_history": sha in present,
-                }
+            if not isinstance(record, dict) or not record.get("sha256"):
+                continue
+            entry["representations"][f"{name}:{record['sha256']}"] = {"name": name, "sha256": record["sha256"]}
+            if isinstance(record.get("size"), int):
+                sizes.add(record["size"])
+            else:
+                unsized = True
+    # Hash only blobs that could be a recorded representation: matching size, or
+    # (when a manifest omits the size) any large blob under a data path.
+    candidates = {
+        oid: path
+        for oid, (raw, path) in large_blobs.items()
+        if raw in sizes or (unsized and raw >= 1_000_000 and path.startswith(("vaft/data/", "packaging/")))
+    }
+    found: dict[str, set[str]] = defaultdict(set)
+    for oid, data in read_blobs(candidates):
+        if data is not None:
+            found[content_sha256(data)].add(candidates[oid])
+    sample_refs = []
+    for entry in sorted(references.values(), key=lambda e: e["reference_id"]):
+        reps = sorted(entry["representations"].values(), key=lambda r: (r["name"], r["sha256"]))
+        for rep in reps:
+            rep["found_at"] = sorted(found.get(rep["sha256"], ()))
+            rep["bytes_in_history"] = bool(rep["found_at"])
+        sample_refs.append(
+            {
+                "reference_id": entry["reference_id"],
+                "shot": entry["shot"],
+                "manifest_paths": sorted(entry["manifest_paths"]),
+                "representations": reps,
+            }
+        )
+    distinct = {rep["sha256"] for ref in sample_refs for rep in ref["representations"]}
+    present = {sha for sha in distinct if found.get(sha)}
+    names_per_id = [
+        ref for ref in sample_refs if len(ref["representations"]) > len({r["name"] for r in ref["representations"]})
+    ]
 
     largest.sort(reverse=True)
     return {
@@ -1123,14 +1282,22 @@ def history(refs: list[str]) -> dict[str, Any]:
         "largest_blobs": [
             {"path": p, "raw_bytes": r, "packed_bytes": d} for d, r, p in largest[:40]
         ],
-        "lfs_history": sorted(lfs_history, key=lambda r: (r["path"], r["first_commit"])),
-        "historical_sample_references": [
-            {**{k: v for k, v in entry.items() if k != "representations"},
-             "representations": sorted(entry["representations"].values(), key=lambda r: (r["name"], r["sha256"]))}
-            for entry in sorted(references.values(), key=lambda e: e["reference_id"])
-        ],
+        "lfs_history": lfs_history,
+        "lfs_history_summary": {
+            "objects": len(lfs_history),
+            "bytes": sum(r["bytes"] for r in lfs_history),
+            "objects_not_in_measured_trees": sum(not r["in_measured_trees"] for r in lfs_history),
+            "bytes_not_in_measured_trees": sum(r["bytes"] for r in lfs_history if not r["in_measured_trees"]),
+        },
+        "historical_sample_references": sample_refs,
+        "historical_sample_summary": {
+            "reference_ids": len(sample_refs),
+            "distinct_representation_sha256": len(distinct),
+            "distinct_sha256_in_history": len(present),
+            "reference_ids_reused_for_changed_bytes": [ref["reference_id"] for ref in names_per_id],
+        },
         "retired_paths": [
-            {"path": path, **sizes} for path, sizes in sorted(retired.items())
+            {"path": path, **sizes_} for path, sizes_ in sorted(retired.items())
         ],
     }
 
@@ -1166,7 +1333,7 @@ def github_size(repo: str = "VEST-Tokamak/vaft") -> dict[str, Any]:
 def measure(refs: list[str], *, network: bool) -> dict[str, Any]:
     trees = {}
     for ref in refs:
-        files = tree_files(ref, include_audit=True)
+        files = tree_files(ref)
         per_group: dict[str, dict[str, int]] = defaultdict(lambda: {"files": 0, "bytes": 0})
         for f in files:
             group = group_of(f.path, TREE_GROUPS)
@@ -1209,7 +1376,15 @@ def measure(refs: list[str], *, network: bool) -> dict[str, Any]:
         },
         "limitations": list(LIMITATIONS),
         "trees": trees,
-        "history": {"scope": "clone (origin branches + tags)", **history(scope)},
+        "history": {
+            "scope": "clone (origin branches + tags)",
+            **history(
+                scope,
+                frozenset(
+                    p["oid"].removeprefix("sha256:") for t in trees.values() for p in t["lfs_pointers"]
+                ),
+            ),
+        },
         "local_pack_kib": int(
             dict(
                 line.split(": ", 1)
