@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 387
+  "unverified": 389
  },
  "entry_modules": {
   "pipeline1": [
@@ -4602,6 +4602,39 @@
    "source_file": "vaft/formula/statistics.py"
   },
   {
+   "algorithm_semantics": "calls numpy.gradient (not curated)",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "numpy.gradient",
+     "snippet": "np.gradient(ys, xs)"
+    }
+   ],
+   "callers": [
+    "vaft.formula.utils.fit_eped_tanh"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.formula.utils._eped_steepest_seed",
+   "operation": [
+    "differentiation"
+   ],
+   "owning_layer": "formula",
+   "primitives": [
+    "numpy.gradient"
+   ],
+   "production_reachability": "pipeline2",
+   "production_reachability_note": "",
+   "recommended_action": "triage in the owning B3/C slice",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/formula/utils.py"
+  },
+  {
    "algorithm_semantics": "calls numpy.gradient, numpy.polyfit (not curated)",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -4641,6 +4674,40 @@
    "source_file": "vaft/formula/utils.py"
   },
   {
+   "algorithm_semantics": "calls scipy.optimize.curve_fit (not curated)",
+   "assets": [],
+   "audit_scope": "preprocessing",
+   "call_sites": [
+    {
+     "call": "scipy.optimize.curve_fit",
+     "snippet": "curve_fit(_eped_tanh_model, x, y, **kwargs)"
+    }
+   ],
+   "callers": [
+    "vaft.formula.utils.fit_profile",
+    "vaft.process._pedestal.characterize_pedestal"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.formula.utils.fit_eped_tanh",
+   "operation": [
+    "curve_fit"
+   ],
+   "owning_layer": "formula",
+   "primitives": [
+    "scipy.optimize.curve_fit"
+   ],
+   "production_reachability": "pipeline2",
+   "production_reachability_note": "",
+   "recommended_action": "triage in the owning B3/C slice",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/formula/utils.py"
+  },
+  {
    "algorithm_semantics": "curve_fit(absolute_sigma=True) of string-dispatched profile models; parametric modes return zero y_std (no propagated profile uncertainty).",
    "assets": [],
    "audit_scope": "preprocessing",
@@ -4652,14 +4719,6 @@
     {
      "call": "scipy.optimize.curve_fit",
      "snippet": "curve_fit(_core_poly_edge_exp_model, x.ravel(), y, sigma=y_std, absolute_sigma=True, p0=p0, maxfev=20000)"
-    },
-    {
-     "call": "scipy.optimize.curve_fit",
-     "snippet": "curve_fit(_eped_tanh_model, x.ravel(), y, **kwargs)"
-    },
-    {
-     "call": "scipy.optimize.curve_fit",
-     "snippet": "curve_fit(_eped_tanh_model, x.ravel(), y, sigma=y_std, absolute_sigma=True, **kwargs)"
     },
     {
      "call": "scipy.optimize.curve_fit",
@@ -4675,7 +4734,7 @@
     "vaft.formula.utils.fit_profile",
     "vaft.process.profile._fit_charge_exchange",
     "vaft.process.profile._fit_thomson",
-    "vaft.process.profile.pedestal_top"
+    "vaft.process.profile._pedestal_top_legacy"
    ],
    "classification": "canonical",
    "configuration_source": "caller arguments / module literals (not curated)",

@@ -21,23 +21,30 @@ from types import SimpleNamespace
 
 _log = logging.getLogger(__name__)
 
-# Environment variables honoured when locating OFT. The first two are read by
-# OpenFUSIONToolkit itself to find the compiled ``liboftpy`` library; the last
-# is the convention used by the upstream tutorials, pointing at an OFT release
-# (or source) root whose ``python``/``src/python`` directory is importable.
-OFT_LIBRARY_DIR_ENV = "OFT_LIBRARY_DIR"
-OFT_INSTALL_DIR_ENV = "OFT_INSTALL_DIR"
+# The upstream wheel (``pip install 'vaft[tokamaker]'``) needs no environment at
+# all: the package loads the ``liboftpy`` bundled next to it.  For a source
+# build, ``$OFT_ROOTPATH`` names its install root (``make install`` prefix,
+# holding ``python/`` and ``bin/``), the convention of the upstream tutorials;
+# the package directory is then added to sys.path and finds ``../../bin`` itself.
 OFT_ROOTPATH_ENV = "OFT_ROOTPATH"
+
+#: The oldest OFT release VAFT supports (``pip install 'openfusiontoolkit>=26.9'``).
+#: Releases before it rebuild F(psi) wrongly for F0 < 0 in the F*F' profile mode
+#: TokaMaker uses (OFT issue #321, fixed in #322 on 2026-07-30 and first released
+#: in 26.9): the equilibrium is right, but FPOL, q and B_T are not.
+MIN_OFT_VERSION = (26, 9)
+
+#: Set to ``1`` to run a negative-F0 case on an OFT that does not report a
+#: version (an uninstalled source tree) after checking it contains upstream #322.
+ALLOW_UNVERSIONED_OFT_ENV = "VAFT_TOKAMAKER_ALLOW_UNVERSIONED_OFT"
 
 _MISSING_OFT_MESSAGE = (
     "OpenFUSIONToolkit (TokaMaker) is not importable in this environment. "
-    "Install the Python package from a compiled Open FUSION Toolkit checkout "
-    "or release, e.g. `pip install -e <OFT_ROOT>/src/python`. If the import "
-    "fails because the compiled library cannot be located, point "
-    f"${OFT_LIBRARY_DIR_ENV} (directory containing liboftpy) or "
-    f"${OFT_INSTALL_DIR_ENV} (install root containing bin/liboftpy) at a "
-    f"built toolkit. Alternatively set ${OFT_ROOTPATH_ENV} to an OFT release "
-    "root and the package directory is added to sys.path automatically."
+    "Install the upstream release: `pip install 'vaft[tokamaker]'` (the "
+    "`openfusiontoolkit>=26.9` wheel, which bundles its compiled libraries). "
+    f"To use a source build instead, set ${OFT_ROOTPATH_ENV} to its install "
+    "root (the directory holding python/ and bin/) and the package directory "
+    "is added to sys.path automatically."
 )
 
 
@@ -104,3 +111,77 @@ def get_oft_env(nthreads: int = 2):
             )
         return instance
     return oft.OFT_env(nthreads=nthreads)
+
+
+def setup_model(mygs, pts, lc, reg, *, cond_dict=None, coil_dict=None, order: int = 2, F0: float = 0.0) -> None:
+    """Mesh, regions and FE space in one call, for the OFT version installed.
+
+    OFT ``main`` after v26.9 (upstream #350, 2026-11-09; in no release yet)
+    added ``TokaMaker.setup_model`` and deprecated the ``setup_mesh`` /
+    ``setup_regions`` / ``setup`` sequence (it warns and will remove it).
+    Releases up to v26.9 only have the sequence.  Either way
+    ``mygs.settings`` must already hold the run settings: ``setup_model``
+    applies them during the FE setup, as ``setup`` did.  ``setup_regions`` is
+    called on the old path only when region dictionaries are given, which is
+    what the fixed-boundary bridge relied on.
+    """
+    if hasattr(mygs, "setup_model"):
+        mygs.setup_model(r=pts, lc=lc, reg=reg, cond_dict=cond_dict, coil_dict=coil_dict, order=order, F0=F0)
+        return
+    mygs.setup_mesh(pts, lc, reg)
+    if cond_dict is not None or coil_dict is not None:
+        mygs.setup_regions(cond_dict=cond_dict if cond_dict is not None else {},
+                           coil_dict=coil_dict if coil_dict is not None else {})
+    mygs.setup(order=order, F0=F0)
+
+
+def oft_version() -> tuple[int, int] | None:
+    """``(major, minor)`` of the importable OpenFUSIONToolkit, or ``None`` if it reports none.
+
+    Read from ``OpenFUSIONToolkit.__version__``.  A wheel or an installed
+    (``make install``) build carries e.g. ``"26.9"``, or ``"26.9.dev412"`` for a
+    development build of ``main``.  Only the release numbers are kept, so a
+    development build of 26.9 -- the version was set after #322 merged --
+    counts as 26.9.  An uninstalled source tree carries the unconfigured
+    ``"@CMAKE_PROJECT_VERSION@..."`` placeholder, and an old fork none at all:
+    both give ``None``.
+    """
+    import re
+
+    root = importlib.import_module("OpenFUSIONToolkit")
+    match = re.match(r"^\s*(\d+)\.(\d+)", str(getattr(root, "__version__", "")))
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
+def require_negative_f0_support(f0: float | None) -> None:
+    """Refuse a F0 < 0 solve on an OFT that writes the wrong F(psi), q and B_T for it.
+
+    A positive (or unset) F0 is unaffected by OFT issue #321 and always passes.
+    For F0 < 0 the OFT version must be at least :data:`MIN_OFT_VERSION`.  An
+    OFT that reports no version passes only when
+    ``$VAFT_TOKAMAKER_ALLOW_UNVERSIONED_OFT=1`` says the caller checked it.
+
+    Raises
+    ------
+    RuntimeError
+        F0 < 0 on an OFT older than 26.9, or on an unversioned one without the
+        override.
+    """
+    if f0 is None or not f0 < 0.0:
+        return
+    version = oft_version()
+    if version is not None and version >= MIN_OFT_VERSION:
+        return
+    if version is None and os.environ.get(ALLOW_UNVERSIONED_OFT_ENV, "").strip() == "1":
+        _log.warning("F0 < 0 on an OpenFUSIONToolkit that reports no version, allowed by $%s",
+                     ALLOW_UNVERSIONED_OFT_ENV)
+        return
+    found = "no version" if version is None else "version %d.%d" % version
+    raise RuntimeError(
+        f"F0 = {f0:.6g} < 0 (B_T < 0) needs OpenFUSIONToolkit >= {MIN_OFT_VERSION[0]}.{MIN_OFT_VERSION[1]}, "
+        f"found {found}. Older TokaMaker rebuilds F(psi) as a reflection about F0 instead of with its "
+        "sign (OFT issue #321, fixed in #322), so the written FPOL, q and B_T would be wrong although the "
+        "solve converges. Install `pip install 'openfusiontoolkit>=26.9'`"
+        + (f", or set ${ALLOW_UNVERSIONED_OFT_ENV}=1 if this source build contains upstream #322."
+           if version is None else ".")
+    )

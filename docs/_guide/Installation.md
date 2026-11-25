@@ -45,7 +45,7 @@ The project defines fifteen extras (thirteen optional-dependency groups, the emp
 | --- | --- | --- |
 | `sklearn` | scikit-learn | `fit_profile(fitting_function='gp_sklearn')`; the default `'gp'` mode runs on SciPy alone |
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
-| `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
+| `tokamaker` | openfusiontoolkit >= 26.9 | `vaft.code.tokamaker`, the one external code VAFT drives in-process; 26.9 is the first release with correct F, q and B_T for B_T < 0 |
 | `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
 | `tracking` | mlflow | explicitly selected local SQLite experiment indexing; JSON and immutable model artifacts remain canonical |
 | `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView |
@@ -166,11 +166,12 @@ Open FUSION Toolkit, publishes wheels, so pip can express it — and it stays an
 the wheel carries compiled libraries and every other workflow works without it:
 
 ```bash
-pip install 'vaft[tokamaker]'     # or: pip install openfusiontoolkit
+pip install 'vaft[tokamaker]'     # or: pip install 'openfusiontoolkit>=26.9'
 ```
 
 Nothing needs to be exported afterwards. `vaft.code.tokamaker` raises an actionable `ImportError` when
-the toolkit is absent, and `OFT_ROOTPATH` is only for pointing at a source build instead of the wheel.
+the toolkit is absent, and `OFT_ROOTPATH` is only for pointing at a source build (its `make install`
+prefix) instead of the wheel.
 
 EFIT is licensed software that VAFT neither bundles nor fetches: obtain authorized access to the
 source through the EFIT-AI channel and agree to its users agreement first, then build it from your
