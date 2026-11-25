@@ -1404,6 +1404,30 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
         ts['global_quantities.energy_mhd'] = thermal_energy_from_p_V(trapz_compat(pressure_equil, x=volume_equil), 1.0)
 
 
+def _volume_average_rho_tor_norm(ods, equil_idx, eq_profiles_1d):
+    """The slice's rho_tor_norm on its profiles_1d grid, or None.
+
+    The stored leaf when it is authentic (unchanged behaviour); the q-derived
+    radius of :func:`vaft.process.profile.equilibrium_rho_tor_norm_table` when
+    the leaf is missing or the sqrt(psi_N) stand-in (issue #2270).
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+    from vaft.process.profile import CoordinateUnavailableError, equilibrium_rho_tor_norm_table
+
+    stored = (
+        np.asarray(eq_profiles_1d['rho_tor_norm'], float)
+        if 'rho_tor_norm' in eq_profiles_1d else None
+    )
+    try:
+        own_psi_norm, resolved = equilibrium_rho_tor_norm_table(ods, equil_idx)
+    except CoordinateUnavailableError:
+        # Nothing to check against or derive from: the stored leaf, as before.
+        return stored
+    if stored is not None and stored.size == own_psi_norm.size and not is_rho_pol_proxy(stored, own_psi_norm):
+        return stored
+    return np.asarray(resolved, float)
+
+
 def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
     """
     Update core_profiles global quantities with volume-averaged n_e, T_e, and ion n_i, T_i.
@@ -1432,8 +1456,10 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
         elif 'core_profiles.time' in ods and idx < len(ods['core_profiles.time']):
             core_times.append(float(ods['core_profiles.time'][idx]))
         else:
-            print(f"Warning: time not found for core_profiles.profiles_1d[{idx}], using index as time")
-            core_times.append(float(idx))
+            # Never the index as seconds: a slice without a time matches
+            # nothing (issue #2270).
+            print(f"Warning: time not found for core_profiles.profiles_1d[{idx}], skipping it")
+            core_times.append(np.nan)
     
     equil_times = []
     for idx in range(n_equil_slices):
@@ -1443,8 +1469,10 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
         elif 'equilibrium.time' in ods and idx < len(ods['equilibrium.time']):
             equil_times.append(float(ods['equilibrium.time'][idx]))
         else:
-            print(f"Warning: time not found for equilibrium.time_slice[{idx}], using index as time")
-            equil_times.append(float(idx))
+            # Never the index as seconds: a slice without a time matches
+            # nothing (issue #2270).
+            print(f"Warning: time not found for equilibrium.time_slice[{idx}], skipping it")
+            equil_times.append(np.nan)
     
     core_times = np.asarray(core_times)
     equil_times = np.asarray(equil_times)
@@ -1465,9 +1493,17 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
     # Step 1 & 2: Process each core profile time slice
     for cp_idx in core_indices:
         cp_time = core_times[cp_idx]
-        
-        # Find closest equilibrium time
-        equil_idx = np.argmin(np.abs(equil_times - cp_time))
+
+        # Find closest equilibrium time; an untimed slice on either side matches nothing.
+        distance = np.abs(equil_times - cp_time)
+        if not np.any(np.isfinite(distance)):
+            n_e_vol_list.append(np.nan)
+            T_e_vol_list.append(np.nan)
+            for ion_idx in ion_vol_dict.keys():
+                ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                ion_vol_dict[ion_idx]['T_i'].append(np.nan)
+            continue
+        equil_idx = int(np.nanargmin(distance))
         time_diff = abs(equil_times[equil_idx] - cp_time)
         
         if time_diff > 0.1:  # Warn if time difference is large (> 100ms)
@@ -1506,17 +1542,21 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                     ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                 continue
         
-        # Get equilibrium rho_tor_norm and psi_norm for coordinate mapping
-        if 'rho_tor_norm' not in eq_profiles_1d:
-            print(f"Warning: rho_tor_norm missing in equilibrium.profiles_1d for time_slice[{equil_idx}], skipping")
+        # Get equilibrium rho_tor_norm and psi_norm for coordinate mapping.
+        # A stored sqrt(psi_N) stand-in is rho_pol, not rho_tor: it is replaced
+        # by the slice's own q-derived radius, as core_profiles builds its grid
+        # (issue #2270).  An authentic stored radius is used as before.
+        rho_tor_norm_eq = _volume_average_rho_tor_norm(ods, equil_idx, eq_profiles_1d)
+        if rho_tor_norm_eq is None:
+            print(f"Warning: no usable rho_tor_norm in equilibrium.profiles_1d for time_slice[{equil_idx}] "
+                  "(missing, or the sqrt(psi_N) stand-in with no q to derive one), skipping")
             n_e_vol_list.append(np.nan)
             T_e_vol_list.append(np.nan)
             for ion_idx in ion_vol_dict.keys():
                 ion_vol_dict[ion_idx]['n_i'].append(np.nan)
                 ion_vol_dict[ion_idx]['T_i'].append(np.nan)
             continue
-        
-        rho_tor_norm_eq = np.asarray(eq_profiles_1d['rho_tor_norm'], float)
+
         psi_norm_eq = np.asarray(eq_profiles_1d['psi_norm'], float)
         
         # Ensure monotonicity for equilibrium rho_tor_norm and psi_norm mapping

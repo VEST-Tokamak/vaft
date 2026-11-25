@@ -483,7 +483,6 @@
     "vaft.machine_mapping.soft_x_rays.vfit_soft_x_rays_dynamic",
     "vaft.plot.soft_x_rays.plot_soft_x_ray_pattern",
     "vaft.plot.soft_x_rays.plot_soft_x_ray_signal",
-    "vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram",
     "vaft.process.soft_x_rays.sxr_band_signals",
     "vaft.process.soft_x_rays.sxr_electron_temperature"
    ],

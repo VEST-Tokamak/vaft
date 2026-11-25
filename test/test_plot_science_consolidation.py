@@ -117,7 +117,19 @@ def test_the_core_profile_field_is_bit_identical_to_the_pre_move_view(sample, qu
     drawn = np.asarray(extract(ods, time_slice=slice_index).values)
     expected = _frozen_core_field(ods, slice_index, 0, quantity)
     assert np.isfinite(drawn).any()
-    np.testing.assert_array_equal(drawn, expected)
+    # P4 (#2270) adds one deliberate correction: cells outside the boundary
+    # outline (where psi_N turns back below one near the coils) are blank.
+    from vaft.process.equilibrium import closed_flux_region
+
+    ts = f"equilibrium.time_slice.{slice_index}"
+    r = np.asarray(ods[f"{ts}.profiles_2d.0.grid.dim1"], dtype=float)
+    z = np.asarray(ods[f"{ts}.profiles_2d.0.grid.dim2"], dtype=float)
+    psi = np.asarray(ods[f"{ts}.profiles_2d.0.psi"], dtype=float)
+    axis = float(ods[f"{ts}.global_quantities.psi_axis"])
+    edge = float(ods[f"{ts}.global_quantities.psi_boundary"])
+    inside = closed_flux_region(r, z, (psi - axis) / (edge - axis),
+                                ods[f"{ts}.boundary.outline.r"], ods[f"{ts}.boundary.outline.z"]).T
+    np.testing.assert_array_equal(drawn, np.where(inside, expected, np.nan))
 
 
 def test_psi_to_rz_with_edge_fill_is_the_old_flux_function_projection(sample):

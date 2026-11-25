@@ -9,7 +9,6 @@ from vaft.plot.soft_x_rays import (
     plot_soft_x_ray_los,
     plot_soft_x_ray_pattern,
     plot_soft_x_ray_signal,
-    plot_soft_x_ray_spectrogram,
 )
 
 
@@ -39,10 +38,6 @@ def test_soft_x_ray_plot_helpers_return_figures(tmp_path):
 
     fig, ax = plot_soft_x_ray_signal(ods, channels=[0, 1], show=False)
     assert len(ax.lines) == 2
-    plt.close(fig)
-
-    fig, ax = plot_soft_x_ray_spectrogram(ods, channel=0, nperseg=128, max_frequency=400.0, show=False)
-    assert ax.collections
     plt.close(fig)
 
     fig, ax = plot_soft_x_ray_pattern(ods, channels=[0, 1], show=False)

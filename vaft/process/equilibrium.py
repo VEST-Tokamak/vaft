@@ -167,6 +167,7 @@ __all__ = [
     "psi_to_radial",
     "psi_to_rho",
     "psi_to_rz",
+    "closed_flux_region",
     "r_at_z_extremum",
     "radial_to_psi",
     "rho_to_psi",
@@ -479,6 +480,87 @@ def psi_to_rz(
     # Outside LCFS → 0
     f_RZ = np.where((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0), f_interp, 0.0)
     return f_RZ, psiN_RZ
+
+
+def closed_flux_region(
+    r: np.ndarray,
+    z: np.ndarray,
+    psi_norm: np.ndarray,
+    boundary_r: np.ndarray | None = None,
+    boundary_z: np.ndarray | None = None,
+) -> np.ndarray:
+    """Grid cells inside the last closed flux surface.
+
+    Parameters
+    ----------
+    r, z : array_like
+        The grid's major radius and height axes [m].
+    psi_norm : array_like
+        Normalized poloidal flux on the grid, indexed ``(R, Z)``, shape
+        ``(r.size, z.size)`` [-].
+    boundary_r, boundary_z : array_like, optional
+        The last closed surface's outline (``boundary.outline``) [m].
+
+    Returns
+    -------
+    np.ndarray
+        Boolean mask indexed ``(R, Z)``, true for a cell inside the plasma [-].
+
+    Raises
+    ------
+    ValueError
+        ``psi_norm`` is not of shape ``(r.size, z.size)``, or the outline's two
+        coordinates differ in length.
+
+    Convention
+    ----------
+    A cell is inside when ``psi_norm <= 1`` *and*, given an outline of at
+    least three points, it lies within that outline.  ``psi_norm <= 1`` alone
+    also admits the private-flux region below an X-point and any exterior
+    region where the flux turns back below one near the coils; the outline
+    excludes both.  A hair of tolerance either way keeps cells lying on the
+    outline itself.  Non-finite flux is outside.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Without an outline only the flux threshold is applied, with the
+    over-inclusion described above.  A coarse outline can drop an edge cell
+    whose flux is just below one.
+
+    Provenance
+    ----------
+    .. [2270] VAFT issue #2270: the containment rule of
+       ``project_flux_function``, shared with the 2-D plot maps that used to
+       paint the private-flux region.
+    """
+    r = np.asarray(r, dtype=float).ravel()
+    z = np.asarray(z, dtype=float).ravel()
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    if psi_norm.shape != (r.size, z.size):
+        raise ValueError(
+            f"psi_norm has shape {psi_norm.shape}; expected (r.size, z.size) = {(r.size, z.size)}"
+        )
+    inside = np.isfinite(psi_norm) & (psi_norm <= 1.0)
+    if boundary_r is None or boundary_z is None:
+        return inside
+    outline_r = np.asarray(boundary_r, dtype=float).ravel()
+    outline_z = np.asarray(boundary_z, dtype=float).ravel()
+    if outline_r.size != outline_z.size:
+        raise ValueError("boundary_r and boundary_z must have the same length")
+    keep = np.isfinite(outline_r) & np.isfinite(outline_z)
+    if np.count_nonzero(keep) < 3:
+        return inside
+    from matplotlib.path import Path
+
+    rr, zz = np.meshgrid(r, z, indexing="ij")
+    points = np.column_stack([rr.ravel(), zz.ravel()])
+    outline = Path(np.column_stack([outline_r[keep], outline_z[keep]]))
+    contained = outline.contains_points(points, radius=1e-9) | outline.contains_points(points, radius=-1e-9)
+    return inside & contained.reshape(psi_norm.shape)
 
 
 def calculate_reconstructed_diamagnetic_flux(

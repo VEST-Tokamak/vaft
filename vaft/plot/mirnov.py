@@ -16,7 +16,6 @@ from vaft.machine_mapping.magnetics import (
 from vaft.process.signal_processing import resample_to_time
 from vaft.process.magnetics import (
     mirnov_preprocess_signal,
-    mirnov_spectrogram as compute_mirnov_spectrogram,
     toroidal_phase_fit_at_time,
     toroidal_mode_analysis,
 )
@@ -118,11 +117,14 @@ def _time_mask(time: np.ndarray, time_range: tuple[float, float] | None) -> np.n
 
 
 def _sample_rate_from_time(time: np.ndarray) -> float:
-    if time.size < 2:
-        return 250_000.0
-    dt = float(np.nanmedian(np.diff(time)))
+    # No guessed rate: a 250 kHz fallback used to put a record without a usable
+    # time base on a made-up frequency axis (issue #2270).  Pass sample_rate=.
+    dt = float(np.nanmedian(np.diff(time))) if time.size >= 2 else float("nan")
     if not np.isfinite(dt) or dt <= 0:
-        return 250_000.0
+        raise ValueError(
+            "cannot infer a sample rate from this Mirnov time base (fewer than two "
+            "samples, or not increasing); pass sample_rate="
+        )
     return 1.0 / dt
 
 
@@ -201,64 +203,6 @@ def mirnov_signal(
     fig.tight_layout()
     if show:
         plt.show()
-    return fig, ax
-
-
-def mirnov_spectrogram(
-    ods: Any,
-    channel: int | str = 0,
-    *,
-    probe_group: str = "b_field_pol_probe",
-    time_range: tuple[float, float] | None = None,
-    preprocess: bool = True,
-    gain: float | None = None,
-    sample_rate: float | None = None,
-    window_size: int = 500,
-    time_resolution: int = 1,
-    max_frequency: float | None = None,
-    cmap: str = "hot_r",
-    ax: Any | None = None,
-    show: bool = True,
-    return_result: bool = False,
-):
-    """Plot a MATLAB-compatible Mirnov spectrogram from ODS raw voltage data."""
-    index = _normalise_channels(ods, probe_group, channel)[0]
-    time, data = _voltage_time_signal(ods, probe_group, index)
-    mask = _time_mask(time, time_range)
-    time = time[mask]
-    data = data[mask]
-    fs = float(sample_rate) if sample_rate is not None else _sample_rate_from_time(time)
-    data = _maybe_preprocess(
-        time,
-        data,
-        preprocess=preprocess,
-        gain=float(gain) if gain is not None else _gain_for_channel(ods, None, index, probe_group),
-        sample_rate=fs,
-    )
-    result = compute_mirnov_spectrogram(
-        time,
-        data,
-        sample_rate=fs,
-        window_size=window_size,
-        time_resolution=time_resolution,
-    )
-
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(8.0, 4.0))
-    else:
-        fig = ax.figure
-    mesh = ax.pcolormesh(result.time * 1e3, result.frequency / 1e3, result.magnitude, shading="auto", cmap=cmap)
-    fig.colorbar(mesh, ax=ax, label="Magnitude")
-    if max_frequency is not None:
-        ax.set_ylim(0.0, float(max_frequency) / 1e3)
-    ax.set_xlabel("Time [ms]")
-    ax.set_ylabel("Frequency [kHz]")
-    ax.set_title(_channel_label(ods, probe_group, index))
-    fig.tight_layout()
-    if show:
-        plt.show()
-    if return_result:
-        return fig, ax, result
     return fig, ax
 
 

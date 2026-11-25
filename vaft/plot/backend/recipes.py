@@ -1380,6 +1380,8 @@ def _core_profile_field_reads(quantity: str) -> tuple[str, ...]:
         "equilibrium.time_slice.{i}.profiles_1d.psi",
         "equilibrium.time_slice.{i}.profiles_1d.q",
         "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+        "equilibrium.time_slice.{i}.boundary.outline.r",
+        "equilibrium.time_slice.{i}.boundary.outline.z",
         "core_profiles.time",
         "core_profiles.profiles_1d.{i}.time",
         f"core_profiles.profiles_1d.{{i}}.electrons.{quantity}",
@@ -2922,6 +2924,7 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
 
     radii, values = [], []
     axis = None
+    selected_time = None
     for index in _impa_probe_indices(ods, node):
         prefix = f"{node}.{index}"
         radius = _get(ods, f"{prefix}.position.r")
@@ -2930,7 +2933,13 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
             continue
         if axis is None:
             axis = _first_time(ods, (f"{prefix}.{quantity}.time", "magnetics.time"))
-        sample = 0 if axis is None or time is None else resolve_time_sample(axis, time)[0]
+        # No time= takes the middle sample, as every other time= plot does.
+        # It used to take sample 0, which in voltage mode is the offset sample
+        # itself: every plotted value was exactly 0 (issue #2270).
+        if axis is not None:
+            sample, selected_time, _ = resolve_time_sample(axis, time)
+        else:
+            sample = trace.size // 2
         if quantity == "voltage":
             # Hall probes sit on a large zero-field offset; remove it with the
             # same first-sample convention the processing uses so the shape
@@ -2954,11 +2963,10 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
         )
         model_r = np.linspace(max(r_array.min() * 0.8, 1e-3), r_array.max() * 1.2, 201)
         tf_current = _array(ods, "tf.coil.0.current.data")
-        if quantity == "field" and tf_current is not None:
-            tf_time = _first_time(ods, ("tf.time",))
-            sample = 0
-            if tf_time is not None and time is not None:
-                sample = resolve_time_sample(tf_time, time)[0]
+        tf_time = _first_time(ods, ("tf.time",))
+        if quantity == "field" and tf_current is not None and tf_time is not None and selected_time is not None:
+            # The model takes the TF current at the probes' own sample time.
+            sample = resolve_time_sample(tf_time, selected_time)[0]
             current = float(tf_current[min(sample, tf_current.size - 1)])
             series.append(
                 Series(
@@ -2989,7 +2997,8 @@ def _build_impa_tf_profile(ods: Any, *, time: float | None = None, **_: Any) -> 
         coordinate_label="R [m]",
         y_label=label,
         y_unit=unit,
-        title="IMPA radial profile against the toroidal-field model",
+        title="IMPA radial profile against the toroidal-field model"
+        + ("" if selected_time is None else f" at t = {selected_time * 1e3:.2f} ms"),
     )
 
 
@@ -4768,6 +4777,16 @@ def _build_core_profile_field(
         psi_rz, float(psi_axis), float(psi_boundary), rho, profile,
         flux_table=_rho_tor_of_psi_norm(ods, int(time_slice)),
     )
+    # psi_N <= 1 alone paints the private-flux region below an X-point; the
+    # slice's boundary outline excludes it (issue #2270).
+    from vaft.process.equilibrium import closed_flux_region
+
+    inside = closed_flux_region(
+        grid_r, grid_z, ((psi_rz - float(psi_axis)) / span).T,
+        _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.r"),
+        _array(ods, f"equilibrium.time_slice.{time_slice}.boundary.outline.z"),
+    ).T
+    values = np.where(inside, values, np.nan)
     labels = {
         "temperature": "Electron Temperature [eV]",
         "density": "Electron Density [m^-3]",
@@ -6323,10 +6342,13 @@ RECIPES["electron_density_field"] = CallableRecipe(
 def _nearest_time_index(
     reference: np.ndarray, target: float, tolerance: float
 ) -> int | None:
-    if reference.size == 0:
+    # A slice without a stored time is NaN and never matches (issue #2270);
+    # argmin would stop on the first NaN and hide every real match.
+    distance = np.abs(reference - target)
+    if not np.any(np.isfinite(distance)):
         return None
-    index = int(np.argmin(np.abs(reference - target)))
-    return index if np.abs(reference[index] - target) <= tolerance else None
+    index = int(np.nanargmin(distance))
+    return index if distance[index] <= tolerance else None
 
 
 def _build_power_balance(ods: Any, **_: Any) -> Panels:
@@ -6356,7 +6378,7 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
     eq_count = _count(ods, "equilibrium.time_slice")
     eq_times = np.asarray(
         [
-            float(_get(ods, f"equilibrium.time_slice.{i}.time", i))
+            float(_get(ods, f"equilibrium.time_slice.{i}.time", np.nan))
             for i in range(eq_count)
         ],
         dtype=float,
@@ -6400,7 +6422,7 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
     P_loss = np.asarray(power_balance.get("P_loss_total", P_rad + P_trans), dtype=float)
 
     P_line = np.asarray(
-        power_balance.get("P_rad_line", np.zeros_like(P_rad)), dtype=float
+        power_balance.get("P_rad_line", np.full_like(P_rad, np.nan)), dtype=float
     )
     P_Br = np.asarray(
         power_balance.get("P_Br", np.full_like(P_rad, np.nan)), dtype=float
@@ -6411,7 +6433,7 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
         if cp_count:
             cp_times = np.asarray(
                 [
-                    float(_get(ods, f"core_profiles.profiles_1d.{i}.time", i))
+                    float(_get(ods, f"core_profiles.profiles_1d.{i}.time", np.nan))
                     for i in range(cp_count)
                 ],
                 dtype=float,
@@ -6434,7 +6456,9 @@ def _build_power_balance(ods: Any, **_: Any) -> Panels:
     )
     if np.all(~np.isfinite(P_sync)):
         # No direct synchrotron model in this pipeline yet; use the residual.
-        P_sync = P_rad - P_line - np.nan_to_num(P_Br, nan=0.0)
+        # Where P_Br or P_line is unknown the residual is unknown too: counting
+        # a missing term as 0 used to hand it to "synchrotron" (issue #2270).
+        P_sync = P_rad - P_line - P_Br
 
     def _panel(traces: list[Series], title: str = "") -> LineSeries:
         return LineSeries(
@@ -10974,7 +10998,30 @@ def _mapped_field_values(ods: Any, recipe: FieldRecipe, spec: EquilibriumField, 
 
     psi_norm_1d = (psi_1d - axis) / (edge - axis)
     mapped, psi_norm_2d = psi_to_rz(psi_norm_1d, profile, psi_2d, axis, edge, fill_outside="edge")
-    return np.where(psi_norm_2d <= 1.0, mapped, np.nan)
+    return np.where(_closed_region_in_stored_order(ods, recipe, index, psi_norm_2d), mapped, np.nan)
+
+
+def _closed_region_in_stored_order(ods: Any, recipe: Any, index: int, psi_norm: np.ndarray) -> np.ndarray:
+    """``closed_flux_region`` for a flux map in its stored orientation.
+
+    ``psi_N <= 1`` alone paints the private-flux region below an X-point; the
+    slice's boundary outline excludes it (issue #2270).  Without a grid the
+    flux threshold is all there is.
+    """
+    from vaft.process.equilibrium import closed_flux_region
+
+    r = _array(ods, recipe.r_path.format(i=index))
+    z = _array(ods, recipe.z_path.format(i=index))
+    outline_r = _array(ods, f"equilibrium.time_slice.{index}.boundary.outline.r")
+    outline_z = _array(ods, f"equilibrium.time_slice.{index}.boundary.outline.z")
+    threshold = np.isfinite(psi_norm) & (psi_norm <= 1.0)
+    if r is None or z is None:
+        return threshold
+    if recipe.values_order == "rz" and psi_norm.shape == (r.size, z.size):
+        return closed_flux_region(r, z, psi_norm, outline_r, outline_z)
+    if psi_norm.shape == (z.size, r.size):
+        return closed_flux_region(r, z, psi_norm.T, outline_r, outline_z).T
+    return threshold
 
 
 def _derived_2d_for(ods: Any, index: int, field: EquilibriumField) -> Any:

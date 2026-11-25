@@ -1009,18 +1009,13 @@ def _inside_boundary(equilibrium, psi_n: np.ndarray) -> np.ndarray:
     # psi_n < 0 next to the axis is a stored psi_axis slightly shallower than the
     # grid's own extremum (a coarse or interpolated axis, a rescaled file).  It is
     # the plasma centre, not the outside, so only the boundary side is thresholded.
-    inside = np.isfinite(psi_n) & (psi_n <= 1.0)
     lcfs = getattr(equilibrium, "lcfs", None)
     if lcfs is None or np.asarray(lcfs.r).size < 3:
+        inside = np.isfinite(psi_n) & (psi_n <= 1.0)
         return inside & (psi_n >= -_AXIS_TOLERANCE)
-    from matplotlib.path import Path
+    from vaft.process.equilibrium import closed_flux_region
 
-    rr, zz = np.meshgrid(equilibrium.r, equilibrium.z, indexing="ij")
-    points = np.column_stack([rr.ravel(), zz.ravel()])
-    outline = Path(np.column_stack([lcfs.r, lcfs.z]))
-    # A hair of tolerance either way keeps grid points lying on the outline itself.
-    contained = outline.contains_points(points, radius=1e-9) | outline.contains_points(points, radius=-1e-9)
-    return inside & contained.reshape(psi_n.shape)
+    return closed_flux_region(equilibrium.r, equilibrium.z, psi_n, lcfs.r, lcfs.z)
 
 
 def project_flux_function(equilibrium, function: Callable, *, outside: str = "nan") -> np.ndarray:

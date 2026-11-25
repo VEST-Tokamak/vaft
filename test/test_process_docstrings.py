@@ -636,6 +636,7 @@ CONVENTION_SENSITIVE = frozenset({
     "prepare_boundary_for_shafranov",
     "psi_to_radial",
     "psi_to_rho",
+    "closed_flux_region",
     "psi_to_rz",
     "r_at_z_extremum",
     "radial_to_psi",
