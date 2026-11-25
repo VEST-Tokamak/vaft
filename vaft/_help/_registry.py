@@ -13,7 +13,17 @@ from __future__ import annotations
 
 from ._model import Topic
 
-__all__ = ["TOPICS", "topic"]
+__all__ = ["NAME", "REFERENCE_MACHINE", "TAGLINE", "TOPICS", "topic"]
+
+#: The canonical name, as in the README and the package metadata.
+NAME = "VAFT — Versatile Analysis Framework for Tokamak"
+#: The one-sentence description every entry point (help, CLI, MCP) opens with.
+TAGLINE = "A scientific framework for interoperable and reproducible tokamak research."
+#: Where device specifics live, stated without claiming more devices than are mapped.
+REFERENCE_MACHINE = (
+    "VEST is the reference implementation: its device mapping is vaft.machine_mapping, "
+    "and the VEST database and operations tools build on it."
+)
 
 _P = "vaft._help._providers"
 
@@ -22,7 +32,7 @@ TOPICS: dict[str, Topic] = {
     for t in (
         Topic(
             "overview",
-            "VAFT: VEST analysis toolkit. Pick a topic below with vaft.help('<topic>') or `vaft help <topic>`.",
+            f"{NAME}. {TAGLINE} Pick a topic below with vaft.help('<topic>') or `vaft help <topic>`.",
             provider=f"{_P}:overview",
             cli=("vaft help <topic>", "vaft setup", "vaft --help"),
             setup=("vaft.setup()  (auto: live notebook figures when ipympl is installed)",),

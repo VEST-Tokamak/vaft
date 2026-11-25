@@ -7,6 +7,8 @@ from importlib import import_module
 import sys
 from typing import Iterable
 
+from vaft._help._registry import NAME, TAGLINE
+
 
 _COMMANDS = {
     "filedb": (".filedb", "resolve and audit local FileDB layouts"),
@@ -32,16 +34,63 @@ _COMMANDS = {
 }
 
 
+#: How ``vaft --help`` and ``vaft help cli`` present the commands: general
+#: research tools first, VEST's own data and operations tools last.  Every
+#: command sits in exactly one group; the order within a group is display order.
+_GROUPS = (
+    ("Scientific analysis", ("plot", "compare-ods", "summary")),
+    ("Data access and interoperability", ("export", "filedb", "hsds", "cache")),
+    ("Research interfaces and environment", ("help", "setup", "mcp", "gui")),
+    (
+        "VEST infrastructure and operations",
+        (
+            "shotlog",
+            "raw-redump",
+            "raw-upgrade",
+            "raw-legacy-import",
+            "sxr-pack",
+            "vest-upstream",
+            "maintenance",
+            "pipeline-worker",
+            "corrective-worker",
+        ),
+    ),
+)
+
+
+def command_group(command: str) -> str:
+    """The ``_GROUPS`` title ``command`` is listed under."""
+    for title, names in _GROUPS:
+        if command in names:
+            return title
+    raise KeyError(f"unknown command {command!r}; choose from: {', '.join(_COMMANDS)}")
+
+
+def _command_listing() -> str:
+    width = max(map(len, _COMMANDS)) + 2
+    blocks = []
+    for title, names in _GROUPS:
+        rows = "\n".join(f"  {name:<{width}}{_COMMANDS[name][1]}" for name in names)
+        blocks.append(f"{title}:\n{rows}")
+    return "\n\n".join(blocks)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="python -m vaft.cli",
-        description="VAFT command-line workflows",
+        prog="vaft",
+        description=f"{NAME}\n{TAGLINE}",
+        epilog=(
+            _command_listing()
+            + "\n\nwhat VAFT can do: vaft help  |  a command's syntax: vaft <command> --help"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "command",
         nargs="?",
         choices=tuple(_COMMANDS),
-        help="workflow to run",
+        metavar="command",
+        help="one of the commands listed below",
     )
     return parser
 
@@ -87,4 +136,4 @@ def main(argv: Iterable[str] | None = None) -> int:
     return int(module.main(arguments))
 
 
-__all__ = ["main"]
+__all__ = ["command_group", "main"]
