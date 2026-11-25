@@ -59,7 +59,9 @@ def test_the_catalog_counts_the_known_public_surface():
         "constants": 0,
         # +gp_fit, the scipy Gaussian process; +a/L, the normalised
         # gradient scale length the tutorial's kinetic state reports: 12.
-        "utils": 12,
+        # +fit_eped_tanh (covariance-keeping EPED fit) and tanh_pedestal_geometry
+        # (Groebner top/foot/full width), #2335: 14.
+        "utils": 14,
         # The virial closures live in their own module: 110 = 77 + 33.
         # +the two IMAS extremity triangularities and the sub-vertex
         # extremum helper they share with vaft.process: 77 + 3 = 80.
@@ -76,7 +78,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # +neo-Alcator, Goldston L-mode and their quadrature: 101 + 3 = 104.
         # +confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
         # +the volume beta and its normalized form: 105 + 2 = 107.
-        "equilibrium": 115,  # +4 closed-form diamagnetic beta_p / W_dia, circular and elliptic, +li_1_from_Bp2_volume_integral, Strait's l_i(1), +volume-radius shear and Miller alpha, +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form, +estimated_q95, q_star_cylindrical, q_star_kink, +SFL toroidal shift nu, +miller_surface, vacuum_toroidal_field, +shafranov_shift, +generalized SFL angle, +GS source and J_phi(p', FF'), +flux freezing
+        "equilibrium": 118,  # +3 dRsep: separatrix_radial_separation, xpoint_flux_imbalance, its linearised flux form (#2325), +4 closed-form diamagnetic beta_p / W_dia, circular and elliptic, +li_1_from_Bp2_volume_integral, Strait's l_i(1), +volume-radius shear and Miller alpha, +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form, +estimated_q95, q_star_cylindrical, q_star_kink, +SFL toroidal shift nu, +miller_surface, vacuum_toroidal_field, +shafranov_shift, +generalized SFL angle, +GS source and J_phi(p', FF'), +flux freezing
         "virial": 33,
         "stability": 43,  # -power_limit_from_beta, -power_limit_from_q, not powers, +ggj_resistive_interchange_index_from_ideal, +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W, +s-alpha ballooning eigenmode and k_x(theta), +shear Alfven frequency, magnetosonic speeds, +kadomtsev_mixing_radius
         "green": 16,
@@ -105,7 +107,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "nbi": 6,  # beam rate, attenuation, birth density, shine-through, momentum rate
         "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime
         "ntv": 2,  # precession frequency and flux-torque relation
-        "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile, MARFE, blobs
+        "sol": 21,  # +2 dRsep/lambda_q and the illustrative exponential factor (#2325), sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile, MARFE, blobs
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold
         "boundaries": 16,  # +unit factor between two units of one quantity, operational-boundary data model: value, margin, window, curve, registry, +Hugill coordinates, +threshold line and quantity identity, +Freidberg kink coordinates, +Menard q*, ITER and START q95 estimates, +spherical-tokamak Hugill coordinates, +margin uncertainty

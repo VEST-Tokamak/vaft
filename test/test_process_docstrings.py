@@ -211,6 +211,8 @@ PIPELINE = frozenset({
     "synthetic_island_soft_x_rays",
     # profile (V4/D-05): window, fit, accept-or-fall-back
     "pedestal_top",
+    # profile (#2335): mask, multi-start fit, descriptors + covariance, qualify, status
+    "characterize_pedestal",
     # profile: grid -> shapes -> normalization -> closure -> residuals
     "generate_synthetic_kinetic_profiles",
     # magnetics / electromagnetics / fluctuation
@@ -396,6 +398,9 @@ CONVENTION_SENSITIVE = frozenset({
     "profile_ordering_quantities",
     # vacuum b0 r0/R0, r = rho_tor_norm a, cross-section means, beta_tor fraction
     "ordering_inputs_from_ods",
+    # dRsep = R_lower - R_upper at the axis height (DIII-D/EFIT sign), EFIT
+    # DRSEP in cm aligned only for SNT/SNB/DN
+    "separatrix_balance_series", "native_efit_d_r_sep",
     "trace_guiding_center", "particle_to_guiding_center", "analyze_particle_orbit",
     "mirror_particle_field", "toroidal_particle_field",
     # COCOS source profiles versus full-weber Green response orientation.
@@ -513,6 +518,9 @@ CONVENTION_SENSITIVE = frozenset({
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
+    # profile (#2335): Groebner full width, top = x_c - Delta/2, foot = x_c + Delta/2,
+    # positions in the declared coordinate with the LCFS at one
+    "characterize_pedestal",
     # profile: analytic plasma states are defined in psi_norm with
     # full-width barriers, and the projection relies on the COCOS-free ratio
     "analytic_hmode_itb_state",

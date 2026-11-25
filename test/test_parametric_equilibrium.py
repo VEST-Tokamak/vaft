@@ -470,9 +470,12 @@ def test_d_r_sep_uses_the_midplane_and_reports_asymmetry():
     unbalanced, primary, secondary = _unbalanced_double_null()
     assert unbalanced.topology.is_diverted
     assert unbalanced.d_r_sep.available
-    expected = np.sqrt(secondary) - np.sqrt(primary)  # R_out(psi) = 1 + sqrt(psi)
+    # R_out(psi) = 1 + sqrt(psi); dRsep = R_lower - R_upper (DIII-D/EFIT sign),
+    # and the lower X-point is the primary here, so a lower null is negative.
+    assert unbalanced.topology == Topology.LOWER_SINGLE_NULL
+    expected = np.sqrt(primary) - np.sqrt(secondary)
     assert unbalanced.d_r_sep.value == pytest.approx(expected, abs=2e-3)
-    assert abs(unbalanced.d_r_sep.value) > 1e-3
+    assert unbalanced.d_r_sep.value < -1e-3
 
 
 def _unbalanced_double_null():
