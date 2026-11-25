@@ -111,7 +111,9 @@ surrogate = ["onnxruntime"]
 # with no packaging and live behind install/. It stays optional all the same:
 # the wheel carries compiled libraries, and every other workflow works without
 # it. vaft.code.tokamaker raises an actionable ImportError when it is absent.
-tokamaker = ["openfusiontoolkit"]
+# >=26.9: older releases write wrong FPOL/q/B_T for B_T < 0 (OFT #321, fixed in #322),
+# and vaft.code.tokamaker refuses such a solve on them.
+tokamaker = ["openfusiontoolkit>=26.9"]
 # The framework backends of vaft.process.ml. Importing vaft.process.ml
 # needs none of it: the dataset, split, artifact and registry contract and the
 # "numpy" backend run on NumPy, and each framework is imported only when a

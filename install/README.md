@@ -1108,11 +1108,25 @@ Open source, but a **Python package rather than an executable under a
 `*HOME`**, so it arrives through pip and not through a script here.
 
 `vaft.code.tokamaker` imports `OpenFUSIONToolkit`, a ctypes shim over the
-compiled `liboftpy`. Install it from a release, or from a source tree you built:
+compiled `liboftpy`. Install the upstream release from PyPI; its wheels (macOS
+arm64/x86_64, Linux x86_64/aarch64) bundle the compiled libraries and the
+Fortran runtime, so nothing is built and no environment variable is needed:
 
 ```bash
-pip install -e <OFT_ROOT>/src/python
+pip install 'vaft[tokamaker]'          # = pip install 'openfusiontoolkit>=26.9'
 ```
+
+**26.9 is the minimum.** Earlier releases rebuild F(psi) as a reflection about
+F0 instead of with its sign whenever F0 < 0 (B_T < 0) in the F*F' profile mode
+TokaMaker uses (upstream issue #321, fixed in #322): the equilibrium converges,
+but the FPOL, q and B_T it writes are wrong. `vaft.code.tokamaker` refuses a
+F0 < 0 solve on such a version.
+
+To use your own build of the official repository instead, run its
+`make install` and point `OFT_ROOTPATH` at that install prefix (the directory
+holding `python/` and `bin/`). A source tree that was never installed reports no
+version; for F0 < 0 it then needs `VAFT_TOKAMAKER_ALLOW_UNVERSIONED_OFT=1`, set
+only after checking that it contains upstream #322.
 
 Every import is deferred, so `vaft.code.tokamaker` imports cleanly on a machine
 without it and reports the absence when you actually call something. There is no
