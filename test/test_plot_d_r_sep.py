@@ -374,3 +374,25 @@ def test_flux_map_overlay_warns_rather_than_fails_without_separatrices():
     with pytest.warns(UserWarning, match="d_r_sep overlay"):
         model = vaft_omas.extract_equilibrium_field_psi(ods, time_slice=0, overlay=["d_r_sep"])
     assert not any("separatrix" in layer.label for layer in model.overlays)
+
+
+def test_a_geometric_role_is_drawn_by_its_own_name(limited):
+    """A limited boundary's X-points are geometric only, never a diverted secondary."""
+    import dataclasses
+
+    from vaft.plot.equilibrium_section import separatrix_balance_layers
+    from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+    equilibrium = as_equilibrium(limited, time_index=0)
+    representation = derive_boundary_representation(equilibrium)
+    representation = dataclasses.replace(representation, x_points=tuple(
+        dataclasses.replace(point, role="geometric") if point.role else point
+        for point in representation.x_points))
+    layers = separatrix_balance_layers(representation, equilibrium)
+    labels = [layer.label for layer in layers]
+    assert "Lower X-point (geometric)" in labels and "Upper X-point (geometric)" in labels
+    assert not any("secondary" in label.lower() or "primary" in label.lower() for label in labels)
+    reference = next(label for label in labels if label.startswith("OMP reference"))
+    assert reference.endswith("(geometric only)")
+    colours = {layer.style["color"] for layer in layers if "X-point (" in layer.label}
+    assert colours == {"0.45"}

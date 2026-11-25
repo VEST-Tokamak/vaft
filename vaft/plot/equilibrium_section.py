@@ -29,7 +29,17 @@ __all__ = [
 _SEPARATRIX_STYLES = {
     "primary": {"color": "tab:red", "lw": 1.2, "ls": "-"},
     "secondary": {"color": "tab:purple", "lw": 1.0, "ls": "--"},
+    # The X-point of a limited or ambiguous boundary: its separation is
+    # geometric only, so it is drawn apart from a diverted secondary.
+    "geometric": {"color": "0.45", "lw": 0.9, "ls": ":"},
 }
+#: The style of a role this module does not know, named as given, never
+#: folded into one of the roles above.
+_UNKNOWN_ROLE_STYLE = {"color": "0.6", "lw": 0.8, "ls": ":"}
+
+
+def _role_style(role: str | None) -> dict:
+    return dict(_SEPARATRIX_STYLES.get(role or "", _UNKNOWN_ROLE_STYLE))
 
 
 def valid_equilibrium_indices(data: Any, *, require_flux_surfaces: bool = True) -> tuple[int, ...]:
@@ -152,8 +162,8 @@ def separatrix_balance_layers(representation: Any, equilibrium: Any) -> tuple[Ge
         point = selected.get(branch)
         if point is None:
             continue
-        role = point.role if point.role in _SEPARATRIX_STYLES else "secondary"
-        style = _SEPARATRIX_STYLES[role]
+        role = point.role or "unclassified"
+        style = _role_style(point.role)
         if (psi is not None and grid_r is not None and grid_z is not None and psi_axis is not None
                 and psi_boundary is not None and psi_axis != psi_boundary and np.isfinite(point.psi_n)):
             curves = extract_flux_surface_contours(
@@ -190,10 +200,10 @@ def separatrix_balance_layers(representation: Any, equilibrium: Any) -> tuple[Ge
         for radius, name, marker in ((r_upper, "R_U", "v"), (r_lower, "R_L", "^")):
             branch = "upper" if name == "R_U" else "lower"
             point = selected.get(branch)
-            role = point.role if point is not None and point.role in _SEPARATRIX_STYLES else "secondary"
+            style = _role_style(None if point is None else point.role)
             layers.append(GeometryLayer(
                 [radius], [z_ref], kind="points", label=f"{name} = {radius:.4f} m",
-                style={"color": _SEPARATRIX_STYLES[role]["color"], "marker": marker, "markersize": 7,
+                style={"color": style["color"], "marker": marker, "markersize": 7,
                        "linestyle": "none"},
                 role="equilibrium"))
     return tuple(layers)
