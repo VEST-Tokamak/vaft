@@ -75,7 +75,8 @@ def native_efit_d_r_sep(drsep_cm: float, limloc: str | None) -> tuple[float, str
 
     Applicability
     -------------
-    EFIT a-files, as parsed by :func:`vaft.data.aeqdsk.read_aeqdsk`.
+    Machine-independent.  Reads EFIT a-file values as parsed by
+    :func:`vaft.data.aeqdsk.read_aeqdsk`.
 
     Limitations
     -----------
@@ -144,7 +145,9 @@ def separatrix_balance_series(
 
     Applicability
     -------------
-    Machine-independent; any source :func:`as_equilibrium` reads.
+    Machine-independent.  Any source :func:`as_equilibrium` reads; the
+    native comparison needs the EFIT a-file cache, which a local product keeps
+    and an Access Layer round trip discards.
 
     Limitations
     -----------
@@ -181,9 +184,11 @@ def separatrix_balance_series(
             except (TypeError, ValueError, IndexError):
                 time = float("nan")
         times.append(time)
-        parameters = f"code.parameters.time_slice.{index}.aeqdsk"
-        drsep = _scalar(root, f"{parameters}.drsep")
-        limloc = _read(root, f"{parameters}.limloc")
+        # The a-file cache stops at the local product, so after an Access Layer
+        # round trip the native value is simply absent (NaN), never guessed.
+        parameters = f"equilibrium.code.parameters.time_slice.{index}.aeqdsk"
+        drsep = _scalar(source, f"{parameters}.drsep")
+        limloc = _read(source, f"{parameters}.limloc")
         native_value, _ = native_efit_d_r_sep(drsep, None if limloc is None else str(limloc))
         native.append(native_value)
         configurations.append(None if limloc is None else str(limloc).strip())

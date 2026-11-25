@@ -396,6 +396,9 @@ CONVENTION_SENSITIVE = frozenset({
     "profile_ordering_quantities",
     # vacuum b0 r0/R0, r = rho_tor_norm a, cross-section means, beta_tor fraction
     "ordering_inputs_from_ods",
+    # dRsep = R_lower - R_upper at the axis height (DIII-D/EFIT sign), EFIT
+    # DRSEP in cm aligned only for SNT/SNB/DN
+    "separatrix_balance_series", "native_efit_d_r_sep",
     "trace_guiding_center", "particle_to_guiding_center", "analyze_particle_orbit",
     "mirror_particle_field", "toroidal_particle_field",
     # COCOS source profiles versus full-weber Green response orientation.
