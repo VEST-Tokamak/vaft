@@ -4,7 +4,8 @@
 Read-only: every number comes from ``git`` plumbing (``ls-tree``, ``cat-file``,
 ``rev-list``, ``grep``) run against a ref, never from the working tree, so the
 audit works in a sparse checkout and never modifies the repository. It does
-not import ``vaft``.
+not import ``vaft``. Because it reads a *ref*, a change to this script or its
+groups shows up only after it is committed: commit, regenerate, commit.
 
 Two products:
 
@@ -14,7 +15,9 @@ Two products:
     :data:`GROUPS` below joined with what the tree at ``--ref`` holds for that
     group (files, bytes, Git LFS pointers, wheel membership, text-search
     consumers) -- plus one row per registered reference sample, read from its
-    ``manifest.yaml`` and checked against the stored blobs. ``--check`` exits
+    ``manifest.yaml``, with every SHA-256 the manifest pins checked against the
+    stored blob. The audit's own files (:data:`AUDIT_PATHS`) are left out of
+    every count, so the inventory does not depend on itself. ``--check`` exits
     1 when the committed file differs from a fresh build. It is a review aid,
     not a CI gate: the consumer lists change with every test that mentions a
     sample.
@@ -22,22 +25,28 @@ Two products:
 ``measure`` (JSON on stdout or ``--output``)
     Dated and ref-pinned: current-tree bytes per group for each ``--ref``, the
     history (blob versions, raw and packed bytes) per group over the refs a
-    fresh clone receives, Git LFS pointer and object sizes, the largest
-    historical blobs and the published PyPI artifact sizes. These numbers
-    depend on time and on the local object store, so they are never compared
-    by ``--check``; the JSON records the method and its limitations.
+    fresh clone receives, every Git LFS pointer in that history, every sample
+    ``reference_id`` ever registered and whether its bytes are still in
+    history, the largest historical blobs, and the published PyPI and GitHub
+    sizes. These numbers depend on time and on the local object store, so they
+    are never compared by ``--check``; the JSON records the method and its
+    limitations.
 
 Limitations (also written into both products):
 
 * Consumers are found by text search for path fragments and API names. Paths
-  built at run time (``data_path(f"legacy/{shot}.h5")``) are missed, and a hit
-  does not prove the file is read.
+  built at run time (``data_path(f"legacy/{shot}.h5")``) are missed, broad
+  patterns over-count, and a hit does not prove the file is read.
 * ``rev-list --objects`` names a blob after the first path it meets, so a blob
   stored under two paths is counted once, under one of them.
 * Packed (on-disk) sizes depend on how the local repository was packed; the
   GitHub-side size is reported separately from the API.
-* Wheel membership is evaluated from ``[tool.setuptools.package-data]`` globs,
-  not by building a wheel.
+* Wheel membership is evaluated from ``pyproject.toml`` (package-data globs,
+  package ``.py`` files) plus the ``setup.py`` 39915 swap, not by building a
+  wheel. The sdist (``MANIFEST.in``) is not modelled; its published size is
+  reported.
+* In a partial clone (``--filter=blob:none``) absent blobs are counted as
+  missing, not measured.
 
 Usage::
 
@@ -53,14 +62,16 @@ from __future__ import annotations
 import argparse
 import datetime as _dt
 import fnmatch
+import functools
 import hashlib
 import json
+import posixpath
 import re
 import subprocess
 import sys
 import urllib.request
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator
 
@@ -73,11 +84,24 @@ except ModuleNotFoundError:  # pragma: no cover - 3.10 only
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT = Path("docs/architecture/data_assets/inventory.yaml")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
+
+#: The audit's own code, test and outputs: excluded from counts and consumers.
+AUDIT_PATHS = (
+    "workflow/data_asset_audit/**",
+    "test/test_data_asset_audit.py",
+    "docs/architecture/data_assets/**",
+)
 
 #: Where consumers are searched; ``vaft/data`` itself is excluded.
 CONSUMER_AREAS = (".github", "docs", "notebooks", "test", "tutorial", "vaft", "workflow")
-CONSUMER_EXCLUDES = ("vaft/data", "docs/assets", "docs/architecture/data_assets")
+CONSUMER_EXCLUDES = (
+    "vaft/data",
+    "docs/assets",
+    "docs/architecture/data_assets",
+    "workflow/data_asset_audit",
+    "test/test_data_asset_audit.py",
+)
 
 #: A tree file at least this large that no group claims is listed as unassigned.
 UNASSIGNED_THRESHOLD = 1_000_000
@@ -85,18 +109,20 @@ UNASSIGNED_THRESHOLD = 1_000_000
 LFS_PREFIX = b"version https://git-lfs.github.com/spec/v1"
 
 LIMITATIONS = (
-    "consumers are a text search for path fragments and API names; run-time built paths are missed",
+    "consumers are a text search for path fragments and API names; run-time built paths are missed and broad patterns over-count",
     "a blob stored under several paths is attributed to the first path rev-list reports",
     "packed (on-disk) bytes depend on the local repository's packing",
-    "wheel membership is evaluated from pyproject package-data globs plus the setup.py 39915 substitution, not by building a wheel",
+    "wheel membership is evaluated from pyproject.toml plus the setup.py 39915 swap, not by building a wheel; the sdist is not modelled",
+    "in a partial clone, absent blobs are counted as missing, not measured",
 )
 
 # Storage categories of #2307 section 4.
 CATEGORIES = {
     "source": "Canonical source/configuration (Git)",
     "fixture": "Lightweight offline fixture (Git / package)",
-    "reference": "Versioned scientific reference (GitHub Release)",
-    "regenerable": "Regenerable calculation artifact (generated cache)",
+    "reference": "Versioned scientific reference (GitHub Release, pinned by manifest/lockfile)",
+    "historical_reference": "Independent historical validation reference (archived Release asset; never purged without an archive or a recorded decision)",
+    "regenerable": "Regenerable calculation artifact (generated cache; never the only copy of a published reference)",
     "persistent": "Persistent experimental/computational data (FileDB / HSDS)",
     "public": "External public dataset (upstream registry + cache)",
     "docs_media": "Documentation media (#2117 policy)",
@@ -108,10 +134,11 @@ CATEGORIES = {
 class Group:
     """One curated asset group.
 
-    ``paths`` are ``fnmatch`` patterns on repository-relative paths; the first
+    ``paths`` are globs on repository-relative paths in setuptools/glob style:
+    ``*`` stays within one directory, ``**`` crosses directories. The first
     group whose pattern matches claims a file, so specific groups come first.
-    ``history_only`` groups match paths that no longer exist on the audited
-    ref but still occupy history.
+    ``history_only`` groups describe content that is no longer in the audited
+    tree but still occupies history.
     """
 
     id: str
@@ -125,7 +152,6 @@ class Group:
     consumers: tuple[str, ...] = ()  # extended regexes for git grep -E
     notes: str = ""
     history_only: bool = False
-    exclude: tuple[str, ...] = field(default=())
 
 
 SHOT = "[0-9][0-9][0-9][0-9][0-9]"
@@ -137,7 +163,7 @@ GROUPS: tuple[Group, ...] = (
         category="source",
         current_placement="git",
         proposed_placement="git",
-        retrieval="checkout; the manifest is the identity record I-3/I-4 resolve against",
+        retrieval="checkout; the manifest is the identity record #2328/#2329 resolve against",
         migration=("#2328",),
         decision="decided",
         notes="Manifests stay in Git: available_samples() lists shots from them even when the bytes are remote.",
@@ -148,23 +174,23 @@ GROUPS: tuple[Group, ...] = (
         category="reference",
         current_placement="git",
         proposed_placement="github-release",
-        retrieval="vaft.data.sample() -> checkout, else VAFT_CACHE_DIR/references/samples, else Release download (I-4)",
+        retrieval="vaft.data.sample() -> checkout, else VAFT_CACHE_DIR/references/samples, else Release download (#2329)",
         migration=("#2328", "#2329", "#2331", "#207"),
         decision="decided",
         consumers=(
             r"data/samples/[0-9]{5}/(omas\.json\.gz|imas\.nc)",
-            r"\bsample\(\s*[0-9]{5}",
+            r"sample\( *[0-9]{5}",
             r"sample_ods\(",
             r"sample_manifest\(",
         ),
         notes=(
-            "Umbrella #2304 section 3.2. The wheel copy of 39915 (wheel_samples) is a separate, "
-            "packaged projection and stays."
+            "Umbrella #2304 section 3.2. Earlier versions of these files (superseded reference_ids) "
+            "are historical references: see the measurement's historical_sample_references."
         ),
     ),
     Group(
         id="samples.shot.sources",
-        paths=(f"vaft/data/samples/{SHOT}/source/*",),
+        paths=(f"vaft/data/samples/{SHOT}/source/**",),
         category="reference",
         current_placement="git",
         proposed_placement="github-release",
@@ -175,28 +201,43 @@ GROUPS: tuple[Group, ...] = (
         notes=(
             "canonical_source is the input of the generation command that produces omas.json.gz/imas.nc. "
             "Keep it as long as the representations are kept: regenerability does not replace the "
-            "published bytes (#2307 section 3.3 applies to samples too)."
+            "published bytes."
         ),
     ),
     Group(
+        id="samples.shot.pinned_parts",
+        paths=(
+            "vaft/data/samples/48224/efit_magnetic_server/**",
+            "vaft/data/samples/48224/equilibria/**",
+        ),
+        category="fixture",
+        current_placement="git",
+        proposed_placement="git (moves only together with its sample)",
+        retrieval="checkout",
+        migration=(),
+        decision="proposed",
+        consumers=(r"samples/48224/(efit_magnetic_server|equilibria)",),
+        notes="Files the 48224 manifest pins by SHA-256 as part of that sample (k-/g-/m-/a-files, equilibria).",
+    ),
+    Group(
         id="samples.shot.stage_products",
-        paths=(f"vaft/data/samples/{SHOT}/*",),
+        paths=(f"vaft/data/samples/{SHOT}/**",),
         category="undecided",
         current_placement="git",
         proposed_placement="git (pending size review)",
         retrieval="checkout",
         migration=("#2328",),
         decision="open",
-        consumers=(r"data/samples/[0-9]{5}/[a-z_]+/",),
+        consumers=(r"data/samples/[0-9]{5}/mhd_stability/",),
         notes=(
-            "Per-shot stage products added after the main representations (e.g. 39915/mhd_stability "
+            "Per-shot stage products added after the main representations (39915/mhd_stability "
             "CHEASE/GPEC JSON from #2306). Individually small but growing; decide whether they ship "
             "with the shot's Release bundle."
         ),
     ),
     Group(
         id="samples.tables",
-        paths=("vaft/data/samples/vest_tier_a/*", "vaft/data/samples/vest_operational_history/*"),
+        paths=("vaft/data/samples/vest_tier_a/**", "vaft/data/samples/vest_operational_history/**"),
         category="fixture",
         current_placement="git",
         proposed_placement="git",
@@ -206,56 +247,60 @@ GROUPS: tuple[Group, ...] = (
         consumers=(r"vest_tier_a", r"vest_operational_history"),
         notes=(
             "Tier A / operational-history tables (#2277). The snapshot pins source SHA-256 values "
-            "byte-exact (.gitattributes -text). Largest file is constraint_points.csv (6.1 MB); "
-            "revisit if it grows."
+            "byte-exact (.gitattributes -text). Largest file is constraint_points.csv (6.1 MB)."
         ),
     ),
     Group(
         id="samples.wheel_projection",
-        paths=("vaft/data/wheel_samples/*",),
+        paths=("vaft/data/wheel_samples/**",),
         category="fixture",
-        current_placement="git + wheel",
-        proposed_placement="git + wheel",
+        current_placement="git; manifest.yaml + omas.json.gz also in the wheel",
+        proposed_placement="git (+ wheel for the two swapped files)",
         retrieval="importlib resources from the installed package",
         migration=(),
         decision="decided",
         consumers=(r"wheel_samples",),
-        notes="Packaged offline projection; test/verify_dist.py caps the wheel at 26 MiB.",
+        notes=(
+            "setup.py copies wheel_samples/39915/{manifest.yaml,omas.json.gz} over samples/39915 at "
+            "build time; wheel_samples/39915/imas.nc (10.7 MB) is repository-only. test/verify_dist.py "
+            "caps the wheel at 26 MiB."
+        ),
     ),
     Group(
         id="samples.kinetic_efit",
-        paths=("vaft/data/kineticEfit/*",),
-        category="fixture",
+        paths=("vaft/data/kineticEfit/**",),
+        category="historical_reference",
         current_placement="git",
         proposed_placement="git",
         retrieval="checkout",
         migration=(),
         decision="proposed",
         consumers=(r"kineticEfit",),
-        notes="48224 historical validation reference (OMFIT era); its manifest pins these g-files by SHA-256.",
+        notes="48224 historical validation reference (OMFIT era, kept by #1712/#1718); its manifest pins these files by SHA-256.",
     ),
     Group(
         id="efit.green_tables_lfs",
-        paths=("vaft/data/efit/*.ddd", "vaft/data/efit_table/*"),
-        category="regenerable",
+        paths=("vaft/data/efit/*.ddd", "vaft/data/efit_table/**"),
+        category="reference",
         current_placement="git-lfs",
-        proposed_placement="github-release (single baseline) + VAFT_CACHE_DIR/generated/efund",
-        retrieval="exact-identity local table -> EFUND generation -> baseline download -> explicit failure (I-5)",
+        proposed_placement="github-release (single baseline) + VAFT_CACHE_DIR/generated/efund for other identities",
+        retrieval="exact-identity local table -> EFUND generation -> baseline download -> explicit failure (#2330)",
         migration=("#2330", "#2331", "#207"),
         decision="decided",
-        consumers=(r"\.ddd\b", r"efund_table_manifest", r"rv129129|ec129129|ep129129|rfcoil"),
+        consumers=(r"\.ddd", r"efund_table_manifest", r"rv129129|ec129129|ep129129|rfcoil"),
         notes=(
-            "Umbrella #2304 section 3.3. #695: regenerated tables changed EFIT yield, so a regenerated "
-            "table substitutes for the baseline only after a stated numerical comparison."
+            "Umbrella #2304 section 3.3. The published baseline is a reference, not a cache entry: #695 "
+            "showed table generations change EFIT yield. Two earlier generations exist only in LFS history "
+            "(see the measurement's lfs_history)."
         ),
     ),
     Group(
         id="efit.generated_tables_plain",
         paths=("vaft/data/efit/brzgfc.dat", "vaft/data/efit/mhdout.dat"),
-        category="regenerable",
+        category="reference",
         current_placement="git",
-        proposed_placement="github-release (with the .ddd baseline) + VAFT_CACHE_DIR/generated/efund",
-        retrieval="same resolution as efit.green_tables_lfs (I-5)",
+        proposed_placement="github-release (with the .ddd baseline)",
+        retrieval="same resolution as efit.green_tables_lfs (#2330)",
         migration=("#2330", "#207"),
         decision="proposed",
         consumers=(r"brzgfc", r"mhdout\.dat"),
@@ -275,11 +320,11 @@ GROUPS: tuple[Group, ...] = (
         migration=(),
         decision="proposed",
         consumers=(r"g0[0-9]{5}\.[0-9]{5}", r"sample_geqdsk\("),
-        notes="g040330.* are 4.3 MB each; the other g-files are under 1.2 MB.",
+        notes="g040330.* are 4.3 MB each; the other g-files are under 1.2 MB. The consumer pattern also matches FileDB g-file names and over-counts.",
     ),
     Group(
         id="efit.inputs",
-        paths=("vaft/data/efit/*",),
+        paths=("vaft/data/efit/**",),
         category="source",
         current_placement="git",
         proposed_placement="git",
@@ -289,8 +334,23 @@ GROUPS: tuple[Group, ...] = (
         notes="mhdin.dat, efund_table_manifest.json and other EFUND/EFIT text inputs: the identity inputs of the Green tables.",
     ),
     Group(
+        id="efit.table_records",
+        paths=("workflow/efit_tables/reference/**",),
+        category="source",
+        current_placement="git",
+        proposed_placement="git",
+        retrieval="checkout",
+        migration=("#2330",),
+        decision="decided",
+        consumers=(r"legacy-39915-129129", r"compare_bundled_vs_legacy"),
+        notes=(
+            "Identity record and comparison of the pre-#695 packaged table against its regeneration. "
+            "Provenance of a historical reference: keep with the archived table."
+        ),
+    ),
+    Group(
         id="legacy.raw_fixtures",
-        paths=("vaft/data/legacy/*",),
+        paths=("vaft/data/legacy/**",),
         category="undecided",
         current_placement="git",
         proposed_placement="decision backlog (likely github-release for the files above 5 MB)",
@@ -311,7 +371,7 @@ GROUPS: tuple[Group, ...] = (
     ),
     Group(
         id="data.small_fixtures",
-        paths=("vaft/data/sample/*",),
+        paths=("vaft/data/sample/**",),
         category="fixture",
         current_placement="git",
         proposed_placement="git",
@@ -322,27 +382,28 @@ GROUPS: tuple[Group, ...] = (
     ),
     Group(
         id="data.geometry_config",
-        paths=(
-            "vaft/data/geometry/*",
-            "vaft/data/gpec/*",
-            "vaft/data/nubeam/*",
-            "vaft/data/unified/*",
-            "vaft/data/confinement/*",
-            "vaft/data/shotlog/*",
-            "vaft/data/public/*",
-            "vaft/data/*",
-        ),
+        paths=("vaft/data/**",),
         category="source",
         current_placement="git (+ wheel where listed in package-data)",
         proposed_placement="git",
         retrieval="checkout / package resources",
         migration=(),
         decision="decided",
-        notes="Machine geometry, code inputs, small registries and the public-data source registry (bytes are fetched to the public cache).",
+        notes="Machine geometry, code inputs, small registries, vaft/data Python modules and the public-data source registry (bytes are fetched to the public cache).",
+    ),
+    Group(
+        id="notebooks.data",
+        paths=("notebooks/data/**",),
+        category="fixture",
+        current_placement="git",
+        proposed_placement="git",
+        retrieval="checkout",
+        migration=("#2331",),
+        decision="proposed",
     ),
     Group(
         id="notebooks.outputs",
-        paths=("notebooks/*.ipynb",),
+        paths=("notebooks/**/*.ipynb",),
         category="undecided",
         current_placement="git",
         proposed_placement="decide with #2117",
@@ -355,18 +416,8 @@ GROUPS: tuple[Group, ...] = (
         ),
     ),
     Group(
-        id="notebooks.data",
-        paths=("notebooks/data/*",),
-        category="fixture",
-        current_placement="git",
-        proposed_placement="git",
-        retrieval="checkout",
-        migration=("#2331",),
-        decision="proposed",
-    ),
-    Group(
         id="docs.media",
-        paths=("docs/assets/*",),
+        paths=("docs/assets/**",),
         category="docs_media",
         current_placement="git",
         proposed_placement="per #2117 (docs-media release, SHA-pinned)",
@@ -377,18 +428,24 @@ GROUPS: tuple[Group, ...] = (
     ),
     Group(
         id="workflow.results",
-        paths=("workflow/*.xlsx", "workflow/*.csv", "workflow/*.csv.gz", "workflow/*.json", "workflow/*.yml"),
+        paths=(
+            "workflow/**/*.xlsx",
+            "workflow/**/*.csv",
+            "workflow/**/*.csv.gz",
+            "workflow/**/*.json",
+            "workflow/**/*.yml",
+        ),
         category="undecided",
         current_placement="git",
         proposed_placement="decision backlog",
         retrieval="checkout",
         migration=(),
         decision="open",
-        notes="Dated study outputs committed next to workflows (e.g. automatic_pipeline_3_data_summary/*.xlsx 6.9 MB).",
+        notes="Dated study outputs and records committed next to workflows (e.g. automatic_pipeline_3_data_summary/*.xlsx 6.9 MB). Not disposable: some are provenance.",
     ),
     Group(
         id="test.fixtures",
-        paths=("test/data/*",),
+        paths=("test/data/**",),
         category="fixture",
         current_placement="git",
         proposed_placement="git",
@@ -396,45 +453,105 @@ GROUPS: tuple[Group, ...] = (
         migration=(),
         decision="decided",
     ),
-    # Paths no longer in the tree that still occupy history: #207 candidates.
+    # History only.
     Group(
-        id="history.retired_sample_layouts",
+        id="history.retired_layouts",
         paths=(
-            "vaft/data/omas/*",
-            "vaft/data/imas/*",
+            "vaft/data/omas/**",
+            "vaft/data/imas/**",
             "vaft/data/[0-9][0-9][0-9][0-9][0-9].json",
             "vaft/data/*_imas_equilibrium.h5",
-            "packaging/wheel_samples/*",
+            "packaging/wheel_samples/**",
         ),
-        category="reference",
+        category="historical_reference",
         current_placement="history only",
-        proposed_placement="purge after consumers migrate",
-        retrieval="superseded by vaft/data/samples and wheel_samples",
+        proposed_placement="archive or retire item by item before #207",
+        retrieval="git history",
         migration=("#207",),
-        decision="proposed",
+        decision="open",
         history_only=True,
-        notes="Earlier sample layouts. Confirm each is superseded by a registered sample before #207 removes it.",
+        notes=(
+            "Earlier sample layouts: vaft/data/omas/{39915,41524,41672}.json, an IMAS HDF5 set under "
+            "vaft/data/imas, vaft/data/{39915,39916,39917}.json, 44740_imas_equilibrium.h5 and "
+            "packaging/wheel_samples/39915. 39916, 39917 and 44740 have no registered sample "
+            "(39917 is a confinement reference shot), and the others are not proven identical to the "
+            "registered samples. None is superseded until shown to be."
+        ),
     ),
     Group(
-        id="history.gh_pages",
-        paths=("develop/*", "reference/*", "guide/*", "assets/*", "api/*"),
+        id="history.gh_pages_current",
+        paths=(),
         category="docs_media",
-        current_placement="gh-pages branch",
-        proposed_placement="per #2117 (single-commit gh-pages)",
+        current_placement="origin/gh-pages (single commit)",
+        proposed_placement="per #2117",
         retrieval="generated by docs.yml",
         migration=("#2117",),
         decision="decided",
         history_only=True,
-        notes="Generated site output on the gh-pages branch; counted by path prefix.",
+        notes="Attributed by ref, not by path: blobs reachable from origin/gh-pages and from no code branch.",
+    ),
+    Group(
+        id="history.gh_pages_backups",
+        paths=(),
+        category="docs_media",
+        current_placement="backup/gh-pages-* branches and archive/gh-pages-* tags",
+        proposed_placement="retention decision under #2117",
+        retrieval="git history",
+        migration=("#2117",),
+        decision="open",
+        history_only=True,
+        notes=(
+            "Attributed by ref: blobs reachable only from gh-pages backup branches or archive tags. "
+            "Recovering this space means deleting a backup branch and an archive tag."
+        ),
     ),
 )
 
-
-#: History attribution checks the retired layouts first: the ``vaft/data/*``
+#: History attribution checks the retired layouts first: the ``vaft/data/**``
 #: catch-all would otherwise claim them.
 HISTORY_ORDER: tuple[Group, ...] = tuple(g for g in GROUPS if g.history_only) + tuple(
     g for g in GROUPS if not g.history_only
 )
+TREE_GROUPS: tuple[Group, ...] = tuple(g for g in GROUPS if not g.history_only)
+
+
+# --------------------------------------------------------------------------- globbing
+
+
+@functools.lru_cache(maxsize=None)
+def _glob_regex(pattern: str) -> re.Pattern[str]:
+    out = []
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif pattern.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif pattern[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif pattern[i] == "?":
+            out.append("[^/]")
+            i += 1
+        elif pattern[i] == "[":
+            end = pattern.index("]", i)
+            out.append(pattern[i : end + 1])
+            i = end + 1
+        else:
+            out.append(re.escape(pattern[i]))
+            i += 1
+    return re.compile("".join(out) + r"\Z")
+
+
+def glob_match(path: str, pattern: str) -> bool:
+    """Glob match where ``*`` stays within a directory and ``**`` crosses them."""
+    return _glob_regex(pattern).match(path) is not None
+
+
+def is_audit_path(path: str) -> bool:
+    return any(glob_match(path, pattern) for pattern in AUDIT_PATHS)
 
 
 # --------------------------------------------------------------------------- git helpers
@@ -461,7 +578,7 @@ class TreeFile:
     oid: str
 
 
-def tree_files(ref: str) -> list[TreeFile]:
+def tree_files(ref: str, *, include_audit: bool = False) -> list[TreeFile]:
     out = git("ls-tree", "-r", "-l", "-z", ref)
     files = []
     for entry in out.split(b"\0"):
@@ -471,13 +588,16 @@ def tree_files(ref: str) -> list[TreeFile]:
         mode, kind, oid, size = meta.split()
         if kind != b"blob":
             continue
-        files.append(TreeFile(path.decode(), int(size), oid.decode()))
+        name = path.decode()
+        if not include_audit and is_audit_path(name):
+            continue
+        files.append(TreeFile(name, int(size), oid.decode()))
     return files
 
 
-def read_blobs(oids: Iterable[str]) -> Iterator[tuple[str, bytes]]:
-    """Yield ``(oid, content)`` with one ``cat-file --batch`` process."""
-    oids = list(oids)
+def read_blobs(oids: Iterable[str]) -> Iterator[tuple[str, bytes | None]]:
+    """Yield ``(oid, content)`` with one ``cat-file --batch`` process; ``None`` if absent."""
+    oids = list(dict.fromkeys(oids))
     if not oids:
         return
     proc = subprocess.Popen(
@@ -491,6 +611,9 @@ def read_blobs(oids: Iterable[str]) -> Iterator[tuple[str, bytes]]:
             proc.stdin.write(oid.encode() + b"\n")
             proc.stdin.flush()
             header = proc.stdout.readline().split()
+            if len(header) < 3 or header[1] == b"missing":
+                yield oid, None
+                continue
             size = int(header[2])
             data = proc.stdout.read(size)
             proc.stdout.read(1)
@@ -500,18 +623,46 @@ def read_blobs(oids: Iterable[str]) -> Iterator[tuple[str, bytes]]:
         proc.wait()
 
 
+def batch_check(oids: Iterable[str]) -> dict[str, tuple[str, int, int] | None]:
+    """``oid -> (type, size, disk size)``, or ``None`` for an absent object."""
+    oids = list(dict.fromkeys(oids))
+    if not oids:
+        return {}
+    out = git(
+        "cat-file",
+        "--batch-check=%(objectname) %(objecttype) %(objectsize) %(objectsize:disk)",
+        input="\n".join(oids).encode() + b"\n",
+    ).decode()
+    result: dict[str, tuple[str, int, int] | None] = {}
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) == 4:
+            result[parts[0]] = (parts[1], int(parts[2]), int(parts[3]))
+        elif parts:
+            result[parts[0]] = None
+    return result
+
+
+def lfs_object_dir() -> Path:
+    common = git("rev-parse", "--git-common-dir").decode().strip()
+    base = Path(common)
+    if not base.is_absolute():
+        base = REPO_ROOT / base
+    return base / "lfs" / "objects"
+
+
 # --------------------------------------------------------------------------- classification
 
 
 def group_of(path: str, groups: Iterable[Group]) -> Group | None:
     for group in groups:
-        if any(fnmatch.fnmatchcase(path, pattern) for pattern in group.paths):
+        if any(glob_match(path, pattern) for pattern in group.paths):
             return group
     return None
 
 
-def lfs_pointer(data: bytes) -> dict[str, Any] | None:
-    if not data.startswith(LFS_PREFIX):
+def lfs_pointer(data: bytes | None) -> dict[str, Any] | None:
+    if not data or not data.startswith(LFS_PREFIX):
         return None
     fields = dict(
         line.split(" ", 1) for line in data.decode().splitlines() if " " in line
@@ -519,10 +670,21 @@ def lfs_pointer(data: bytes) -> dict[str, Any] | None:
     return {"oid": fields.get("oid", ""), "size": int(fields.get("size", 0))}
 
 
-def wheel_globs(ref: str) -> list[str]:
+@dataclass(frozen=True)
+class WheelRules:
+    data_globs: tuple[str, ...]
+    package_excludes: tuple[str, ...]
+
+
+def wheel_rules(ref: str) -> WheelRules:
     pyproject = tomllib.loads(git("show", f"{ref}:pyproject.toml").decode())
-    data = pyproject.get("tool", {}).get("setuptools", {}).get("package-data", {})
-    return [f"vaft/{pattern}" for pattern in data.get("vaft", [])]
+    setuptools = pyproject.get("tool", {}).get("setuptools", {})
+    data = setuptools.get("package-data", {})
+    find = setuptools.get("packages", {}).get("find", {}) if isinstance(setuptools.get("packages"), dict) else {}
+    return WheelRules(
+        data_globs=tuple(f"vaft/{pattern}" for pattern in data.get("vaft", [])),
+        package_excludes=tuple(find.get("exclude", [])),
+    )
 
 
 #: ``setup.py``'s ``build_py`` hook copies these wheel_samples files over the
@@ -533,12 +695,15 @@ WHEEL_SUBSTITUTES = {
 }
 
 
-def in_wheel(path: str, globs: Iterable[str]) -> bool:
+def in_wheel(path: str, rules: WheelRules) -> bool:
     if path in WHEEL_SUBSTITUTES:
         return True
     if path in WHEEL_SUBSTITUTES.values():
         return False
-    return any(fnmatch.fnmatchcase(path, pattern) for pattern in globs)
+    if path.startswith("vaft/") and path.endswith(".py"):
+        package = posixpath.dirname(path).replace("/", ".")
+        return not any(fnmatch.fnmatchcase(package, pattern) for pattern in rules.package_excludes)
+    return any(glob_match(path, pattern) for pattern in rules.data_globs)
 
 
 def consumers(ref: str, patterns: Iterable[str]) -> list[str]:
@@ -566,65 +731,159 @@ def by_area(paths: Iterable[str]) -> dict[str, int]:
     return dict(sorted(counts.items()))
 
 
+# --------------------------------------------------------------------------- manifests
+
+
+def manifest_pins(manifest: Any) -> list[tuple[str, str, str]]:
+    """Every ``(field, path, sha256)`` a sample manifest pins.
+
+    Two shapes occur: a mapping with ``path`` and ``sha256``, and a sibling pair
+    ``<name>``/``<name>_sha256`` (or ``<name>_source``/``<name>_sha256``).
+    ``previous_*`` hashes are history records, not pins.
+    """
+    pins: list[tuple[str, str, str]] = []
+
+    def visit(node: Any, trail: list[str]) -> None:
+        if isinstance(node, dict):
+            if isinstance(node.get("path"), str) and isinstance(node.get("sha256"), str):
+                pins.append((".".join(trail) or "<root>", node["path"], node["sha256"]))
+            for key, value in node.items():
+                key = str(key)
+                if key.endswith("_sha256") and isinstance(value, str) and not key.startswith("previous"):
+                    base = key[: -len("_sha256")]
+                    for candidate in (base, f"{base}_source"):
+                        target = node.get(candidate)
+                        if isinstance(target, str):
+                            pins.append((".".join(trail + [candidate]), target, value))
+                            break
+                visit(value, trail + [key])
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                visit(value, trail + [str(index)])
+
+    visit(manifest, [])
+    return pins
+
+
+def resolve_pin(path: str, directory: str, tree: dict[str, TreeFile]) -> str | None:
+    """Repository path of a pinned file, trying sample-, data- and repo-relative forms."""
+    if " " in path.strip():
+        return None  # prose such as "FileDB raw/45531/..." names an external location
+    candidates = [
+        posixpath.normpath(posixpath.join(directory, path)),
+        posixpath.normpath(posixpath.join("vaft/data", path)),
+        posixpath.normpath(path),
+    ]
+    return next((c for c in candidates if c in tree), None)
+
+
+def content_sha256(data: bytes) -> str:
+    """SHA-256 of the content; for an LFS pointer, the object's own SHA-256."""
+    pointer = lfs_pointer(data)
+    if pointer and pointer["oid"].startswith("sha256:"):
+        return pointer["oid"][len("sha256:") :]
+    return hashlib.sha256(data).hexdigest()
+
+
+def find_key(node: Any, wanted: str) -> Any:
+    if isinstance(node, dict):
+        if wanted in node:
+            return node[wanted]
+        for value in node.values():
+            found = find_key(value, wanted)
+            if found is not None:
+                return found
+    elif isinstance(node, list):
+        for value in node:
+            found = find_key(value, wanted)
+            if found is not None:
+                return found
+    return None
+
+
+def sample_consumer_patterns(shot: int) -> tuple[str, ...]:
+    return (
+        rf"samples/{shot}([^0-9]|$)",
+        rf"sample(_ods|_manifest)?\( *(shot *= *)?{shot}([^0-9]|$)",
+    )
+
+
 # --------------------------------------------------------------------------- inventory
 
 
 def sample_rows(ref: str, files: list[TreeFile]) -> list[dict[str, Any]]:
-    """One row per registered sample manifest, checked against the stored blobs."""
-    by_path = {f.path: f for f in files}
+    """One row per registered sample manifest, every pin checked against the stored blob."""
+    tree = {f.path: f for f in files}
     manifests = sorted(
-        f for f in by_path if re.fullmatch(r"vaft/data/samples/\d{5}/manifest\.yaml", f)
+        f for f in tree if re.fullmatch(r"vaft/data/samples/\d{5}/manifest\.yaml", f)
     )
-    rows = []
+    loaded = {}
+    wanted_oids = set()
     for manifest_path in manifests:
         directory = manifest_path.rsplit("/", 1)[0]
         manifest = yaml.safe_load(git("show", f"{ref}:{manifest_path}")) or {}
-        representations = []
-        to_hash = {}
-        for name, record in sorted((manifest.get("representations") or {}).items()):
-            path = f"{directory}/{record.get('path', '')}"
-            stored = by_path.get(path)
-            representations.append(
-                {
-                    "name": name,
-                    "path": path,
-                    "package": record.get("package", "not recorded"),
-                    "manifest_size": record.get("size", "not recorded"),
-                    "stored_size": stored.size if stored else "missing",
-                    "manifest_sha256": record.get("sha256", "not recorded"),
-                }
-            )
-            if stored:
-                to_hash[stored.oid] = len(representations) - 1
-        for oid, data in read_blobs(to_hash):
-            pointer = lfs_pointer(data)
-            row = representations[to_hash[oid]]
-            if pointer:
-                row["stored_sha256"] = f"lfs:{pointer['oid']}"
+        resolved = [
+            (field, raw, sha, resolve_pin(raw, directory, tree))
+            for field, raw, sha in manifest_pins(manifest)
+        ]
+        wanted_oids.update(tree[r].oid for *_, r in resolved if r)
+        loaded[manifest_path] = (directory, manifest, resolved)
+    digests = {oid: content_sha256(data) for oid, data in read_blobs(wanted_oids) if data is not None}
+
+    rows = []
+    for manifest_path in manifests:
+        directory, manifest, resolved = loaded[manifest_path]
+        pins = []
+        for field, raw, sha, path in resolved:
+            if path is None:
+                status = "not in tree"
             else:
-                row["stored_sha256"] = hashlib.sha256(data).hexdigest()
-        for row in representations:
-            row.setdefault("stored_sha256", "missing")
-            row["sha256_matches"] = row["stored_sha256"] == row["manifest_sha256"]
+                stored = digests.get(tree[path].oid)
+                status = "missing blob" if stored is None else ("match" if stored == sha else "mismatch")
+            pins.append({"field": field, "path": path or raw, "sha256": sha, "status": status})
+        counts: dict[str, int] = defaultdict(int)
+        for pin in pins:
+            counts[pin["status"]] += 1
+        representations = [
+            {
+                "name": name,
+                "path": f"{directory}/{record.get('path', '')}",
+                "package": record.get("package", "not recorded"),
+                "bytes": tree[f"{directory}/{record.get('path', '')}"].size
+                if f"{directory}/{record.get('path', '')}" in tree
+                else "missing",
+            }
+            for name, record in sorted((manifest.get("representations") or {}).items())
+        ]
         source = manifest.get("source") or {}
         generation = manifest.get("generation") or {}
+        required_ids = find_key(manifest, "required_ids")
         directory_files = [f for f in files if f.path.startswith(directory + "/")]
+        shot = manifest.get("shot", "not recorded")
+        hits = consumers(ref, sample_consumer_patterns(shot)) if isinstance(shot, int) else []
         rows.append(
             {
-                "shot": manifest.get("shot", "not recorded"),
+                "shot": shot,
                 "directory": directory,
                 "reference_id": manifest.get("reference_id", "not recorded"),
                 "imas_dd_version": manifest.get("imas_dd_version", "not recorded"),
                 "source_kind": source.get("kind", "not recorded"),
+                "source_git_commit": source.get("git_commit", "not recorded"),
+                "authority": source.get("filedb_root", "not recorded"),
                 "canonical_source": (
                     f"{directory}/{generation['canonical_source']}"
                     if generation.get("canonical_source")
                     else "not recorded"
                 ),
                 "generation_command": generation.get("command", "not recorded"),
+                "required_ids": required_ids if required_ids is not None else "not recorded",
+                "recorded_sections": sorted(str(k) for k in manifest),
                 "representations": representations,
+                "pins": pins,
+                "pin_status": dict(sorted(counts.items())),
                 "directory_files": len(directory_files),
                 "directory_bytes": sum(f.size for f in directory_files),
+                "consumers": {"by_area": by_area(hits), "files": hits},
             }
         )
     return rows
@@ -632,11 +891,11 @@ def sample_rows(ref: str, files: list[TreeFile]) -> list[dict[str, Any]]:
 
 def build_inventory(ref: str) -> dict[str, Any]:
     files = tree_files(ref)
-    globs = wheel_globs(ref)
+    rules = wheel_rules(ref)
     claimed: dict[str, list[TreeFile]] = defaultdict(list)
     unassigned = []
     for f in files:
-        group = group_of(f.path, (g for g in GROUPS if not g.history_only))
+        group = group_of(f.path, TREE_GROUPS)
         if group is None:
             if f.size >= UNASSIGNED_THRESHOLD:
                 unassigned.append({"path": f.path, "bytes": f.size})
@@ -679,8 +938,8 @@ def build_inventory(ref: str) -> dict[str, Any]:
                         ],
                         "lfs_pointers": len(lfs),
                         "lfs_object_bytes": sum(p["size"] for p in lfs),
-                        "wheel_files": sum(in_wheel(f.path, globs) for f in members),
-                        "wheel_bytes": sum(f.size for f in members if in_wheel(f.path, globs)),
+                        "wheel_files": sum(in_wheel(f.path, rules) for f in members),
+                        "wheel_bytes": sum(f.size for f in members if in_wheel(f.path, rules)),
                     }
                 ),
                 "consumers": (
@@ -697,6 +956,7 @@ def build_inventory(ref: str) -> dict[str, Any]:
         "issue": "#2307",
         "categories": CATEGORIES,
         "limitations": list(LIMITATIONS),
+        "excluded_audit_paths": list(AUDIT_PATHS),
         "totals": {
             "files": len(files),
             "bytes": sum(f.size for f in files),
@@ -720,42 +980,152 @@ def clone_refs() -> list[str]:
     return [r for r in out.splitlines() if r and not r.endswith("/HEAD")]
 
 
-def history(refs: list[str]) -> dict[str, Any]:
+def _objects(refs: list[str]) -> dict[str, str]:
+    """``oid -> first path`` for every object reachable from ``refs`` (paths only for blobs/trees)."""
     if not refs:
-        return {"refs": 0, "total": {"blobs": 0, "raw": 0, "packed": 0}, "by_group": {}, "largest_blobs": []}
-    listing = git("rev-list", "--objects", *refs).decode().splitlines()
-    names = {}
-    for line in listing:
+        return {}
+    names: dict[str, str] = {}
+    for line in git("rev-list", "--objects", *refs).decode().splitlines():
         oid, _, path = line.partition(" ")
-        if path:
-            names.setdefault(oid, path)
-    check = git(
-        "cat-file",
-        "--batch-check=%(objectname) %(objecttype) %(objectsize) %(objectsize:disk)",
-        input="\n".join(names).encode() + b"\n",
-    ).decode()
-    per_group: dict[str, dict[str, int]] = defaultdict(lambda: {"blobs": 0, "raw": 0, "packed": 0})
+        names.setdefault(oid, path)
+    return names
+
+
+def _first_commit(blob: str, refs: list[str]) -> str:
+    out = git(
+        "log", "--reverse", "--format=%h %ad", "--date=short", f"--find-object={blob}", *refs
+    ).decode().splitlines()
+    return out[0] if out else "unknown"
+
+
+def history(refs: list[str]) -> dict[str, Any]:
+    empty = {"blobs": 0, "raw": 0, "packed": 0, "missing": 0}
+    if not refs:
+        return {
+            "refs": 0,
+            "total": dict(empty),
+            "by_group": {},
+            "largest_blobs": [],
+            "lfs_history": [],
+            "historical_sample_references": [],
+            "retired_paths": [],
+        }
+    pages_refs = [r for r in refs if "gh-pages" in r]
+    code_refs = [r for r in refs if r not in pages_refs]
+    current_pages = [r for r in pages_refs if r.endswith("/origin/gh-pages")]
+    code = _objects(code_refs)
+    pages_current = _objects(current_pages)
+    pages_all = _objects(pages_refs)
+    names = dict(code)
+    for oid, path in pages_all.items():
+        names.setdefault(oid, path)
+    info = batch_check(names)
+
+    per_group: dict[str, dict[str, int]] = defaultdict(lambda: dict(empty))
+    total = dict(empty)
     largest = []
-    total = {"blobs": 0, "raw": 0, "packed": 0}
-    for line in check.splitlines():
-        oid, kind, raw, packed = line.split()
+    small_blobs: dict[str, str] = {}
+    sample_blobs: dict[str, str] = {}
+    manifest_blobs: dict[str, str] = {}
+    retired: dict[str, dict[str, int]] = defaultdict(lambda: {"blobs": 0, "raw": 0, "packed": 0})
+    for oid, path in names.items():
+        meta = info.get(oid)
+        if oid in code:
+            group = group_of(path, HISTORY_ORDER)
+            key = group.id if group else "unassigned"
+        elif oid in pages_current:
+            key = "history.gh_pages_current"
+        else:
+            key = "history.gh_pages_backups"
+        if meta is None:
+            per_group[key]["missing"] += 1
+            total["missing"] += 1
+            continue
+        kind, raw, packed = meta
         if kind != "blob":
             continue
-        path = names[oid]
-        group = group_of(path, HISTORY_ORDER)
-        key = group.id if group else "unassigned"
         for bucket in (per_group[key], total):
             bucket["blobs"] += 1
-            bucket["raw"] += int(raw)
-            bucket["packed"] += int(packed)
-        largest.append((int(packed), int(raw), path))
+            bucket["raw"] += raw
+            bucket["packed"] += packed
+        largest.append((packed, raw, path))
+        if oid in code:
+            if raw < 1024:
+                small_blobs[oid] = path
+            if key == "samples.shot.representations":
+                sample_blobs[oid] = path
+            if re.fullmatch(r"vaft/data/samples/\d{5}/manifest\.yaml", path):
+                manifest_blobs[oid] = path
+            if key == "history.retired_layouts":
+                bucket = retired[path]
+                bucket["blobs"] += 1
+                bucket["raw"] += raw
+                bucket["packed"] += packed
+
+    # Every LFS pointer ever committed, and whether its object is in the local LFS store.
+    lfs_store = lfs_object_dir()
+    lfs_history = []
+    for oid, data in read_blobs(small_blobs):
+        pointer = lfs_pointer(data)
+        if pointer is None:
+            continue
+        digest = pointer["oid"].removeprefix("sha256:")
+        local = (lfs_store / digest[:2] / digest[2:4] / digest).is_file()
+        lfs_history.append(
+            {
+                "path": small_blobs[oid],
+                "object_sha256": digest,
+                "bytes": pointer["size"],
+                "first_commit": _first_commit(oid, code_refs),
+                "object_in_local_store": local,
+            }
+        )
+
+    # Every sample reference_id ever registered, and whether its bytes survive in history.
+    present = {
+        content_sha256(data) for _, data in read_blobs(sample_blobs) if data is not None
+    }
+    references: dict[str, dict[str, Any]] = {}
+    for oid, data in read_blobs(manifest_blobs):
+        if data is None:
+            continue
+        try:
+            manifest = yaml.safe_load(data) or {}
+        except yaml.YAMLError:
+            continue
+        reference_id = manifest.get("reference_id")
+        if not reference_id:
+            continue
+        entry = references.setdefault(
+            reference_id,
+            {"reference_id": reference_id, "shot": manifest.get("shot"), "representations": {}},
+        )
+        for name, record in (manifest.get("representations") or {}).items():
+            sha = record.get("sha256") if isinstance(record, dict) else None
+            if sha:
+                entry["representations"][f"{name}:{sha}"] = {
+                    "name": name,
+                    "sha256": sha,
+                    "bytes_in_history": sha in present,
+                }
+
     largest.sort(reverse=True)
     return {
         "refs": len(refs),
+        "gh_pages_refs": pages_refs,
         "total": total,
         "by_group": dict(sorted(per_group.items(), key=lambda kv: -kv[1]["packed"])),
         "largest_blobs": [
             {"path": p, "raw_bytes": r, "packed_bytes": d} for d, r, p in largest[:40]
+        ],
+        "lfs_history": sorted(lfs_history, key=lambda r: (r["path"], r["first_commit"])),
+        "historical_sample_references": [
+            {**{k: v for k, v in entry.items() if k != "representations"},
+             "representations": sorted(entry["representations"].values(), key=lambda r: (r["name"], r["sha256"]))}
+            for entry in sorted(references.values(), key=lambda e: e["reference_id"])
+        ],
+        "retired_paths": [
+            {"path": path, **sizes} for path, sizes in sorted(retired.items())
         ],
     }
 
@@ -766,9 +1136,8 @@ def pypi_sizes(project: str = "vaft") -> dict[str, Any]:
             info = json.load(resp)
     except Exception as exc:  # network is optional for the audit
         return {"error": f"{type(exc).__name__}: {exc}"}
-    version = info["info"]["version"]
     return {
-        "version": version,
+        "version": info["info"]["version"],
         "files": [
             {"filename": u["filename"], "packagetype": u["packagetype"], "bytes": u["size"]}
             for u in info["urls"]
@@ -792,10 +1161,10 @@ def github_size(repo: str = "VEST-Tokamak/vaft") -> dict[str, Any]:
 def measure(refs: list[str], *, network: bool) -> dict[str, Any]:
     trees = {}
     for ref in refs:
-        files = tree_files(ref)
+        files = tree_files(ref, include_audit=True)
         per_group: dict[str, dict[str, int]] = defaultdict(lambda: {"files": 0, "bytes": 0})
         for f in files:
-            group = group_of(f.path, (g for g in GROUPS if not g.history_only))
+            group = group_of(f.path, TREE_GROUPS)
             bucket = per_group[group.id if group else "unassigned"]
             bucket["files"] += 1
             bucket["bytes"] += f.size
@@ -805,10 +1174,13 @@ def measure(refs: list[str], *, network: bool) -> dict[str, Any]:
             for oid, data in read_blobs(small)
             if (pointer := lfs_pointer(data)) is not None
         ]
+        info = batch_check(f.oid for f in files)
         trees[ref] = {
             "commit": rev_parse(ref),
             "files": len(files),
             "bytes": sum(f.size for f in files),
+            "packed_bytes": sum(m[2] for m in info.values() if m),
+            "missing_blobs": sum(m is None for m in info.values()),
             "by_group": dict(sorted(per_group.items(), key=lambda kv: -kv[1]["bytes"])),
             "lfs_pointers": sorted(lfs, key=lambda r: r["path"]),
             "lfs_object_bytes": sum(r["size"] for r in lfs),
@@ -818,12 +1190,14 @@ def measure(refs: list[str], *, network: bool) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "measured_at": _dt.datetime.now(_dt.timezone.utc).replace(microsecond=0).isoformat(),
         "method": {
-            "tree": "git ls-tree -r -l <ref>; blob sizes as stored in Git (LFS files count as pointers)",
+            "tree": "git ls-tree -r -l <ref>; blob sizes as stored in Git (LFS files count as pointers); packed_bytes = local objectsize:disk of the tree's blobs",
             "history": (
                 "git rev-list --objects over every refs/remotes/origin/* branch and tag (what a full "
-                "clone downloads), then git cat-file --batch-check objectsize / objectsize:disk"
+                "clone downloads), then git cat-file --batch-check objectsize / objectsize:disk. "
+                "Blobs reachable from no code branch are attributed by ref to the gh-pages groups."
             ),
-            "lfs": "pointer files (< 1 KiB blobs starting with the LFS spec line); object size from the pointer",
+            "lfs": "pointer files (< 1 KiB blobs starting with the LFS spec line); object size from the pointer; presence checked in the local .git/lfs/objects",
+            "historical_sample_references": "every vaft/data/samples/<shot>/manifest.yaml blob in history; bytes_in_history = a representation blob in history hashes to the recorded sha256",
             "packages": "PyPI JSON API for the latest release",
             "github": "gh api repos/<repo> .size (KiB, GitHub's own accounting)",
             "local_pack": "git count-objects -v size-pack",

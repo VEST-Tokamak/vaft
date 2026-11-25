@@ -110,11 +110,45 @@ def test_specific_groups_win_over_catch_alls():
     assert AUDIT.group_of("vaft/data/efit/brzgfc.dat", AUDIT.GROUPS).id == (
         "efit.generated_tables_plain"
     )
-    # History attribution must not let the vaft/data/* catch-all claim retired layouts.
-    assert AUDIT.group_of("vaft/data/omas/39915.json", AUDIT.GROUPS).id == "data.geometry_config"
-    assert AUDIT.group_of("vaft/data/omas/39915.json", AUDIT.HISTORY_ORDER).id == (
-        "history.retired_sample_layouts"
+    assert AUDIT.group_of("vaft/data/samples/48224/equilibria/efit.json.gz", AUDIT.GROUPS).id == (
+        "samples.shot.pinned_parts"
     )
+    assert AUDIT.group_of("workflow/efit_tables/reference/x.json", AUDIT.GROUPS).id == (
+        "efit.table_records"
+    )
+    # History attribution must not let the vaft/data/** catch-all claim retired layouts.
+    assert AUDIT.group_of("vaft/data/omas/39915.json", AUDIT.TREE_GROUPS).id == "data.geometry_config"
+    assert AUDIT.group_of("vaft/data/omas/39915.json", AUDIT.HISTORY_ORDER).id == (
+        "history.retired_layouts"
+    )
+
+
+def test_glob_star_stays_within_one_directory():
+    assert AUDIT.glob_match("vaft/data/samples/39915/manifest.yaml", "vaft/data/samples/*/manifest.yaml")
+    assert not AUDIT.glob_match(
+        "vaft/data/samples/39915/mhd_stability/manifest.yaml", "vaft/data/samples/*/manifest.yaml"
+    )
+    assert AUDIT.glob_match("vaft/data/legacy/a/b.csv", "vaft/data/legacy/**")
+    assert AUDIT.glob_match("notebooks/x.ipynb", "notebooks/**/*.ipynb")
+    assert AUDIT.glob_match("notebooks/sub/x.ipynb", "notebooks/**/*.ipynb")
+
+
+def test_manifest_pins_cover_both_shapes():
+    manifest = {
+        "source": {
+            "raw_source": "source/raw.json.gz",
+            "raw_sha256": "a" * 64,
+            "sxr_sources": [{"path": "vaft/data/legacy/d.csv", "sha256": "b" * 64}],
+        },
+        "generation": {"canonical_source": "source/c.json.gz", "canonical_sha256": "c" * 64},
+        "history": [{"previous_canonical_sha256": "d" * 64}],
+    }
+    pins = {(path, sha) for _, path, sha in AUDIT.manifest_pins(manifest)}
+    assert pins == {
+        ("source/raw.json.gz", "a" * 64),
+        ("vaft/data/legacy/d.csv", "b" * 64),
+        ("source/c.json.gz", "c" * 64),
+    }
 
 
 def test_every_group_uses_a_known_category_and_decision():
@@ -125,20 +159,28 @@ def test_every_group_uses_a_known_category_and_decision():
         assert group.decision in {"decided", "proposed", "open"}
 
 
-def test_lfs_pointer_and_wheel_substitution():
+def test_lfs_pointer_and_wheel_membership():
     assert AUDIT.lfs_pointer(LFS_POINTER.encode()) == {"oid": "sha256:" + "a" * 64, "size": 134459248}
     assert AUDIT.lfs_pointer(b"\x1f\x8b binary") is None
-    globs = ["vaft/data/samples/39915/omas.json.gz"]
-    assert not AUDIT.in_wheel("vaft/data/samples/39915/omas.json.gz", globs)
-    assert AUDIT.in_wheel("vaft/data/wheel_samples/39915/omas.json.gz", globs)
+    assert AUDIT.content_sha256(LFS_POINTER.encode()) == "a" * 64
+    rules = AUDIT.WheelRules(
+        data_globs=("vaft/data/samples/39915/omas.json.gz",),
+        package_excludes=("vaft.validation.studies.nice_issue_666*",),
+    )
+    assert not AUDIT.in_wheel("vaft/data/samples/39915/omas.json.gz", rules)
+    assert AUDIT.in_wheel("vaft/data/wheel_samples/39915/omas.json.gz", rules)
+    assert not AUDIT.in_wheel("vaft/data/wheel_samples/39915/imas.nc", rules)
+    assert AUDIT.in_wheel("vaft/data/particle.py", rules)
+    assert not AUDIT.in_wheel("vaft/validation/studies/nice_issue_666/run.py", rules)
 
 
 def test_inventory_reads_the_tree_through_git(repo):
     inventory = AUDIT.build_inventory("HEAD")
 
     samples = {row["shot"]: row for row in inventory["samples"]}
-    assert samples[11111]["representations"][0]["sha256_matches"] is True
-    assert samples[22222]["representations"][0]["sha256_matches"] is False
+    assert samples[11111]["pin_status"] == {"match": 1}
+    assert samples[22222]["pin_status"] == {"mismatch": 1}
+    assert samples[11111]["consumers"]["files"] == ["test/test_reader.py"]
 
     lfs = _group(inventory, "efit.green_tables_lfs")
     assert lfs["tree"]["lfs_pointers"] == 1
@@ -149,7 +191,7 @@ def test_inventory_reads_the_tree_through_git(repo):
     assert _group(inventory, "samples.shot.manifests")["tree"]["wheel_files"] == 2
 
     assert inventory["unassigned_large_files"] == [{"path": "big/blob.bin", "bytes": 4096}]
-    assert _group(inventory, "history.gh_pages")["tree"] == "not applicable"
+    assert _group(inventory, "history.gh_pages_backups")["tree"] == "not applicable"
 
 
 def test_inventory_check_detects_drift(repo, tmp_path):
@@ -167,3 +209,13 @@ def test_measure_attributes_history_without_network(repo):
     assert "pypi" not in result
     # The fixture repository has no origin refs; the history scope is then empty.
     assert result["history"]["refs"] == 0
+
+
+def test_audit_files_are_excluded_from_counts(repo):
+    before = AUDIT.build_inventory("HEAD")
+    _write(repo, "docs/architecture/data_assets/inventory.yaml", b"x" * 5000)
+    _write(repo, "workflow/data_asset_audit/audit_assets.py", b"# vaft/data/samples/11111/omas.json.gz\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "audit files")
+    after = AUDIT.build_inventory("HEAD")
+    assert after == before
