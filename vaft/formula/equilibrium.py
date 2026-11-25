@@ -6843,9 +6843,6 @@ def modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_positio
     return -pedestal_height / pedestal_width * _mtanh_derivative(z, core_slope)
 
 
-#: Derived rather than listed, so a function added here cannot silently
-#: leave the package surface the way seven once did.  The virial names
-#: re-bound above belong to `.virial` and are excluded by construction.
 def _finite_array(name, value):
     array = np.asarray(value, dtype=float)
     if not np.all(np.isfinite(array)):
@@ -7027,4 +7024,7 @@ def separatrix_separation_from_flux_imbalance(psi_lower, psi_upper, dpsi_dR):
     return _scalar_or_array(np.asarray(imbalance, dtype=float) / gradient)
 
 
+#: Derived rather than listed, so a function added here cannot silently
+#: leave the package surface the way seven once did.  The virial names
+#: re-bound above belong to `.virial` and are excluded by construction.
 __all__ = public_names(globals())

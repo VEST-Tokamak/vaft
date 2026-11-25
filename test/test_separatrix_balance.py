@@ -38,8 +38,15 @@ def _saddle_fluxes(skew):
     return [float(zz**2 - zz**4 / A**2 + skew * zz**3) for zz in by_z]  # lower, upper
 
 
+#: A first wall well clear of the plasma (the LCFS stands about 0.17 m off
+#: it), as every reconstruction carries one; ``wall=False`` removes it.
+_THETA = np.linspace(0.0, 2.0 * np.pi, 200, endpoint=False)
+FAR_WALL = Contour(1.0 + 0.48 * np.cos(_THETA), 0.75 * np.sin(_THETA))
+
+
 def _equilibrium(skew=0.08, n=201, *, inset=0.0, flip=False, scale=1.0, offset=0.0,
                  wall=None, extra=None, axis=True):
+    wall = FAR_WALL if wall is None else (None if wall is False else wall)
     r = np.linspace(0.5, 1.5, n)
     z = np.linspace(-0.8, 0.8, n + 40 if n > 100 else n)
     rm, zm = np.meshgrid(r, z, indexing="ij")
@@ -158,14 +165,8 @@ def test_near_double_null_keeps_its_signed_value_on_coarse_grids(n, inset):
     assert rep.d_r_sep.available
     assert rep.d_r_sep.value == pytest.approx(_exact(psi_l, psi_u), abs=5e-4)
     assert rep.d_r_sep.value < 0
-    if rep.topology == Topology.DOUBLE_NULL:
-        # The 3 mm imbalance is below what a 5 cm grid resolves in flux: a
-        # double null is the honest classification, flagged as numerical, and
-        # the signed value survives it.
-        assert rep.topology_evidence["double_null_resolution_limited"] is True
-        assert abs(rep.d_r_sep.value) <= rep.d_r_sep.quality["resolution_m"]
-    else:
-        assert rep.topology == Topology.LOWER_SINGLE_NULL
+    eps = rep.topology_evidence["double_null_tolerance_m"]
+    assert rep.topology == (Topology.DOUBLE_NULL if abs(rep.d_r_sep.value) <= eps else Topology.LOWER_SINGLE_NULL)
 
 
 def test_inset_boundary_near_a_divertor_wall_is_not_called_limited():
@@ -267,8 +268,11 @@ def test_scan_classification_follows_the_canonical_active_flags(inset, tolerance
 
     eq, _, _ = _equilibrium(0.01, 65, inset=inset)
     report = classify_boundary(eq, active_tolerance=tolerance)
-    canonical = report.representation
-    assert [xp["active"] for xp in report.x_points] == [xp.active for xp in canonical.x_points]
+    # An independent canonical call with the same tolerance: the scan must not
+    # re-decide which X-points are active.
+    canonical = derive_boundary_representation(eq, flux_tolerance=tolerance)
+    assert sorted((xp["r"], xp["z"]) for xp in report.x_points if xp["active"]) == sorted(
+        (xp.r, xp.z) for xp in canonical.x_points if xp.active)
     assert report.topology.value == expected
     if expected == "lower_single_null":
         assert report.d_r_sep is not None and report.d_r_sep < 0
@@ -297,18 +301,48 @@ def test_an_unrelated_midplane_saddle_is_not_a_divertor_x_point():
     assert any("divertor sector" in note for note in evidence["upper_rejected"])
 
 
-@pytest.mark.parametrize("skew", [0.002, 0.005])
+@pytest.mark.parametrize("skew", [0.002, 0.005, 0.01, 0.08])
 @pytest.mark.parametrize("inset", [0.0, 3e-3])
-def test_a_resolved_secondary_within_one_percent_stays_secondary(skew, inset):
-    """The LCFS-anchored rule must not promote a secondary X-point that the
-    grid resolves from the primary into a second primary (cold review of
-    #2325): a near-double null is a single null with a signed dRsep."""
+def test_the_class_follows_the_signed_separation_against_eps_dn(skew, inset):
+    """|dRsep| <= eps_DN = 0.005 a is a double null; beyond it the sign picks
+    the single null, and only the separatrices inside the band are active."""
     eq, psi_l, psi_u = _equilibrium(skew, 201, inset=inset)
     rep = derive_boundary_representation(eq)
-    assert rep.topology == Topology.LOWER_SINGLE_NULL
-    assert rep.separatrix_x_points["upper"].role == "secondary"
-    assert rep.d_r_sep.value == pytest.approx(_exact(psi_l, psi_u), abs=2e-4)
-    assert rep.d_r_sep.value < -rep.d_r_sep.quality["resolution_m"]
+    eps = rep.topology_evidence["double_null_tolerance_m"]
+    assert rep.topology_evidence["double_null_tolerance_fraction_of_a"] == 0.005
+    exact = _exact(psi_l, psi_u)
+    assert rep.d_r_sep.value == pytest.approx(exact, abs=2e-4)
+    if abs(exact) <= eps:
+        assert rep.topology == Topology.DOUBLE_NULL
+        assert {p.branch for p in rep.x_points if p.active} == {"upper", "lower"}
+    else:
+        assert rep.topology == Topology.LOWER_SINGLE_NULL
+        assert rep.separatrix_x_points["upper"].role == "secondary"
+        assert not rep.separatrix_x_points["upper"].active
+
+
+def test_the_double_null_band_is_a_declared_tolerance():
+    eq, psi_l, psi_u = _equilibrium(0.005, 201)
+    exact = abs(_exact(psi_l, psi_u))
+    a = 0.5 * float(np.ptp(eq.lcfs.r))
+    narrow = derive_boundary_representation(eq, double_null_tolerance=0.2 * exact / a)
+    wide = derive_boundary_representation(eq, double_null_tolerance=5.0 * exact / a)
+    assert narrow.topology == Topology.LOWER_SINGLE_NULL
+    assert wide.topology == Topology.DOUBLE_NULL
+    # The number itself never depends on the band.
+    assert narrow.d_r_sep.value == pytest.approx(wide.d_r_sep.value)
+
+
+@pytest.mark.parametrize("skew", [0.005, 0.01])
+def test_the_class_does_not_depend_on_the_grid(skew):
+    classes = set()
+    for n in (201, 129, 65, 33):
+        eq, _, _ = _equilibrium(skew, n, inset=3e-3)
+        rep = derive_boundary_representation(eq)
+        classes.add(rep.topology)
+        flag = rep.topology_evidence["topology_unresolved_on_grid"]
+        assert flag == (rep.d_r_sep.quality["resolution_m"] > rep.topology_evidence["double_null_tolerance_m"])
+    assert len(classes) == 1, classes
 
 
 def test_an_explicit_flux_tolerance_caps_the_anchored_offset():
@@ -331,3 +365,35 @@ def test_a_wall_contact_away_from_the_saddle_keeps_the_plasma_limited():
     assert rep.topology == Topology.LIMITED
     assert any("rejected" in note for note in rep.topology_evidence["lcfs_anchored"])
     assert not rep.d_r_sep.available
+
+
+def test_without_a_wall_an_inset_boundary_stays_undetermined():
+    """The anchoring rule cannot exclude a limited near-null without a wall,
+    so it does not promote the saddle (independent review of #2326)."""
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3, wall=False)
+    rep = derive_boundary_representation(eq)
+    assert not rep.topology.is_diverted
+    assert not any(point.active for point in rep.x_points)
+
+
+def test_the_anchored_rule_ignores_a_midplane_saddle():
+    from vaft.data.equilibrium import StationaryPoint
+    from vaft.process._equilibrium_parametric import _grid_spacing, _lcfs_anchored_saddles
+
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3)
+    r_out = float(np.max(eq.lcfs.r))
+    decoy = StationaryPoint(r_out + 0.005, 0.0, 0.0, 1.003, "x", -1.0, 2.0)
+    anchored, _ = _lcfs_anchored_saddles(
+        eq, [decoy], None, _grid_spacing(eq), abs(eq.psi_boundary - eq.psi_axis), 0.3, 0.05)
+    assert anchored == []
+
+
+def test_limited_x_points_are_geometric_not_secondary():
+    theta = np.linspace(0.0, 2.0 * np.pi, 240, endpoint=False)
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3)
+    wall = Contour(float(np.max(eq.lcfs.r)) + 0.3 * (np.cos(theta) - 1.0), 0.75 * np.sin(theta))
+    limited, _, _ = _equilibrium(0.01, 201, inset=3e-3, wall=wall)
+    rep = derive_boundary_representation(limited)
+    assert rep.topology == Topology.LIMITED
+    assert {point.role for point in rep.x_points if point.role} == {"geometric"}
+    assert rep.d_r_sep.quality["upper_role"] == rep.d_r_sep.quality["lower_role"] == "geometric"
