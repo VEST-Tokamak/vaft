@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 386
+  "unverified": 387
  },
  "entry_modules": {
   "pipeline1": [
@@ -3058,6 +3058,42 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/diagram/_divertor_footprint.py"
+  },
+  {
+   "algorithm_semantics": "calls scipy.interpolate.RectBivariateSpline (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "scipy.interpolate.RectBivariateSpline",
+     "snippet": "RectBivariateSpline(eq.r, eq.z, np.asarray(eq.psi, dtype=float))"
+    }
+   ],
+   "callers": [
+    "vaft.diagram._divertor_topology.divertor_topology_classification",
+    "vaft.diagram._divertor_topology.secondary_separatrix_balance",
+    "vaft.diagram._divertor_topology.separatrix_balance_calculation",
+    "vaft.diagram._divertor_topology.sol_magnetic_connectivity"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.diagram._divertor_topology.balance_state",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "diagram",
+   "primitives": [
+    "scipy.interpolate.RectBivariateSpline"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/diagram/_divertor_topology.py"
   },
   {
    "algorithm_semantics": "calls numpy.interp, numpy.polyfit (not curated)",

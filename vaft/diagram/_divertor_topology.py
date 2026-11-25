@@ -24,8 +24,10 @@ on $R = 1$ that the skew $s$ biases ($s > 0$ lowers the lower saddle's flux,
 a lower single null). It is an illustrative flux map, not a VEST
 reconstruction. The topology, the X-points with their ``role`` and ``branch``,
 and $dR_\\mathrm{sep}$ with its quality all come from
-``vaft.process.equilibrium.derive_boundary_representation``: no saddle is
-located here. The diagrams draw the process output and contour the flux. Open
+``vaft.process.equilibrium.derive_boundary_representation``; the diagram
+code searches the flux for no saddle. (The family's closed-form saddle flux
+only sets the boundary flux handed to the process, as an equilibrium solver
+would.) The diagrams draw the process output and contour the flux. Open
 field lines are followed along their flux contour (the poloidal projection of
 an axisymmetric field line) until they meet the wall.
 
@@ -40,7 +42,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from vaft.formula.equilibrium import separatrix_radial_separation, separatrix_separation_from_flux_imbalance
+from vaft.formula.equilibrium import separatrix_radial_separation
 from vaft.formula.sol import secondary_separatrix_exponential_factor, separatrix_imbalance_to_heat_flux_width
 
 from ._chart import Chart, render_chart
@@ -58,6 +60,8 @@ WALL: Tuple[Tuple[float, float], ...] = (
 _DIVERTOR_Z = 0.45
 #: the largest skew the family keeps both saddles inside the vessel for
 _MAX_SKEW = 0.2
+#: the diverted LCFS contour sits this fraction of the boundary flux inside the saddle flux (a tie guard)
+_LCFS_INSET = 1e-6
 
 #: line styles of the connectivity classes (inline TikZ options, no template change)
 _CLASS_STYLE = {
@@ -75,10 +79,11 @@ _CLASS_TEXT = {
     "common_outboard": "common SOL, outboard: lower outer to upper outer",
     "common_inboard": "common SOL, inboard: lower inner to upper inner",
     "private_lower": "private flux: inner to outer target of one divertor, beyond its X-point",
+    "other": "any other connection (main-chamber wall, or both ends on one target)",
 }
 _TOPOLOGY_TEXT = {
     "limited": "LIMITED", "lower_single_null": "LSN", "upper_single_null": "USN",
-    "double_null": "balanced DN", "diverted": "diverted", "ambiguous": "ambiguous",
+    "double_null": "DN", "diverted": "diverted", "ambiguous": "ambiguous",
 }
 #: a contour run within this distance of an X-point belongs to its separatrix [m]
 _NEAR_X = 0.03
@@ -96,7 +101,8 @@ def _check_labels(labels) -> bool:
 
 
 def _check_skew(skew, name: str = "skew") -> float:
-    if not (isinstance(skew, (int, float)) and math.isfinite(skew) and abs(skew) <= _MAX_SKEW):
+    if isinstance(skew, bool) or not (isinstance(skew, (int, float)) and math.isfinite(skew)
+                                      and abs(skew) <= _MAX_SKEW):
         raise ValueError(f"{name} must be a finite number with |{name}| <= {_MAX_SKEW}, not {skew!r}")
     return float(skew)
 
@@ -111,6 +117,13 @@ def family_flux(R, Z, skew: float):
     return (R - 1.0) ** 2 + Z**2 - Z**4 / FAMILY_A**2 + skew * Z**3
 
 
+def _family_saddles(skew: float) -> List[Tuple[float, float]]:
+    """The family's saddles as (Z, psi) on R = 1, from its definition: the roots of
+    $\\partial_Z\\psi/Z = 2 - 4Z^2/a^2 + 3sZ = 0$."""
+    roots = sorted(np.roots([4.0 / FAMILY_A**2, -3.0 * skew, -2.0]).real)
+    return [(float(z), float(family_flux(1.0, z, skew))) for z in roots]
+
+
 def _family_boundary_flux(skew: float) -> float:
     """The flux of the lower-flux saddle, where the family's plasma ends when nothing limits it.
 
@@ -119,8 +132,7 @@ def _family_boundary_flux(skew: float) -> float:
     boundary flux an equilibrium solver would hand over. The X-points the
     diagrams draw are the ones ``derive_boundary_representation`` finds.
     """
-    roots = np.roots([4.0 / FAMILY_A**2, -3.0 * skew, -2.0]).real
-    return float(min(family_flux(1.0, z, skew) for z in roots))
+    return min(psi for _, psi in _family_saddles(skew))
 
 
 def analytic_balance_equilibrium(skew: float = 0.0, *, limiter_tip: Optional[float] = None, n: int = 201):
@@ -144,18 +156,54 @@ def analytic_balance_equilibrium(skew: float = 0.0, *, limiter_tip: Optional[flo
     boundary = _family_boundary_flux(skew)
     if limiter_tip is not None:
         tip = float(limiter_tip)
-        if not (math.isfinite(tip) and WALL[0][0] < tip and family_flux(tip, 0.0, skew) < boundary):
-            raise ValueError(f"limiter_tip must lie between the wall (R = {WALL[0][0]} m) and the separatrix, "
-                             f"not {limiter_tip!r}")
+        if not (math.isfinite(tip) and WALL[0][0] < tip < 1.0 and family_flux(tip, 0.0, skew) < boundary):
+            raise ValueError(f"limiter_tip must lie between the inboard wall (R = {WALL[0][0]} m) and the "
+                             f"separatrix, inboard of the magnetic axis (R = 1 m), not {limiter_tip!r}")
         wall += [(WALL[0][0], 0.08), (tip, 0.0), (WALL[0][0], -0.08)]
         boundary = float(family_flux(tip, 0.0, skew))
-    lines = extract_flux_surface_contours(psi, r, z, 0.0, boundary, [1.0])[1.0]
-    rb, zb = max(lines, key=lambda pair: pair[0].size)
+    # the LCFS handed over is the closed surface. Limited: the limiter's own flux surface. Diverted: the
+    # separatrix contour (a hair inside the saddle flux, so platform last bits cannot decide it) comes back
+    # leg-core-leg through the saddle cell; its part between the bounding saddles' heights is the LCFS
+    level = boundary if limiter_tip is not None else boundary * (1.0 - _LCFS_INSET)
+    lines = extract_flux_surface_contours(psi, r, z, 0.0, level, [1.0])[1.0]
+    if limiter_tip is None:
+        rb, zb = _diverted_lcfs(lines, skew, boundary)
+    else:
+        closed = [(rb, zb) for rb, zb in lines if math.hypot(rb[0] - rb[-1], zb[0] - zb[-1]) < 1e-9]
+        if not closed:
+            raise ValueError("the limiter's flux surface does not close on this grid")
+        rb, zb = max(closed, key=lambda pair: pair[0].size)
     w = np.asarray(wall, dtype=float)
     return EquilibriumData(
         r=r, z=z, psi=psi, psi_axis=0.0, psi_boundary=boundary, magnetic_axis=(1.0, 0.0), lcfs=Contour(rb, zb),
         limiter=Contour(w[:, 0], w[:, 1]),
         convention=EquilibriumConvention(1, (1,), True, False, 1, 1, 1, "analytic separatrix-balance family"))
+
+
+def _diverted_lcfs(lines, skew: float, boundary: float) -> Tuple[np.ndarray, np.ndarray]:
+    """The closed part of the separatrix contour ``lines``: between the heights of the saddles on the boundary flux.
+
+    Only pieces that pass a bounding saddle count -- the same flux level also
+    lies in the other divertor's private flux. A double null gives two halves,
+    joined into one loop through both saddles.
+    """
+    bounding = [(1.0, z_s) for z_s, psi_s in _family_saddles(skew) if psi_s <= boundary * (1.0 + 1e-12)]
+    z_low = max([z for _, z in bounding if z < 0.0], default=-np.inf)
+    z_high = min([z for _, z in bounding if z > 0.0], default=np.inf)
+    pieces = []
+    for rb, zb in lines:
+        for piece, core in _split_at_x_points(np.stack([rb, zb], -1), (z_low, z_high)):
+            near = min(float(np.min(np.hypot(piece[:, 0] - r_s, piece[:, 1] - z_s))) for r_s, z_s in bounding)
+            if core and near < _NEAR_X:
+                pieces.append(piece)
+    if not pieces:
+        raise ValueError("the separatrix contour has no closed part on this grid")
+    loop = pieces[0]
+    for piece in sorted(pieces[1:], key=lambda p: float(np.mean(p[:, 0]))):
+        flip = np.hypot(*(piece[-1] - loop[-1])) < np.hypot(*(piece[0] - loop[-1]))
+        loop = np.concatenate([loop, piece[::-1] if flip else piece])
+    loop = np.concatenate([loop, loop[:1]])
+    return loop[:, 0], loop[:, 1]
 
 
 def balance_state(skew: float = 0.0, *, limiter_tip: Optional[float] = None, n: int = 201) -> dict:
@@ -200,7 +248,7 @@ def _segment_hit(p, q, wall) -> Tuple[np.ndarray, int]:
         if -1e-12 <= t <= 1.0 + 1e-12 and -1e-12 <= u <= 1.0 + 1e-12 and t < best[0]:
             best = (t, p + t * d, k)
     if best[1] is None:
-        return q, -1
+        raise ValueError(f"the segment {tuple(p)} -> {tuple(q)} does not cross the wall")
     return best[1], best[2]
 
 
@@ -236,10 +284,9 @@ def _inside_runs(eq, level: float, wall) -> List[np.ndarray]:
 
 def _target_name(point, edge: int, state) -> str:
     """``"lower outer target"`` and the like; a hit on the main-chamber wall (|Z| < 0.45 m) is ``"lower wall"``."""
-    rep = state["representation"]
     z_axis = float(state["equilibrium"].magnetic_axis[1]) if state["equilibrium"].magnetic_axis is not None else 0.0
     side = "lower" if point[1] < z_axis else "upper"
-    xp = rep.separatrix_x_points.get(side)
+    xp = state["representation"].separatrix_x_points.get(side)
     r_split = xp.r if xp is not None else float(state["equilibrium"].magnetic_axis[0])
     wall = state["wall"]
     a, b = wall[edge], wall[(edge + 1) % len(wall)]
@@ -296,10 +343,10 @@ def trace_field_line(state: dict, seed) -> dict:
     full = np.concatenate([backward[::-1], forward[1:]])
     ends = (tuple(full[0]), tuple(full[-1]))
     targets = (_target_name(full[0], b_edge, state), _target_name(full[-1], f_edge, state))
-    rep = state["representation"]
     z_axis = float(state["equilibrium"].magnetic_axis[1])
     return {"seed": tuple(seed), "level": level, "closed": False, "path": full, "ends": ends,
-            "targets": targets, "crosses_axis_height": bool(np.ptp(np.sign(full[:, 1] - z_axis)) > 0)}
+            "targets": targets,
+            "crosses_axis_height": bool(np.any(full[:, 1] > z_axis) and np.any(full[:, 1] < z_axis))}
 
 
 def connection_class(trace: dict) -> str:
@@ -309,11 +356,11 @@ def connection_class(trace: dict) -> str:
     a, b = sorted(trace["targets"])
     if a.endswith("target") and b.endswith("target"):
         sa, sb = a.split()[0], b.split()[0]
-        if sa == sb:
+        if sa == sb and {a.split()[1], b.split()[1]} == {"inner", "outer"}:
             return f"{'primary' if trace['crosses_axis_height'] else 'private'}_{sa}"
-        if a.split()[1] == b.split()[1] == "outer":
+        if sa != sb and a.split()[1] == b.split()[1] == "outer":
             return "common_outboard"
-        if a.split()[1] == b.split()[1] == "inner":
+        if sa != sb and a.split()[1] == b.split()[1] == "inner":
             return "common_inboard"
     return "other"
 
@@ -322,11 +369,14 @@ def _midplane_crossing(state, level: float, side: str) -> float:
     """The radius where the flux ``level`` crosses the magnetic-axis height, inboard or outboard of the axis."""
     from scipy.optimize import brentq
 
-    rep, sp = state["representation"], state["spline"]
+    sp = state["spline"]
     r_ax, z_ax = (float(v) for v in state["equilibrium"].magnetic_axis)
     wall_r = state["wall"][:, 0]
     edge = float(np.min(wall_r)) if side == "inboard" else float(np.max(wall_r))
-    f = lambda R: float(sp.ev(R, z_ax)) - level
+
+    def f(R):
+        return float(sp.ev(R, z_ax)) - level
+
     return float(brentq(f, r_ax, edge, xtol=1e-12) if side == "outboard" else brentq(f, edge, r_ax, xtol=1e-12))
 
 
@@ -392,14 +442,20 @@ def _panel_items(state, cm, *, lcfs: bool = True, secondary: bool = True, primar
                  secondary_style: str = _SECONDARY) -> List:
     """Wall, LCFS, the separatrix of each selected X-point, every saddle and the axis.
 
-    A diverted plasma's LCFS is the part of its primary separatrix between the
-    active X-point heights; a limited one's is the process's LCFS contour,
-    which rests on the limiter.
+    With ``lcfs`` the closed surface is the equilibrium's LCFS contour (on the
+    limiter, or a hair inside the primary separatrix). Without it, the closed
+    part of the primary separatrix is drawn in the primary style instead: the
+    part between the active X-point heights of the X-point whose flux bounds
+    the plasma -- in a double null the grid cannot resolve, the other active
+    X-point contributes its legs only.
     """
     eq, rep = state["equilibrium"], state["representation"]
     items: List = [Polyline.of(cm(state["wall"]), "machine", role="wall", closed=True)]
     selected = _x_points(state)
     bounds = _core_bounds(state)
+    psi_axis = float(eq.psi_axis)
+    active = sorted((p for p in selected.values() if p.active), key=lambda p: (abs(p.psi - psi_axis), p.z))
+    bounding = active[0] if active else None
     core_pieces: Dict[Tuple, np.ndarray] = {}
     for branch in ("lower", "upper"):
         point = selected.get(branch)
@@ -418,27 +474,33 @@ def _panel_items(state, cm, *, lcfs: bool = True, secondary: bool = True, primar
                 continue
             for piece, core in _split_at_x_points(run, bounds):
                 if core:
-                    # a balanced DN reaches the same pieces from both X-points: keep each once
-                    key = tuple(np.round(np.concatenate([piece[0], piece[-1]]), 4))
-                    core_pieces.setdefault(key, piece)
+                    if point is bounding:
+                        core_pieces[tuple(np.round(np.concatenate([piece[0], piece[-1]]), 4))] = piece
                 elif float(np.min(np.hypot(*(piece - x).T))) < _NEAR_X:
                     # this X-point's own legs; another active X-point draws its own
                     items.append(Polyline.of(cm(piece), style, role=role))
-    # the closed part of the primary separatrix: one piece that closes through its X-point (single null), or
-    # halves that meet at the two X-points (double null)
-    pieces = [core_pieces[k] for k in sorted(core_pieces)]
-    for piece in pieces:
-        closes = len(pieces) == 1 and float(np.hypot(*(piece[0] - piece[-1]))) < 2 * _NEAR_X
-        items.append(Polyline.of(cm(piece), "lcfs" if lcfs else primary_style,
-                                 role="lcfs" if lcfs else "primary_separatrix", closed=closes))
-    if lcfs and not rep.topology.is_diverted:
-        items.append(Polyline.of(cm(np.stack([eq.lcfs.r, eq.lcfs.z], -1)), "lcfs", role="lcfs", closed=True))
+    if lcfs:
+        items.append(Polyline.of(cm(np.stack([eq.lcfs.r, eq.lcfs.z], -1)[:-1]), "lcfs", role="lcfs", closed=True))
+    else:
+        # one piece that closes through its X-point (single null), or halves that meet at both (double null)
+        pieces = [core_pieces[k] for k in sorted(core_pieces)]
+        for piece in pieces:
+            closes = len(pieces) == 1 and float(np.hypot(*(piece[0] - piece[-1]))) < 2 * _NEAR_X
+            items.append(Polyline.of(cm(piece), primary_style, role="primary_separatrix", closed=closes))
     # in drawing order by position: the process orders saddles by flux, which ties in a balanced double null
     for point in sorted(rep.x_points, key=lambda p: (round(p.z, 6), round(p.r, 6))):
         style, role = ("xpoint", "active_x_point") if point.active else (_INACTIVE_X, "inactive_x_point")
         items.append(Marker(tuple(cm([point.r, point.z])), "x", style, role=role))
     items.append(Marker(tuple(cm(state["equilibrium"].magnetic_axis)), "o", "fill=black", role="magnetic_axis"))
     return items
+
+
+def _topology_text(state) -> str:
+    """The process's topology in short; a double null the grid cannot resolve says so."""
+    text = _TOPOLOGY_TEXT.get(state["topology"], state["topology"])
+    if state["representation"].topology_evidence.get("double_null_resolution_limited"):
+        text += " within resolution"
+    return text
 
 
 def _mm(value: Optional[float]) -> str:
@@ -498,12 +560,13 @@ def divertor_topology_classification(*, labels: bool = True) -> Diagram:
             bottom = float(cm([1.0, -0.6])[1]) - 0.15
             centre = float(cm([1.0, 0.0])[0])
             items.append(Label((centre, top), title, "label", anchor="south", role=f"title:{key}"))
-            process = _TOPOLOGY_TEXT.get(state["topology"], state["topology"])
+            process = _topology_text(state)
             lines = [f"process: {process}", f"$dR_\\mathrm{{sep}}$ = {_mm(state['d_r_sep'])}"]
-            if not state["available"] and state["d_r_sep"] is not None:
-                lines.append("geometric only")
-            elif state["available"]:
-                lines.append("diverted balance")
+            applicability = state["quality"].get("applicability")
+            if applicability:
+                lines.append(applicability.replace("_", " "))
+            else:
+                lines.append("unavailable")
             items.append(Label((centre, bottom), "\\\\ ".join(lines), "small label,align=center", anchor="north",
                                role=f"caption:{key}"))
     if labels:
@@ -596,7 +659,7 @@ def secondary_separatrix_balance(bias: float = 0.08, *, labels: bool = True) -> 
             items.append(Label((centre, float(cm([1.0, 0.6])[1]) + 0.2), title, "label", anchor="south",
                                role=f"title:{key}"))
             items.append(Label((centre, float(cm([1.0, -0.6])[1]) - 0.1),
-                               f"process: {_TOPOLOGY_TEXT.get(state['topology'], state['topology'])}",
+                               f"process: {_topology_text(state)}",
                                "small label", anchor="north", role=f"caption:{key}"))
         items += [_tag(item, key) for item in _flux_space(state, x0, -1.6, labels)]
         items += [_tag(item, key) for item in _midplane_profile(state, x0, -8.2, labels)]
@@ -617,7 +680,9 @@ def secondary_separatrix_balance(bias: float = 0.08, *, labels: bool = True) -> 
 def _flux_space(state, x0: float, y0: float, labels: bool) -> List:
     """A psi_N axis with the two X-point fluxes and the flux difference between them."""
     q = state["quality"]
-    lo, hi = 0.94, 1.22
+    top = max(q["psi_n_lower"], q["psi_n_upper"])
+    step = 0.1 if top < 1.25 else 0.2
+    lo, hi = 0.94, max(1.22, top + 0.06)
     width = 5.0
 
     def x(v):
@@ -625,7 +690,7 @@ def _flux_space(state, x0: float, y0: float, labels: bool) -> List:
 
     y = y0 - 0.9
     items: List = [Arrow((x(lo), y), (x(hi) + 0.2, y), "frame axis arrow", role="flux_axis")]
-    for v in (1.0, 1.1, 1.2):
+    for v in np.round(np.arange(1.0, hi, step), 6):
         items += [Polyline.of([(x(v), y), (x(v), y - 0.12)], "tick", role="ticks"),
                   Label((x(v), y - 0.18), f"${v:g}$", "small label", anchor="north", role="ticks")]
     points = {"lower": (q["psi_n_lower"], "fill=driftred"), "upper": (q["psi_n_upper"], "fill=islandblue")}
@@ -657,11 +722,14 @@ def _midplane_profile(state, x0: float, y0: float, labels: bool) -> List:
     z_ax = float(state["equilibrium"].magnetic_axis[1])
     r_l, r_u = q["r_lower_m"], q["r_upper_m"]
     centre = 0.5 * (r_l + r_u)
-    r0, r1 = centre - 0.05, centre + 0.05
+    half = 0.05 if abs(r_l - r_u) < 0.06 else math.ceil(1e2 * (0.8 * abs(r_l - r_u) + 0.01)) / 1e2
+    r0, r1 = centre - half, centre + half
     span = float(eq.psi_boundary - eq.psi_axis)
     R = np.linspace(r0, r1, 301)
     psi_n = (sp.ev(R, np.full_like(R, z_ax)) - float(eq.psi_axis)) / span
-    lo, hi = 0.75, 1.3
+    # the window's own psi_N range, so both X-point levels and the curve stay on the axes
+    lo = min(0.75, float(np.min(psi_n)))
+    hi = max(1.3, float(np.max(psi_n)), q["psi_n_lower"] + 0.05, q["psi_n_upper"] + 0.05)
     width, height = 5.0, 2.6
 
     def xy(r, v):
@@ -683,7 +751,7 @@ def _midplane_profile(state, x0: float, y0: float, labels: bool) -> List:
     if labels:
         resolution = q.get("resolution_m")
         text = f"$dR_\\mathrm{{sep}}$ = {_mm(state['d_r_sep'])}"
-        if abs(d) <= (resolution or 0.0):
+        if resolution is not None and abs(d) <= resolution:
             text += f"\\\\ within the {1e3 * resolution:.2f} mm resolution"
         items += [Label((x0 + 0.5 + 0.5 * width, y_arrow - 0.15), text, "small label,align=center", anchor="north",
                         role="d_r_sep"),
@@ -709,10 +777,9 @@ def connectivity_traces(state: dict) -> List[dict]:
     outside both; one seed beyond each X-point in its private flux; two
     closed surfaces in the core.
     """
-    rep = state["representation"]
     eq = state["equilibrium"]
     q = state["quality"]
-    z_ax = float(state["equilibrium"].magnetic_axis[1])
+    z_ax = float(eq.magnetic_axis[1])
     psi_ax = float(eq.psi_axis)
     xps = _x_points(state)
     psi_p, psi_s = sorted((xps["lower"].psi, xps["upper"].psi), key=lambda v: abs(v - psi_ax))
@@ -787,14 +854,11 @@ def sol_magnetic_connectivity(bias: float = 0.15, *, labels: bool = True) -> Dia
             top = float(cm([1.0, 0.6])[1])
             items += [Label((centre, top + 0.75), title, "label", anchor="south", role=f"title:{key}"),
                       Label((centre, float(cm([1.0, -0.6])[1]) - 0.15),
-                            f"{_TOPOLOGY_TEXT.get(state['topology'], state['topology'])}, "
+                            f"{_topology_text(state)}, "
                             f"$dR_\\mathrm{{sep}}$ = {_mm(state['d_r_sep'])}", "small label", anchor="north",
                             role=f"caption:{key}")]
-            for name, (r, z), anchor in (("IU", (0.80, 0.6), "south"), ("OU", (1.33, 0.6), "south"),
-                                         ("IL", (0.80, -0.6), "north"), ("OL", (1.33, -0.6), "north")):
-                if anchor == "north":
-                    continue
-                items.append(_tag(Label(tuple(cm([r, z])), name, "small label,text=black!60", anchor=anchor,
+            for name, r in (("IU", 0.80), ("OU", 1.33)):
+                items.append(_tag(Label(tuple(cm([r, 0.6])), name, "small label,text=black!60", anchor="south",
                                         role="target_label"), key))
     if labels:
         y = -1.5
@@ -834,11 +898,15 @@ def separatrix_balance_transport_scale(lambda_q: float = 0.003, d_r_sep: Sequenc
     divertor.
     """
     labels = _check_labels(labels)
-    if not (isinstance(lambda_q, (int, float)) and math.isfinite(lambda_q) and lambda_q > 0.0):
+    if isinstance(lambda_q, bool) or not (isinstance(lambda_q, (int, float)) and math.isfinite(lambda_q)
+                                          and lambda_q > 0.0):
         raise ValueError(f"lambda_q must be a positive length in metres, not {lambda_q!r}")
+    if isinstance(d_r_sep, (str, bytes)) or not isinstance(d_r_sep, Sequence) or not 1 <= len(d_r_sep) <= 4:
+        raise ValueError(f"d_r_sep must be a sequence of one to four separations in metres, not {d_r_sep!r}")
+    if not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) and v != 0.0
+               and abs(v) <= 20.0 * lambda_q for v in d_r_sep):
+        raise ValueError("d_r_sep must hold finite, non-zero separations in metres, at most 20 lambda_q")
     values = [float(v) for v in d_r_sep]
-    if not values or len(values) > 4 or not all(math.isfinite(v) and v != 0.0 for v in values):
-        raise ValueError("d_r_sep must hold one to four finite, non-zero separations in metres")
     chi = [float(separatrix_imbalance_to_heat_flux_width(v, lambda_q)) for v in values]
     factors = [float(secondary_separatrix_exponential_factor(v, lambda_q)) for v in values]
     lam_mm = 1e3 * lambda_q
@@ -897,7 +965,8 @@ def _chi_line(chi, values, colours, x0: float, labels: bool) -> List:
     items: List = [Polyline.of([(x(-1.0), y - 0.5), (x(1.0), y - 0.5), (x(1.0), y + 0.5), (x(-1.0), y + 0.5)],
                                "fill=qblue!25,draw=none", role="near_dn_band", closed=True),
                    Arrow((x(-lim) - 0.2, y), (x(lim) + 0.2, y), "frame axis arrow", role="chi_axis", both=True)]
-    for c in range(-int(lim), int(lim) + 1):
+    step = 1 if lim <= 6 else int(math.ceil(lim / 5.0))
+    for c in range(-int(lim) // step * step, int(lim) + 1, step):
         items += [Polyline.of([(x(c), y), (x(c), y - 0.12)], "tick", role="ticks"),
                   Label((x(c), y - 0.6), f"${c}$", "small label", anchor="north", role="ticks")]
     items.append(Polyline.of([(x(0.0), y - 0.5), (x(0.0), y + 0.5)], "black,line width=1.4pt", role="balance"))
@@ -949,7 +1018,7 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
          f"here: {len(saddles)} saddles"),
         ("selection", "3. Topology and roles",
          "active X-point: primary; the other side: secondary\\\\[2pt]"
-         f"here: {_TOPOLOGY_TEXT.get(state['topology'], state['topology'])}, lower "
+         f"here: {_topology_text(state)}, lower "
          f"{xps['lower'].role}, upper {xps['upper'].role}"),
         ("intersections", "4. Midplane intersections",
          "$\\psi(R_L, Z_\\mathrm{axis}) = \\psi_L$, $\\psi(R_U, Z_\\mathrm{axis}) = \\psi_U$\\\\[2pt]"
@@ -975,7 +1044,8 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
         ("resolution_limited", "Resolution-limited DN",
          "$|dR_\\mathrm{sep}|$ below the flux resolution: classified DN, flagged numerical, the signed value kept"),
         ("geometric_only", "Geometric only",
-         "LIMITED with external nulls: the value is kept as geometric\\_only, never a diverted balance sample"),
+         "LIMITED with external nulls, or AMBIGUOUS: the value is kept as geometric\\_only, never a diverted "
+         "balance sample"),
         ("unavailable", "Unavailable: None",
          "one divertor X-point, no magnetic axis or an ambiguous branch: a reason, never zero"),
     )
@@ -999,18 +1069,9 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
                            "linearized\\_m) and topology\\_evidence. Formulas: separatrix\\_radial\\_separation, "
                            "separatrix\\_separation\\_from\\_flux\\_imbalance.", "note,text width=19cm", anchor="north",
                            role="note"))
-    linear = float(separatrix_separation_from_flux_imbalance(xps["lower"].psi, xps["upper"].psi,
-                                                             _outboard_gradient(state)))
     return Diagram("separatrix_balance_calculation", Scene(tuple(items)),
                    model={"topology": state["topology"], "d_r_sep": state["d_r_sep"], "quality": q,
-                          "roles": {k: v.role for k, v in xps.items()}, "linearized": linear})
-
-
-def _outboard_gradient(state) -> float:
-    """$\\partial_R\\psi$ on the outboard midplane half-way between the two intersections."""
-    q, rep = state["quality"], state["representation"]
-    r_mid = 0.5 * (q["r_lower_m"] + q["r_upper_m"])
-    return float(state["spline"].ev(r_mid, float(state["equilibrium"].magnetic_axis[1]), dx=1))
+                          "roles": {k: v.role for k, v in xps.items()}, "linearized": q.get("linearized_m")})
 
 
 __all__ = [

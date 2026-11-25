@@ -89,15 +89,30 @@ def test_drawn_separatrices_lie_on_their_saddle_flux_and_reach_the_x_point(skew)
         assert min(float(np.min(np.hypot(run[:, 0] - point.r, run[:, 1] - point.z))) for run in runs) < 0.01
 
 
+@pytest.mark.parametrize("key, title, skew, tip", dt.CLASSIFICATION_CASES, ids=[c[0] for c in dt.CLASSIFICATION_CASES])
+def test_the_equilibrium_hands_the_process_a_closed_lcfs_inside_the_wall(key, title, skew, tip):
+    from matplotlib.path import Path as MPath
+
+    state = dt.balance_state(skew, limiter_tip=tip)
+    eq = state["equilibrium"]
+    lcfs = np.stack([eq.lcfs.r, eq.lcfs.z], -1)
+    assert np.allclose(lcfs[0], lcfs[-1])
+    assert MPath(state["wall"]).contains_points(lcfs, radius=1e-6).all() or MPath(state["wall"]).contains_points(
+        lcfs, radius=-1e-6).all()
+    evidence = state["representation"].topology_evidence
+    if tip is None:
+        # a diverted boundary nowhere near the wall: the topology rests on the saddles, not on a wall contact
+        assert lcfs[:, 1].min() > -0.47 and lcfs[:, 1].max() < 0.47
+        assert evidence["wall_contact_m"] > 2 * evidence["wall_contact_tolerance_m"]
+    else:
+        assert evidence["wall_contact_m"] <= evidence["wall_contact_tolerance_m"]
+
+
 def test_the_lcfs_of_a_diverted_panel_is_the_closed_primary_separatrix(diagrams):
     d = diagrams["divertor_topology_classification"]
     for key, _, skew, tip in dt.CLASSIFICATION_CASES:
         loops = [i for i in d.scene.items if i.role == f"lcfs:{key}"]
-        if key == "double_null":
-            # two halves that meet at the two X-points
-            assert len(loops) == 2 and not any(loop.closed for loop in loops)
-        else:
-            assert len(loops) == 1 and loops[0].closed
+        assert len(loops) == 1 and loops[0].closed
     # the LSN LCFS, back in metres, sits on the lower saddle flux and spans the confined height range
     state = dt.balance_state(0.08)
     bounds = dt._core_bounds(state)
@@ -141,7 +156,8 @@ def test_the_midplane_markers_sit_at_the_process_intersections(diagrams):
     assert len(rz) == 2
     lower = next(i for i in rz if i.role.startswith("r_lower"))
     upper = next(i for i in rz if i.role.startswith("r_upper"))
-    assert (lower.at[0] - upper.at[0]) / 4.6 == pytest.approx(m["d_r_sep"], abs=2e-4)
+    assert (lower.at[0] - upper.at[0]) / 4.6 == pytest.approx(_exact_d_r_sep(0.08), abs=3e-4)
+    assert m["d_r_sep"] < 0
 
 
 # -- SOL connectivity --------------------------------------------------------------------
@@ -195,6 +211,21 @@ def test_the_connectivity_diagram_draws_every_traced_line(diagrams):
         assert len(drawn) == len(open_lines)
 
 
+def _trace(targets, z):
+    return {"closed": False, "targets": targets, "crosses_axis_height": bool(np.any(z > 0) and np.any(z < 0))}
+
+
+def test_connection_class_needs_an_inner_and_an_outer_target_for_one_divertor():
+    assert dt.connection_class(_trace(("lower inner target", "lower outer target"), np.array([-0.5, 0.3]))) \
+        == "primary_lower"
+    assert dt.connection_class(_trace(("lower inner target", "lower outer target"), np.array([-0.5, -0.4]))) \
+        == "private_lower"
+    assert dt.connection_class(_trace(("lower outer target", "lower outer target"), np.array([-0.5, 0.3]))) \
+        == "other"
+    assert dt.connection_class(_trace(("lower wall", "upper outer target"), np.array([-0.5, 0.3]))) == "other"
+    assert "other" in dt._CLASS_TEXT
+
+
 def test_a_seed_outside_the_wall_is_refused():
     with pytest.raises(ValueError, match="outside the wall"):
         dt.trace_field_line(dt.balance_state(0.0), (1.49, 0.0))
@@ -224,7 +255,8 @@ def test_the_procedure_reports_the_near_double_null_values(diagrams):
     assert m["topology"] == "lower_single_null"
     assert m["roles"] == {"lower": "primary", "upper": "secondary"}
     assert m["d_r_sep"] == pytest.approx(_exact_d_r_sep(0.01), abs=5e-4)
-    assert m["linearized"] == pytest.approx(m["d_r_sep"], rel=0.02)
+    # the process's first-order estimate, against the exact separation (psi = (R-1)^2 on the midplane)
+    assert m["linearized"] == pytest.approx(_exact_d_r_sep(0.01), rel=0.02)
     roles = {i.role for i in d.scene.items}
     assert {"flux_map", "critical_points", "selection", "intersections", "result", "available", "resolution_limited",
             "geometric_only", "unavailable"} <= roles
@@ -259,11 +291,53 @@ def test_rendering_is_stable_under_last_bit_noise_in_psi(name, monkeypatch, diag
     assert getattr(vaft.diagram, name)().tikz == base
 
 
+def test_the_limited_caption_never_claims_a_diverted_balance(diagrams):
+    d = diagrams["divertor_topology_classification"]
+    (caption,) = [i for i in d.scene.items if i.role == "caption:limited"]
+    assert "geometric only" in caption.text and "diverted" not in caption.text
+    for key in ("lower_single_null", "near_double_null", "upper_single_null"):
+        (caption,) = [i for i in d.scene.items if i.role == f"caption:{key}"]
+        assert "diverted balance" in caption.text
+
+
+def test_a_double_null_the_grid_cannot_resolve_says_so():
+    state = dt.balance_state(0.001)
+    assert state["topology"] == "double_null" and state["d_r_sep"] < 0
+    assert dt._topology_text(state) == "DN within resolution"
+    d = vaft.diagram.secondary_separatrix_balance(bias=0.001)
+    (caption,) = [i for i in d.scene.items if i.role == "caption:lower_biased"]
+    assert "within resolution" in caption.text and "balanced" not in caption.text
+
+
+def test_a_large_bias_keeps_every_marker_on_its_axes():
+    d = vaft.diagram.secondary_separatrix_balance(bias=0.2)
+    for key in ("lower_biased", "upper_biased"):
+        axes = [i for i in d.scene.items if i.role in (f"flux_axis:{key}", f"axes:{key}") and hasattr(i, "start")]
+        x_min = min(min(a.start[0], a.end[0]) for a in axes)
+        x_max = max(max(a.start[0], a.end[0]) for a in axes)
+        markers = [i for i in d.scene.items if isinstance(i, Marker) and i.role.endswith(f":{key}")
+                   and i.role.startswith(("psi_", "r_"))]
+        assert markers and all(x_min - 1e-9 <= m.at[0] <= x_max + 1e-9 for m in markers)
+        lines = [i for i in d.scene.items if isinstance(i, Polyline) and i.role.startswith("psi_")
+                 and i.role.endswith(f":{key}")]
+        y_top = max(max(a.start[1], a.end[1]) for a in axes if a.role.startswith("axes"))
+        assert all(p[1] <= y_top for line in lines for p in line.points)
+
+
 def test_inputs_are_checked():
     with pytest.raises(ValueError, match="skew"):
         dt.analytic_balance_equilibrium(0.5)
+    with pytest.raises(ValueError, match="skew"):
+        dt.analytic_balance_equilibrium(True)
     with pytest.raises(ValueError, match="limiter_tip"):
         dt.analytic_balance_equilibrium(0.08, limiter_tip=0.62)
+    with pytest.raises(ValueError, match="limiter_tip"):
+        dt.analytic_balance_equilibrium(0.08, limiter_tip=1.2)  # through the axis
+    for bad in ("0.003", 0.003, (True,), (0.5,)):
+        with pytest.raises(ValueError, match="d_r_sep"):
+            vaft.diagram.separatrix_balance_transport_scale(d_r_sep=bad)
+    with pytest.raises(ValueError, match="lambda_q"):
+        vaft.diagram.separatrix_balance_transport_scale(lambda_q=True)
     with pytest.raises(ValueError, match="bias"):
         vaft.diagram.secondary_separatrix_balance(bias=-0.05)
     with pytest.raises(ValueError, match="lambda_q"):
