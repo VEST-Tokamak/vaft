@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "generator": "workflow/particle_motion/run.py",
-  "generated_commit": "88959b80f9a8fe91108528687d5ca2025d0647a0",
+  "generated_commit": "808904fe7861369941c758564222abf98e3aeb13",
   "sources": [
     {
       "path": "vaft/data/particle.py",
@@ -25,7 +25,7 @@
     },
     {
       "path": "vaft/formula/equilibrium.py",
-      "sha256": "de512f3efcfe4e0b36cba2b6a953b36be41fd77fd0b3802ec569bd8066b54281"
+      "sha256": "b962a48b29357b097b1ed949d61f52a93b2799f681f6aedfd7120e2461b7b34e"
     },
     {
       "path": "vaft/formula/particle.py",
