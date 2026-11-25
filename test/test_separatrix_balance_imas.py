@@ -104,6 +104,8 @@ def test_states_distinguish_limited_unavailable_and_no_plasma():
     series = separatrix_balance_series(ods)
     assert series.state == ("valid", "no_plasma")
     assert np.isnan(series.d_r_sep[1])
+    # The declared eps_DN travels with each analysed slice, NaN where none ran.
+    assert series.double_null_tolerance[0] > 0 and np.isnan(series.double_null_tolerance[1])
     assert series.topology[1] is None
 
     theta = np.linspace(0.0, 2.0 * np.pi, 240, endpoint=False)

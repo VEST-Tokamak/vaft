@@ -132,9 +132,9 @@ def separatrix_balance_series(
     -------
     SeparatrixBalanceSeries
         Time, signed dRsep (NaN unless a diverted balance sample), per-slice
-        state, topology and reason, the DN/near-DN resolution, the geometric
-        separation of limited or ambiguous slices, and the aligned native EFIT
-        value [m].
+        state, topology and reason, the grid's dRsep resolution, the declared
+        double-null half-width eps_DN, the geometric separation of limited or
+        ambiguous slices, and the aligned native EFIT value [m].
 
     Convention
     ----------
@@ -171,7 +171,7 @@ def separatrix_balance_series(
             raise ValueError("a representations sequence must have one entry per analysed slice")
         representations = dict(zip(indices, representations))
 
-    times, values, geometric, resolution, native = [], [], [], [], []
+    times, values, geometric, resolution, native, tolerance = [], [], [], [], [], []
     states, topologies, reasons, configurations = [], [], [], []
     for index in indices:
         node = slices[index]
@@ -193,7 +193,7 @@ def separatrix_balance_series(
         native.append(native_value)
         configurations.append(None if limloc is None else str(limloc).strip())
 
-        value = geometric_value = resolution_value = float("nan")
+        value = geometric_value = resolution_value = tolerance_value = float("nan")
         topology_name: str | None = None
         if _no_plasma(node):
             state, reason = "no_plasma", "zero plasma current or degenerate flux"
@@ -210,6 +210,7 @@ def separatrix_balance_series(
                 topology_name = topology.value
                 derived = representation.d_r_sep
                 resolution_value = float(derived.quality.get("resolution_m", float("nan")))
+                tolerance_value = float(representation.topology_evidence.get("double_null_tolerance_m", float("nan")))
                 reason = derived.reason or representation.reason
                 if derived.available:
                     state, value = "valid", float(derived.value)
@@ -227,6 +228,7 @@ def separatrix_balance_series(
         values.append(value)
         geometric.append(geometric_value)
         resolution.append(resolution_value)
+        tolerance.append(tolerance_value)
 
     return SeparatrixBalanceSeries(
         time=np.asarray(times, dtype=float),
@@ -238,6 +240,7 @@ def separatrix_balance_series(
         geometric_d_r_sep=np.asarray(geometric, dtype=float),
         native_d_r_sep=np.asarray(native, dtype=float),
         native_configuration=tuple(configurations),
+        double_null_tolerance=np.asarray(tolerance, dtype=float),
     )
 
 

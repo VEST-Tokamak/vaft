@@ -735,7 +735,8 @@ class SeparatrixBalanceSeries:
     ``"failed"`` an analysis that raised.  ``native_d_r_sep`` is the source
     code's own value (EFIT ``DRSEP``) converted to metres, NaN where the code
     reported a sentinel or a non-signed configuration; it is kept beside the
-    derived value, never merged into it.
+    derived value, never merged into it.  ``double_null_tolerance`` is the
+    per-slice eps_DN the classification used.
     """
 
     time: np.ndarray
@@ -749,10 +750,16 @@ class SeparatrixBalanceSeries:
     native_configuration: tuple[str | None, ...]
     unit: str = "m"
     definition: str = "R_out(psi_X,lower)-R_out(psi_X,upper) at Z=Z_axis"
+    #: The declared double-null half-width eps_DN of each slice [m]: ``|dRsep|``
+    #: at or below it was classified DOUBLE_NULL.  NaN where the slice was not
+    #: analysed (no plasma, failed).  ``None`` on construction means all NaN.
+    double_null_tolerance: np.ndarray | None = None
 
     def __post_init__(self) -> None:
         size = np.asarray(self.time).size
-        for name in ("d_r_sep", "resolution", "geometric_d_r_sep", "native_d_r_sep"):
+        if self.double_null_tolerance is None:
+            object.__setattr__(self, "double_null_tolerance", np.full(size, np.nan))
+        for name in ("d_r_sep", "resolution", "geometric_d_r_sep", "native_d_r_sep", "double_null_tolerance"):
             if np.asarray(getattr(self, name)).size != size:
                 raise ValueError(f"{name} must have one entry per time slice")
         for name in ("state", "topology", "reason", "native_configuration"):
