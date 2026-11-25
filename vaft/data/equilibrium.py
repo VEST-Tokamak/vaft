@@ -655,8 +655,10 @@ class XPoint:
     ``active`` marks a saddle that bounds the plasma (a primary X-point).
     ``role`` says how the separatrix analysis used it: ``"primary"`` for an
     active X-point, ``"secondary"`` for the inactive X-point on the other side
-    whose separatrix enters dRsep, ``None`` for every other saddle (interior,
-    downstream or unrelated).  ``branch`` is ``"upper"`` or ``"lower"``
+    whose separatrix enters dRsep of a diverted boundary, ``"geometric"`` for
+    the X-points behind the geometric-only separation of a limited or
+    ambiguous boundary, ``None`` for every other saddle (interior, downstream
+    or unrelated).  ``branch`` is ``"upper"`` or ``"lower"``
     relative to the magnetic-axis height, ``None`` without an axis.
     """
 

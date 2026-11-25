@@ -3101,13 +3101,21 @@ def _lcfs_anchored_saddles(
     anywhere away from the saddle, the wall sets the boundary and the plasma is
     a limited near-null.  An apparent contact in the saddle's own
     neighbourhood is its divertor legs reaching the wall on a coarse grid and
-    does not count against it.  Without any wall contour, a saddle the LCFS
-    runs into is the only thing that can bound it.
+    does not count against it.  Without a wall contour that case cannot be
+    excluded, so the rule does not apply.  Only saddles in the divertor sector
+    (``|Z_X - Z_axis| >= |R_X - R_axis|``) qualify.
+
+    With an explicit ``flux_tolerance`` the anchored candidates are exactly the
+    flux-window saddles that failed the confined-region reach test; the LCFS
+    distance then replaces that test, which is what recovers a coarse grid on
+    which the probe contour sits too far inside to reach the X-point.
 
     The offset is capped by ``flux_tolerance`` when the caller gives one, and
     by :data:`BOUNDARY_FLUX_OFFSET_LIMIT` otherwise.
     """
-    if eq.lcfs is None or eq.lcfs.r.size < 3:
+    # Without a wall the limited near-null this rule must exclude cannot be
+    # told apart, so the boundary stays undetermined rather than diverted.
+    if eq.lcfs is None or eq.lcfs.r.size < 3 or eq.limiter is None or eq.limiter.r.size < 2:
         return [], []
     limit = BOUNDARY_FLUX_OFFSET_LIMIT if flux_tolerance is None else float(flux_tolerance)
     touching_points = np.empty((0, 2))
@@ -3126,6 +3134,12 @@ def _lcfs_anchored_saddles(
         offset = point.psi_n - 1.0
         # Vacuum side only: an interior saddle never bounds the plasma.
         if offset < 0.0 or offset > limit:
+            continue
+        # A divertor X-point only: a midplane or coil saddle the LCFS happens to
+        # approach is not promoted by geometry alone.
+        if eq.magnetic_axis is not None and (
+            abs(point.z - eq.magnetic_axis[1]) < abs(point.r - eq.magnetic_axis[0])
+        ):
             continue
         retreat = np.sqrt(2.0 * max(offset, BOUNDARY_FLUX_PRECISION) * scale / point.curvature)
         reach = min(max(2.0 * retreat, spacing), 0.25 * minor_radius)
@@ -3839,8 +3853,10 @@ def _separatrix_balance(
         "z_reference_m": float(z_ref), "z_reference": "magnetic axis",
         "r_upper_m": r_u, "r_lower_m": r_l,
         "upper_x_point": (upper.r, upper.z), "lower_x_point": (lower.r, lower.z),
-        "upper_role": "primary" if (upper.r, upper.z) in active_keys else "secondary",
-        "lower_role": "primary" if (lower.r, lower.z) in active_keys else "secondary",
+        "upper_role": ("primary" if (upper.r, upper.z) in active_keys
+                       else "secondary" if topology.is_diverted else "geometric"),
+        "lower_role": ("primary" if (lower.r, lower.z) in active_keys
+                       else "secondary" if topology.is_diverted else "geometric"),
         "psi_upper": upper.psi, "psi_lower": lower.psi, "psi_n_upper": upper.psi_n, "psi_n_lower": lower.psi_n,
         "psi_unit": {True: "Wb/rad", False: "Wb"}.get(eq.convention.psi_per_radian),
         "cocos": eq.convention.cocos,
@@ -4049,8 +4065,16 @@ def derive_boundary_representation(
         window = max(_saddle_flux_window(point, flux_tolerance, spacing, scale_flux) for point in (upper_x, lower_x))
         evidence["double_null_flux_separation_psi_n"] = float(separation)
         evidence["double_null_resolution_limited"] = bool(separation <= window)
+    # "secondary" means the inactive X-point whose separatrix bounds the SOL of
+    # a diverted plasma; with no diverted boundary there is no primary for it to
+    # be secondary to, so the X-points behind a geometric-only separation are
+    # labelled "geometric".
+    diverted = topology.is_diverted
     roles = {
-        (point.r, point.z): ("primary" if (point.r, point.z) in active_keys else "secondary", side)
+        (point.r, point.z): (
+            "primary" if (point.r, point.z) in active_keys else "secondary" if diverted else "geometric",
+            side,
+        )
         for side, point in selected.items()
     }
     z_branch = eq.magnetic_axis[1] if eq.magnetic_axis is not None else None
