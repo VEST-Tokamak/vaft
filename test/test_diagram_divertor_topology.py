@@ -341,7 +341,12 @@ def test_the_transport_scale_uses_the_formulas_and_says_balance_is_not_power_bal
         assert chi == pytest.approx(float(separatrix_imbalance_to_heat_flux_width(v, m["lambda_q"])))
         assert f == pytest.approx(float(secondary_separatrix_exponential_factor(v, m["lambda_q"])))
         assert f == pytest.approx(np.exp(-abs(v) / m["lambda_q"]))
-    # the explanation is the builder's docstring, not text on the figure
+    # the figure carries its own caveat, so it cannot be read as a power split
+    # when it is used without its docstring (a slide)
+    drawn = " ".join(item.text for item in d.scene.items if isinstance(item, Label))
+    assert "magnetic balance $\\neq$ power balance" in drawn
+    assert "not the power reaching the secondary divertor" in drawn
+    assert "divertor only" not in drawn
     doc = vaft.diagram.separatrix_balance_transport_scale.__doc__
     assert "not thermal or power balance" in doc and "not a transport prediction" in doc
     assert "not the fraction of power" in doc and "divides between" in doc
@@ -502,3 +507,10 @@ def test_builders_are_registered_and_documented():
         assert name in vaft.diagram.__all__
         assert build.CANONICAL[f"{name}.svg"] == (name, {})
         assert f"`{name}`" in text and f"/assets/diagrams/{name}.svg" in text
+
+
+def test_millimetre_labels_keep_the_sign_of_a_tiny_bias():
+    assert dt._mm(0.0) == "0 mm" and dt._mm(2.2e-16) == "0 mm"
+    assert dt._mm(-4e-5).startswith("$-$")
+    assert dt._mm(1e-4).startswith("$+$")
+    assert dt._mm(-0.0239) == "$-$23.9 mm"

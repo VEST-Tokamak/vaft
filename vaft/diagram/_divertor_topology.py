@@ -1,6 +1,6 @@
 """Divertor topology and upper/lower separatrix balance.
 
-Five diagrams for the signed outboard-midplane separatrix separation
+Diagrams for the signed outboard-midplane separatrix separation
 $dR_\\mathrm{sep} = R_\\mathrm{out}(\\psi_{X,\\mathrm{lower}}) - R_\\mathrm{out}(\\psi_{X,\\mathrm{upper}})$
 at the magnetic-axis height (negative for a lower single null, zero for a
 balanced double null, positive for an upper single null):
@@ -15,7 +15,7 @@ balanced double null, positive for an upper single null):
 ``separatrix_balance_transport_scale``
     $dR_\\mathrm{sep}$ against $\\lambda_q$; magnetic balance is not power balance.
 ``separatrix_balance_calculation``
-    the computation as a procedure, with the values it gives on one case.
+    the computation as a procedure.
 
 Every equilibrium is the analytic family
 $\\psi = (R - 1)^2 + Z^2 - Z^4/a^2 + s Z^3$ ($a = 0.65$) of
@@ -591,7 +591,14 @@ def _topology_text(state) -> str:
 def _mm(value: Optional[float]) -> str:
     if value is None:
         return "n/a"
-    text = f"{1e3 * value:+.1f}".replace("+0.0", "0").replace("-0.0", "0")
+    if abs(value) < 1e-9:
+        # Below a nanometre is round-off of an exact balance, not a bias.
+        return "0 mm"
+    if abs(value) < 5e-5:
+        # Inside the DN band a real bias keeps its sign; never print it as 0.
+        text = f"{1e3 * value:+.2g}"
+    else:
+        text = f"{1e3 * value:+.1f}".replace("+0.0", "0").replace("-0.0", "0")
     return text.replace("-", "$-$").replace("+", "$+$") + " mm"
 
 
@@ -1145,7 +1152,7 @@ def _anatomy_labels(kind, state, cm, traces, strikes) -> List:
         nearer = min(p.psi for p in xps.values())
         limiter_sol = _outboard_level_point(state, 0.5 * (float(eq.psi_boundary) + nearer), 0.3)
         items += point("limiter SOL: open lines\\\\end on the limiter", limiter_sol, 0.22, "right")
-        items += point(f"$R_L$, $R_U$: {_mm(state['d_r_sep'])}\\\\geometric only, no balance", [r_mid, z_ax + 0.035],
+        items += point(f"$dR_\\mathrm{{sep}} = R_L - R_U$: {_mm(state['d_r_sep'])}\\\\geometric only, no balance", [r_mid, z_ax + 0.035],
                        -0.05, "right")
         return items
     upper, lower = xps["upper"], xps["lower"]
@@ -1196,7 +1203,7 @@ def limited_plasma_topology(*, labels: bool = True) -> Diagram:
     out. Both saddles of the flux lie outside it; they are external nulls
     (``XPoint.active`` false), and their separatrices do not bound the
     plasma. Outside the LCFS the field lines are cut by the limiter and the
-    wall: a limiter scrape-off layer with no divertor and no private flux.
+    wall: a limiter scrape-off layer and no diverted boundary.
 
     $R_L$ and $R_U$ -- where the two null fluxes cross the outboard midplane
     -- still exist, so the process keeps $dR_\mathrm{sep}$ with
@@ -1264,8 +1271,10 @@ def separatrix_balance_transport_scale(lambda_q: float = 0.003, d_r_sep: Sequenc
     ----------
     In this model $e^{-|\chi|} = \int_{|dR_\mathrm{sep}|}^\infty q\,dx /
     \int_0^\infty q\,dx$ is also the share of the upstream heat flux that lies
-    in the common SOL. The rest, $1 - e^{-|\chi|}$, flows in the primary SOL
-    and reaches only the primary divertor.
+    in the common SOL. The rest, $1 - e^{-|\chi|}$, lies in the primary SOL,
+    whose field lines connect only to the primary divertor. That is a
+    statement about magnetic connection in the model, not about how the power
+    divides between the divertors.
 
     Magnetic balance is geometry: $dR_\mathrm{sep} = 0 \Leftrightarrow
     \psi_L = \psi_U$, and the two separatrices coincide; $|\chi|$ says how far
@@ -1325,8 +1334,8 @@ def separatrix_balance_transport_scale(lambda_q: float = 0.003, d_r_sep: Sequenc
         items += [Label((0.5 * (lam_cm[0][0] + lam_cm[1][0]), lam_cm[0][1] - 0.12), f"$\\lambda_q = {lam_mm:g}$ mm",
                         "small label,fill=white,inner sep=1pt", anchor="north", role="lambda_q"),
                   Label(tuple(chart.to_cm(np.array([0.28 * x_max, 1.1]))),
-                        "$x < |dR_\\mathrm{sep}|$: primary SOL, primary divertor only\\\\ beyond: common SOL, "
-                        "both divertors", "small label,align=left", anchor="north west", role="regions")]
+                        "$x < |dR_\\mathrm{sep}|$: primary SOL $\\to$ primary divertor\\\\ beyond: "
+                        "common SOL $\\to$ both divertors", "small label,align=left", anchor="north west", role="regions")]
     items += [i for i in _chi_line(chi, values, colours, 11.5, labels)]
     if labels:
         items += _transport_explanation()
@@ -1342,8 +1351,10 @@ def _transport_explanation() -> List:
                          f"\\mbox{{$\\displaystyle {formula_equation(secondary_separatrix_exponential_factor)}$}}"
                          "\\\\[4pt]"
                          "\\mbox{$\\displaystyle \\frac{\\int_{|dR_\\mathrm{sep}|}^{\\infty} q\\,dx}"
-                         "{\\int_0^{\\infty} q\\,dx} = e^{-|\\chi|}$}: the share of the upstream heat flux "
-                         "in the common SOL",
+                         "{\\int_0^{\\infty} q\\,dx} = e^{-|\\chi|}$}: the model's share of the upstream heat flux "
+                         "in the common SOL\\\\[4pt]"
+                         "\\textbf{Illustrative:} magnetic balance $\\neq$ power balance; "
+                         "$e^{-|\\chi|}$ is not the power reaching the secondary divertor",
                          "formula box,text width=9.2cm", anchor="north", role="equations")]
     return items
 
@@ -1369,7 +1380,7 @@ def _chi_line(chi, values, colours, x0: float, labels: bool, y: float = 1.0) -> 
     if labels:
         items += [Label((x(lim) + 0.3, y), "$\\chi = dR_\\mathrm{sep}/\\lambda_q$", "small label", anchor="west",
                         role="chi_axis"),
-                  Label((x(0.0), y + 0.6), "$|\\chi| \\leq O(1)$: near-DN, both divertors in the near-SOL "
+                  Label((x(0.0), y + 0.6), "$|\\chi| \\leq O(1)$: near-DN, both divertors connect to the near-SOL "
                         "heat channel", "small label", anchor="south", role="near_dn_band"),
                   Label((x(0.0), y + 1.2), "$\\chi = 0$: magnetic balance", "small label", anchor="south",
                         role="balance"),
