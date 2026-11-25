@@ -38,8 +38,15 @@ def _saddle_fluxes(skew):
     return [float(zz**2 - zz**4 / A**2 + skew * zz**3) for zz in by_z]  # lower, upper
 
 
+#: A first wall well clear of the plasma (the LCFS stands about 0.17 m off
+#: it), as every reconstruction carries one; ``wall=False`` removes it.
+_THETA = np.linspace(0.0, 2.0 * np.pi, 200, endpoint=False)
+FAR_WALL = Contour(1.0 + 0.48 * np.cos(_THETA), 0.75 * np.sin(_THETA))
+
+
 def _equilibrium(skew=0.08, n=201, *, inset=0.0, flip=False, scale=1.0, offset=0.0,
                  wall=None, extra=None, axis=True):
+    wall = FAR_WALL if wall is None else (None if wall is False else wall)
     r = np.linspace(0.5, 1.5, n)
     z = np.linspace(-0.8, 0.8, n + 40 if n > 100 else n)
     rm, zm = np.meshgrid(r, z, indexing="ij")
@@ -267,8 +274,11 @@ def test_scan_classification_follows_the_canonical_active_flags(inset, tolerance
 
     eq, _, _ = _equilibrium(0.01, 65, inset=inset)
     report = classify_boundary(eq, active_tolerance=tolerance)
-    canonical = report.representation
-    assert [xp["active"] for xp in report.x_points] == [xp.active for xp in canonical.x_points]
+    # An independent canonical call with the same tolerance: the scan must not
+    # re-decide which X-points are active.
+    canonical = derive_boundary_representation(eq, flux_tolerance=tolerance)
+    assert sorted((xp["r"], xp["z"]) for xp in report.x_points if xp["active"]) == sorted(
+        (xp.r, xp.z) for xp in canonical.x_points if xp.active)
     assert report.topology.value == expected
     if expected == "lower_single_null":
         assert report.d_r_sep is not None and report.d_r_sep < 0
@@ -331,3 +341,35 @@ def test_a_wall_contact_away_from_the_saddle_keeps_the_plasma_limited():
     assert rep.topology == Topology.LIMITED
     assert any("rejected" in note for note in rep.topology_evidence["lcfs_anchored"])
     assert not rep.d_r_sep.available
+
+
+def test_without_a_wall_an_inset_boundary_stays_undetermined():
+    """The anchoring rule cannot exclude a limited near-null without a wall,
+    so it does not promote the saddle (independent review of #2326)."""
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3, wall=False)
+    rep = derive_boundary_representation(eq)
+    assert not rep.topology.is_diverted
+    assert not any(point.active for point in rep.x_points)
+
+
+def test_the_anchored_rule_ignores_a_midplane_saddle():
+    from vaft.data.equilibrium import StationaryPoint
+    from vaft.process._equilibrium_parametric import _grid_spacing, _lcfs_anchored_saddles
+
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3)
+    r_out = float(np.max(eq.lcfs.r))
+    decoy = StationaryPoint(r_out + 0.005, 0.0, 0.0, 1.003, "x", -1.0, 2.0)
+    anchored, _ = _lcfs_anchored_saddles(
+        eq, [decoy], None, _grid_spacing(eq), abs(eq.psi_boundary - eq.psi_axis), 0.3, 0.05)
+    assert anchored == []
+
+
+def test_limited_x_points_are_geometric_not_secondary():
+    theta = np.linspace(0.0, 2.0 * np.pi, 240, endpoint=False)
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3)
+    wall = Contour(float(np.max(eq.lcfs.r)) + 0.3 * (np.cos(theta) - 1.0), 0.75 * np.sin(theta))
+    limited, _, _ = _equilibrium(0.01, 201, inset=3e-3, wall=wall)
+    rep = derive_boundary_representation(limited)
+    assert rep.topology == Topology.LIMITED
+    assert {point.role for point in rep.x_points if point.role} == {"geometric"}
+    assert rep.d_r_sep.quality["upper_role"] == rep.d_r_sep.quality["lower_role"] == "geometric"
