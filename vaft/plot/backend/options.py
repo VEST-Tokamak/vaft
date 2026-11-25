@@ -276,6 +276,12 @@ def _specs() -> tuple[OptionSpec, ...]:
         # Linear gyrokinetic spectra: an initial-value eigenmode that
         # reached no growth-rate tolerance is left out unless asked for.  Only
         # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("dn_tolerance", "float",
+                   description="separatrix balance: half-width in metres of an explicitly requested "
+                               "double-null band about dRsep = 0; none is drawn by default"),
+        OptionSpec("native_overlay", "bool",
+                   description="separatrix balance: overlay the source code's own value (EFIT DRSEP, "
+                               "aligned to metres and the VAFT sign) beside the derived dRsep"),
         OptionSpec("include_unconverged", "bool",
                    description="gyrokinetic linear spectra: also draw initial-value eigenmodes "
                                "that reached no growth_rate_tolerance (a last-step value, not an eigenvalue)"),
@@ -304,6 +310,7 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "equilibrium_occurrence",
     # The kinetic state's inference stages.
     "stage", "stages",
+    "dn_tolerance", "native_overlay",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

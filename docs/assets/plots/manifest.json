@@ -562,6 +562,15 @@
       "shot": 48224,
       "status": "rendered"
     },
+    "equilibrium_time_d_r_sep": {
+      "call": "vaft.omas.plot_equilibrium_time_d_r_sep(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "ca91ae6cae8edc86c3746d255e3f31e81abc0b33f09ac0be106c090d53ab60a5",
+      "png_sha256": "06374a6b9bed8fc657efb2a4bb3c87be075e8073fb8c8af23efb1f6edb6e467b",
+      "renderer_sha256": "167aff27b01b0a4cbe1afcd5fa898f342c17a660cb4c0338d4d7039d9dab546b",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
     "equilibrium_time_diamagnetic_flux": {
       "call": "vaft.omas.plot_equilibrium_time_diamagnetic_flux(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "b71bf5c0f7861de4933aac14be25a01f5d5e73047d785cb5ef5d40b9e88bd2ca",

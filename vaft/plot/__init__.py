@@ -310,6 +310,7 @@ from .renderers.lines import (
     equilibrium_time_diamagnetic_flux,
     equilibrium_time_li,
     equilibrium_time_major_radius,
+    equilibrium_time_d_r_sep,
     equilibrium_time_minor_radius,
     equilibrium_time_elongation,
     equilibrium_time_triangularity,

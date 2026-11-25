@@ -20,8 +20,16 @@ DEFAULT_SECTION_PHI = port_phi("6MR")
 DEFAULT_FLUX_LEVELS = (0.25, 0.5, 0.75, 0.95)
 __all__ = [
     "DEFAULT_SECTION_PHI", "DEFAULT_FLUX_LEVELS", "Section",
-    "build_equilibrium_section", "valid_equilibrium_indices",
+    "build_equilibrium_section", "separatrix_balance_layers", "valid_equilibrium_indices",
 ]
+
+#: How each separatrix role is drawn: the primary bounds the plasma, the
+#: secondary is the other divertor's separatrix whose midplane distance from
+#: the primary is dRsep.
+_SEPARATRIX_STYLES = {
+    "primary": {"color": "tab:red", "lw": 1.2, "ls": "-"},
+    "secondary": {"color": "tab:purple", "lw": 1.0, "ls": "--"},
+}
 
 
 def valid_equilibrium_indices(data: Any, *, require_flux_surfaces: bool = True) -> tuple[int, ...]:
@@ -115,17 +123,97 @@ def _contains_point(r: np.ndarray, z: np.ndarray, x: float, y: float) -> bool:
     return bool(np.count_nonzero(crossing & (x < intersection)) % 2)
 
 
+def separatrix_balance_layers(representation: Any, equilibrium: Any) -> tuple[GeometryLayer, ...]:
+    """The separatrices, X-points and midplane crossings one dRsep is computed from.
+
+    Draws what :func:`vaft.process.equilibrium.derive_boundary_representation`
+    already decided and nothing more: the X-points it selected for dRsep with
+    their role (``primary``/``secondary``) and branch, the flux surface through
+    each (a contour at the X-point's own flux), the common outboard reference
+    height ``z_reference_m`` and the crossings ``r_upper_m``/``r_lower_m`` on
+    it, read from ``representation.d_r_sep.quality``.  No saddle is searched
+    for and no flux is inverted here (#2270).  A geometric-only separation (a
+    limited or ambiguous boundary) is labelled as such; without the
+    crossings, only the X-points and their separatrices are drawn.
+
+    Parameters
+    ----------
+    representation : BoundaryRepresentation
+        The analysed slice [-].
+    equilibrium : EquilibriumData
+        The record it was derived from, whose psi map the separatrices are
+        contoured on [-].
+    """
+    layers: list[GeometryLayer] = []
+    selected = representation.separatrix_x_points
+    psi, grid_r, grid_z = equilibrium.psi, equilibrium.r, equilibrium.z
+    psi_axis, psi_boundary = equilibrium.psi_axis, equilibrium.psi_boundary
+    for branch in ("lower", "upper"):
+        point = selected.get(branch)
+        if point is None:
+            continue
+        role = point.role if point.role in _SEPARATRIX_STYLES else "secondary"
+        style = _SEPARATRIX_STYLES[role]
+        if (psi is not None and grid_r is not None and grid_z is not None and psi_axis is not None
+                and psi_boundary is not None and psi_axis != psi_boundary and np.isfinite(point.psi_n)):
+            curves = extract_flux_surface_contours(
+                psi, grid_r, grid_z, float(psi_axis), float(psi_boundary), [float(point.psi_n)])
+            r, z = [], []
+            for curve_r, curve_z in next(iter(curves.values()), []):
+                r.extend((np.asarray(curve_r, dtype=float), np.array([np.nan])))
+                z.extend((np.asarray(curve_z, dtype=float), np.array([np.nan])))
+            if r:
+                layers.append(GeometryLayer(
+                    np.concatenate(r), np.concatenate(z),
+                    label=f"{role.capitalize()} separatrix ({branch} X-point)",
+                    style=dict(style), role="equilibrium"))
+        layers.append(GeometryLayer(
+            [point.r], [point.z], kind="points", label=f"{branch.capitalize()} X-point ({role})",
+            style={"color": style["color"], "marker": "x", "markersize": 9, "markeredgewidth": 2.0},
+            role="equilibrium"))
+    derived = representation.d_r_sep
+    quality = derived.quality
+    if all(key in quality for key in ("r_upper_m", "r_lower_m", "z_reference_m")):
+        r_upper, r_lower = float(quality["r_upper_m"]), float(quality["r_lower_m"])
+        z_ref = float(quality["z_reference_m"])
+        axis = equilibrium.magnetic_axis
+        start = float(axis[0]) if axis is not None else min(r_upper, r_lower) - 0.05
+        stop = max(r_upper, r_lower) + 0.02
+        value = derived.value
+        note = "" if value is None else f"; dRsep = {float(value) * 1e3:+.1f} mm"
+        if value is not None and not derived.available:
+            note += " (geometric only)"
+        layers.append(GeometryLayer(
+            [start, stop], [z_ref, z_ref],
+            label=f"OMP reference Z = {z_ref:.3f} m{note}",
+            style={"color": "0.35", "lw": 0.8, "ls": ":"}, role="equilibrium"))
+        for radius, name, marker in ((r_upper, "R_U", "v"), (r_lower, "R_L", "^")):
+            branch = "upper" if name == "R_U" else "lower"
+            point = selected.get(branch)
+            role = point.role if point is not None and point.role in _SEPARATRIX_STYLES else "secondary"
+            layers.append(GeometryLayer(
+                [radius], [z_ref], kind="points", label=f"{name} = {radius:.4f} m",
+                style={"color": _SEPARATRIX_STYLES[role]["color"], "marker": marker, "markersize": 7,
+                       "linestyle": "none"},
+                role="equilibrium"))
+    return tuple(layers)
+
+
 def build_equilibrium_section(
     data: Any, *, time: float | None = None, time_slice: int | None = None,
     section_phi: float = DEFAULT_SECTION_PHI,
     flux_surface_levels: tuple[float, ...] = DEFAULT_FLUX_LEVELS,
     projection: Any = None,
+    separatrix_balance: bool = False,
 ) -> Section:
     """Build the same source section for an R-Z view and an optional camera view.
 
     ``time`` is a real camera stamp when present. No equilibrium extrapolation
     is permitted. The nearest stored slice is reported so the approximation is
-    visible in both the figure and the movie sidecar.
+    visible in both the figure and the movie sidecar.  ``separatrix_balance``
+    adds the layers of :func:`separatrix_balance_layers` for the chosen slice:
+    the primary and secondary separatrices with their X-point roles, the common
+    outboard reference height and the R_U/R_L crossings dRsep is formed from.
     """
     from vaft.plot.backend.recipes import _element_outlines
 
@@ -264,6 +352,13 @@ def build_equilibrium_section(
                                       role="equilibrium")
                 add(layer, section_phi)
                 first = False
+
+    if separatrix_balance:
+        from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+        equilibrium = as_equilibrium(data, time_index=index)
+        for layer in separatrix_balance_layers(derive_boundary_representation(equilibrium), equilibrium):
+            add(layer, section_phi)
 
     title = f"VEST equilibrium section at phi={np.rad2deg(section_phi):.1f}°; t_eq={eq_time * 1e3:.1f} ms"
     return Section(GeometryLayers(tuple(rz), title=title), tuple(camera), index, eq_time, float(section_phi))

@@ -322,6 +322,24 @@ It never modifies its input. EFIT's `DRSEP` is centimetres with the same sign
 Only `SNT`, `SNB` and `DN` values are compared. Everything else is NaN with a
 reason. Newer DD 4.x boundary representations are not mapped yet.
 
+Two plots draw these results without computing anything themselves.
+`vaft.omas.plot_equilibrium_time_d_r_sep(ods_or_list)` draws the signed history
+from `vaft.process.equilibrium.separatrix_balance_series`. Each discharge
+keeps its own time base, and the usual `label=`, `time_range=` and
+`xunit=` options apply, with `yunit="mm"` or `"m"`. A valid slice is drawn as
+its signed value. A confirmed limited slice is an `x` at zero with its own
+legend entry: it is a category, not a balanced double null. An unavailable,
+ambiguous, failed or no-plasma slice is a gap, and no line joins across it. A
+zero line is always drawn. `dn_tolerance=` (metres) adds a band about zero
+only when you pass it. `native_overlay=True` adds EFIT's own `DRSEP` where it
+is a signed separation. To inspect one slice, use the flux map with
+`overlay=["d_r_sep"]` (`vaft.omas.plot_equilibrium_field_psi(ods,
+time_slice=i, overlay=["boundary", "d_r_sep"])`) or call
+`build_equilibrium_section(..., separatrix_balance=True)`. Both draw the
+primary and secondary separatrices with their X-point roles, the common
+outboard reference height, and the `R_U`/`R_L` crossings the value is formed
+from.
+
 Boundary topology is inferred from the flux map without machine-specific
 geometry. Stationary points are classified by the Hessian determinant; a
 saddle becomes an active X-point only if its flux matches the boundary within
