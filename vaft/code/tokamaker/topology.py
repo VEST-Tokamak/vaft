@@ -20,7 +20,10 @@ confined-region test had rejected and dropped ones it had accepted.
 
 Classification rules (``axis_z`` = magnetic-axis height, fallback 0):
 
-- an X-point is **active** when the canonical representation says so;
+- an X-point is **active** when the canonical representation says so; with
+  both an upper and a lower X-point that is decided by the signed dRsep
+  against ``eps_DN = double_null_tolerance * a`` (``|dRsep| <= eps_DN`` is a
+  double null), not by flux proximity;
 - active nulls above and below ``axis_z``  -> ``DOUBLE_NULL``;
 - active nulls on one side only            -> ``UPPER/LOWER_SINGLE_NULL``;
 - no active null but one within ``near_null_band`` -> ``NEAR_NULL``;
@@ -150,6 +153,7 @@ def classify_boundary(
     contact_tolerance: Optional[float] = None,
     time_index: int = 0,
     gap_angles: Mapping[str, float] | None = None,
+    double_null_tolerance: float | None = None,
 ) -> TopologyReport:
     """Classify one equilibrium's boundary topology for scan bookkeeping.
 
@@ -165,6 +169,10 @@ def classify_boundary(
     wall to within its own trace, while a 129-point gEQDSK spanning the VEST
     chambers has 2 cm Z cells, and 3 of those would call a plasma 6 cm off the
     wall limited.
+
+    ``double_null_tolerance`` is the canonical double-null band as a fraction
+    of the minor radius (default 0.005); ``NEAR_NULL`` is unrelated to it and
+    stays the scan's tag for a *non-diverted* boundary approaching a null.
     """
     from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
 
@@ -174,6 +182,7 @@ def classify_boundary(
             equilibrium,
             flux_tolerance=active_tolerance,
             gap_angles=gap_angles,
+            double_null_tolerance=double_null_tolerance,
         )
     except Exception as exc:
         _log.warning("Boundary classification failed: %s", exc)

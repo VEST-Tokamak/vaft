@@ -165,14 +165,8 @@ def test_near_double_null_keeps_its_signed_value_on_coarse_grids(n, inset):
     assert rep.d_r_sep.available
     assert rep.d_r_sep.value == pytest.approx(_exact(psi_l, psi_u), abs=5e-4)
     assert rep.d_r_sep.value < 0
-    if rep.topology == Topology.DOUBLE_NULL:
-        # The 3 mm imbalance is below what a 5 cm grid resolves in flux: a
-        # double null is the honest classification, flagged as numerical, and
-        # the signed value survives it.
-        assert rep.topology_evidence["double_null_resolution_limited"] is True
-        assert abs(rep.d_r_sep.value) <= rep.d_r_sep.quality["resolution_m"]
-    else:
-        assert rep.topology == Topology.LOWER_SINGLE_NULL
+    eps = rep.topology_evidence["double_null_tolerance_m"]
+    assert rep.topology == (Topology.DOUBLE_NULL if abs(rep.d_r_sep.value) <= eps else Topology.LOWER_SINGLE_NULL)
 
 
 def test_inset_boundary_near_a_divertor_wall_is_not_called_limited():
@@ -307,18 +301,48 @@ def test_an_unrelated_midplane_saddle_is_not_a_divertor_x_point():
     assert any("divertor sector" in note for note in evidence["upper_rejected"])
 
 
-@pytest.mark.parametrize("skew", [0.002, 0.005])
+@pytest.mark.parametrize("skew", [0.002, 0.005, 0.01, 0.08])
 @pytest.mark.parametrize("inset", [0.0, 3e-3])
-def test_a_resolved_secondary_within_one_percent_stays_secondary(skew, inset):
-    """The LCFS-anchored rule must not promote a secondary X-point that the
-    grid resolves from the primary into a second primary (cold review of
-    #2325): a near-double null is a single null with a signed dRsep."""
+def test_the_class_follows_the_signed_separation_against_eps_dn(skew, inset):
+    """|dRsep| <= eps_DN = 0.005 a is a double null; beyond it the sign picks
+    the single null, and only the separatrices inside the band are active."""
     eq, psi_l, psi_u = _equilibrium(skew, 201, inset=inset)
     rep = derive_boundary_representation(eq)
-    assert rep.topology == Topology.LOWER_SINGLE_NULL
-    assert rep.separatrix_x_points["upper"].role == "secondary"
-    assert rep.d_r_sep.value == pytest.approx(_exact(psi_l, psi_u), abs=2e-4)
-    assert rep.d_r_sep.value < -rep.d_r_sep.quality["resolution_m"]
+    eps = rep.topology_evidence["double_null_tolerance_m"]
+    assert rep.topology_evidence["double_null_tolerance_fraction_of_a"] == 0.005
+    exact = _exact(psi_l, psi_u)
+    assert rep.d_r_sep.value == pytest.approx(exact, abs=2e-4)
+    if abs(exact) <= eps:
+        assert rep.topology == Topology.DOUBLE_NULL
+        assert {p.branch for p in rep.x_points if p.active} == {"upper", "lower"}
+    else:
+        assert rep.topology == Topology.LOWER_SINGLE_NULL
+        assert rep.separatrix_x_points["upper"].role == "secondary"
+        assert not rep.separatrix_x_points["upper"].active
+
+
+def test_the_double_null_band_is_a_declared_tolerance():
+    eq, psi_l, psi_u = _equilibrium(0.005, 201)
+    exact = abs(_exact(psi_l, psi_u))
+    a = 0.5 * float(np.ptp(eq.lcfs.r))
+    narrow = derive_boundary_representation(eq, double_null_tolerance=0.2 * exact / a)
+    wide = derive_boundary_representation(eq, double_null_tolerance=5.0 * exact / a)
+    assert narrow.topology == Topology.LOWER_SINGLE_NULL
+    assert wide.topology == Topology.DOUBLE_NULL
+    # The number itself never depends on the band.
+    assert narrow.d_r_sep.value == pytest.approx(wide.d_r_sep.value)
+
+
+@pytest.mark.parametrize("skew", [0.005, 0.01])
+def test_the_class_does_not_depend_on_the_grid(skew):
+    classes = set()
+    for n in (201, 129, 65, 33):
+        eq, _, _ = _equilibrium(skew, n, inset=3e-3)
+        rep = derive_boundary_representation(eq)
+        classes.add(rep.topology)
+        flag = rep.topology_evidence["topology_unresolved_on_grid"]
+        assert flag == (rep.d_r_sep.quality["resolution_m"] > rep.topology_evidence["double_null_tolerance_m"])
+    assert len(classes) == 1, classes
 
 
 def test_an_explicit_flux_tolerance_caps_the_anchored_offset():
