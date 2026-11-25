@@ -774,7 +774,12 @@ def resolve_pin(path: str, directory: str, tree: dict[str, TreeFile]) -> str | N
         posixpath.normpath(posixpath.join("vaft/data", path)),
         posixpath.normpath(path),
     ]
-    return next((c for c in candidates if c in tree), None)
+    found = next((c for c in candidates if c in tree), None)
+    if found is None and "/" not in path:
+        # A bare file name (e.g. an em-coupling asset): accept a unique match under vaft/data.
+        matches = [p for p in tree if p.startswith("vaft/data/") and posixpath.basename(p) == path]
+        found = matches[0] if len(matches) == 1 else None
+    return found
 
 
 def content_sha256(data: bytes) -> str:
