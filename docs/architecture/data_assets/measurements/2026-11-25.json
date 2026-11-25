@@ -1,0 +1,578 @@
+{
+  "schema_version": 1,
+  "measured_at": "2026-11-25T05:02:25+00:00",
+  "method": {
+    "tree": "git ls-tree -r -l <ref>; blob sizes as stored in Git (LFS files count as pointers)",
+    "history": "git rev-list --objects over every refs/remotes/origin/* branch and tag (what a full clone downloads), then git cat-file --batch-check objectsize / objectsize:disk",
+    "lfs": "pointer files (< 1 KiB blobs starting with the LFS spec line); object size from the pointer",
+    "packages": "PyPI JSON API for the latest release",
+    "github": "gh api repos/<repo> .size (KiB, GitHub's own accounting)",
+    "local_pack": "git count-objects -v size-pack"
+  },
+  "limitations": [
+    "consumers are a text search for path fragments and API names; run-time built paths are missed",
+    "a blob stored under several paths is attributed to the first path rev-list reports",
+    "packed (on-disk) bytes depend on the local repository's packing",
+    "wheel membership is evaluated from pyproject package-data globs plus the setup.py 39915 substitution, not by building a wheel"
+  ],
+  "trees": {
+    "origin/develop": {
+      "commit": "f878d31aec11f60ec3be58e2a99ef81aade63b30",
+      "files": 3497,
+      "bytes": 940791647,
+      "by_group": {
+        "samples.shot.representations": {
+          "files": 11,
+          "bytes": 298690367
+        },
+        "legacy.raw_fixtures": {
+          "files": 83,
+          "bytes": 193524508
+        },
+        "samples.shot.sources": {
+          "files": 20,
+          "bytes": 179190530
+        },
+        "notebooks.outputs": {
+          "files": 61,
+          "bytes": 53501316
+        },
+        "docs.media": {
+          "files": 566,
+          "bytes": 51647071
+        },
+        "unassigned": {
+          "files": 2230,
+          "bytes": 39351882
+        },
+        "samples.wheel_projection": {
+          "files": 3,
+          "bytes": 20786701
+        },
+        "workflow.results": {
+          "files": 26,
+          "bytes": 20431850
+        },
+        "efit.gfile_fixtures": {
+          "files": 6,
+          "bytes": 14691749
+        },
+        "test.fixtures": {
+          "files": 308,
+          "bytes": 13549729
+        },
+        "samples.shot.stage_products": {
+          "files": 23,
+          "bytes": 13198292
+        },
+        "notebooks.data": {
+          "files": 19,
+          "bytes": 11411756
+        },
+        "samples.tables": {
+          "files": 21,
+          "bytes": 8393224
+        },
+        "efit.generated_tables_plain": {
+          "files": 2,
+          "bytes": 6991821
+        },
+        "samples.kinetic_efit": {
+          "files": 6,
+          "bytes": 6938220
+        },
+        "data.geometry_config": {
+          "files": 85,
+          "bytes": 4749743
+        },
+        "data.small_fixtures": {
+          "files": 5,
+          "bytes": 3356764
+        },
+        "efit.inputs": {
+          "files": 11,
+          "bytes": 297895
+        },
+        "samples.shot.manifests": {
+          "files": 7,
+          "bytes": 87700
+        },
+        "efit.green_tables_lfs": {
+          "files": 4,
+          "bytes": 529
+        }
+      },
+      "lfs_pointers": [
+        {
+          "path": "vaft/data/efit/ec129129.ddd",
+          "oid": "sha256:a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+          "size": 20636944
+        },
+        {
+          "path": "vaft/data/efit/ep129129.ddd",
+          "oid": "sha256:bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+          "size": 9984616
+        },
+        {
+          "path": "vaft/data/efit/rfcoil.ddd",
+          "oid": "sha256:d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+          "size": 15616
+        },
+        {
+          "path": "vaft/data/efit/rv129129.ddd",
+          "oid": "sha256:c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+          "size": 134459248
+        }
+      ],
+      "lfs_object_bytes": 165096424
+    },
+    "origin/main": {
+      "commit": "548d12d2ea15524c3eaf19b7b9348480f830bb31",
+      "files": 3314,
+      "bytes": 906932471,
+      "by_group": {
+        "samples.shot.representations": {
+          "files": 11,
+          "bytes": 298690367
+        },
+        "legacy.raw_fixtures": {
+          "files": 83,
+          "bytes": 193524508
+        },
+        "samples.shot.sources": {
+          "files": 20,
+          "bytes": 179190530
+        },
+        "notebooks.outputs": {
+          "files": 61,
+          "bytes": 51895255
+        },
+        "docs.media": {
+          "files": 556,
+          "bytes": 49061166
+        },
+        "unassigned": {
+          "files": 2106,
+          "bytes": 36066394
+        },
+        "samples.wheel_projection": {
+          "files": 3,
+          "bytes": 20786701
+        },
+        "workflow.results": {
+          "files": 27,
+          "bytes": 20554595
+        },
+        "efit.gfile_fixtures": {
+          "files": 6,
+          "bytes": 14691749
+        },
+        "test.fixtures": {
+          "files": 299,
+          "bytes": 12141274
+        },
+        "notebooks.data": {
+          "files": 14,
+          "bytes": 7236301
+        },
+        "efit.generated_tables_plain": {
+          "files": 2,
+          "bytes": 6991821
+        },
+        "samples.kinetic_efit": {
+          "files": 6,
+          "bytes": 6938220
+        },
+        "data.geometry_config": {
+          "files": 85,
+          "bytes": 4680750
+        },
+        "data.small_fixtures": {
+          "files": 5,
+          "bytes": 3356764
+        },
+        "samples.shot.stage_products": {
+          "files": 8,
+          "bytes": 739999
+        },
+        "efit.inputs": {
+          "files": 11,
+          "bytes": 297835
+        },
+        "samples.shot.manifests": {
+          "files": 7,
+          "bytes": 87713
+        },
+        "efit.green_tables_lfs": {
+          "files": 4,
+          "bytes": 529
+        }
+      },
+      "lfs_pointers": [
+        {
+          "path": "vaft/data/efit/ec129129.ddd",
+          "oid": "sha256:a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+          "size": 20636944
+        },
+        {
+          "path": "vaft/data/efit/ep129129.ddd",
+          "oid": "sha256:bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+          "size": 9984616
+        },
+        {
+          "path": "vaft/data/efit/rfcoil.ddd",
+          "oid": "sha256:d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+          "size": 15616
+        },
+        {
+          "path": "vaft/data/efit/rv129129.ddd",
+          "oid": "sha256:c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+          "size": 134459248
+        }
+      ],
+      "lfs_object_bytes": 165096424
+    }
+  },
+  "history": {
+    "scope": "clone (origin branches + tags)",
+    "refs": 29,
+    "total": {
+      "blobs": 75769,
+      "raw": 14581510269,
+      "packed": 3011020539
+    },
+    "by_group": {
+      "samples.shot.sources": {
+        "blobs": 43,
+        "raw": 1003475629,
+        "packed": 976579640
+      },
+      "samples.shot.representations": {
+        "blobs": 88,
+        "raw": 1919503233,
+        "packed": 899213296
+      },
+      "notebooks.outputs": {
+        "blobs": 849,
+        "raw": 1006002752,
+        "packed": 278571838
+      },
+      "history.retired_sample_layouts": {
+        "blobs": 46,
+        "raw": 939477196,
+        "packed": 261386666
+      },
+      "history.gh_pages": {
+        "blobs": 49200,
+        "raw": 7963920132,
+        "packed": 250874774
+      },
+      "legacy.raw_fixtures": {
+        "blobs": 90,
+        "raw": 218331593,
+        "packed": 120431900
+      },
+      "samples.wheel_projection": {
+        "blobs": 28,
+        "raw": 189195270,
+        "packed": 62312739
+      },
+      "unassigned": {
+        "blobs": 23011,
+        "raw": 989171931,
+        "packed": 39503145
+      },
+      "docs.media": {
+        "blobs": 1422,
+        "raw": 166811559,
+        "packed": 36730825
+      },
+      "workflow.results": {
+        "blobs": 44,
+        "raw": 22155617,
+        "packed": 15210305
+      },
+      "samples.shot.stage_products": {
+        "blobs": 29,
+        "raw": 13937757,
+        "packed": 13607893
+      },
+      "notebooks.data": {
+        "blobs": 41,
+        "raw": 12830640,
+        "packed": 12475629
+      },
+      "efit.generated_tables_plain": {
+        "blobs": 6,
+        "raw": 15618579,
+        "packed": 10617827
+      },
+      "data.geometry_config": {
+        "blobs": 395,
+        "raw": 49646411,
+        "packed": 9486775
+      },
+      "data.small_fixtures": {
+        "blobs": 15,
+        "raw": 9386091,
+        "packed": 6641772
+      },
+      "samples.kinetic_efit": {
+        "blobs": 10,
+        "raw": 19573154,
+        "packed": 6025518
+      },
+      "efit.gfile_fixtures": {
+        "blobs": 6,
+        "raw": 14691749,
+        "packed": 5726628
+      },
+      "test.fixtures": {
+        "blobs": 306,
+        "raw": 17892016,
+        "packed": 2751537
+      },
+      "samples.tables": {
+        "blobs": 23,
+        "raw": 8401424,
+        "packed": 2721005
+      },
+      "samples.shot.manifests": {
+        "blobs": 79,
+        "raw": 660660,
+        "packed": 91259
+      },
+      "efit.inputs": {
+        "blobs": 27,
+        "raw": 825423,
+        "packed": 58235
+      },
+      "efit.green_tables_lfs": {
+        "blobs": 11,
+        "raw": 1453,
+        "packed": 1333
+      }
+    },
+    "largest_blobs": [
+      {
+        "path": "vaft/data/samples/42962/omas.json.gz",
+        "raw_bytes": 45042906,
+        "packed_bytes": 44792333
+      },
+      {
+        "path": "vaft/data/samples/42962/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 44929376,
+        "packed_bytes": 44691339
+      },
+      {
+        "path": "vaft/data/samples/45531/omas.json.gz",
+        "raw_bytes": 45916361,
+        "packed_bytes": 43981407
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 39051679,
+        "packed_bytes": 38145208
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 39015860,
+        "packed_bytes": 38105983
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38961153,
+        "packed_bytes": 38068239
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38961190,
+        "packed_bytes": 38067294
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38967523,
+        "packed_bytes": 38043555
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38930228,
+        "packed_bytes": 38007128
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871677,
+        "packed_bytes": 37961724
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871658,
+        "packed_bytes": 37960856
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871718,
+        "packed_bytes": 37960691
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38922191,
+        "packed_bytes": 37957306
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38922048,
+        "packed_bytes": 37956604
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871647,
+        "packed_bytes": 37955153
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38920728,
+        "packed_bytes": 37946863
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38909012,
+        "packed_bytes": 37940397
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36713389,
+        "packed_bytes": 35979108
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36687253,
+        "packed_bytes": 35954261
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36687979,
+        "packed_bytes": 35946101
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36632656,
+        "packed_bytes": 35905081
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36632641,
+        "packed_bytes": 35904290
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36691316,
+        "packed_bytes": 35891165
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36687941,
+        "packed_bytes": 35890336
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36690793,
+        "packed_bytes": 35888950
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36676088,
+        "packed_bytes": 35871882
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36160882,
+        "packed_bytes": 35407566
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36154356,
+        "packed_bytes": 35391670
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36111471,
+        "packed_bytes": 35372805
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36091166,
+        "packed_bytes": 35361415
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076117,
+        "packed_bytes": 35327238
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076151,
+        "packed_bytes": 35326945
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076111,
+        "packed_bytes": 35326614
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076084,
+        "packed_bytes": 35325890
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36034821,
+        "packed_bytes": 35298468
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36034796,
+        "packed_bytes": 35298005
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35996335,
+        "packed_bytes": 35188766
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35996056,
+        "packed_bytes": 35186540
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35995421,
+        "packed_bytes": 35184108
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35984160,
+        "packed_bytes": 35179533
+      }
+    ]
+  },
+  "local_pack_kib": 3409806,
+  "pypi": {
+    "version": "0.9.0",
+    "files": [
+      {
+        "filename": "vaft-0.9.0-py3-none-any.whl",
+        "packagetype": "bdist_wheel",
+        "bytes": 18106235
+      },
+      {
+        "filename": "vaft-0.9.0.tar.gz",
+        "packagetype": "sdist",
+        "bytes": 27993933
+      }
+    ]
+  },
+  "github": {
+    "repository_size_kib": 3103164
+  }
+}
