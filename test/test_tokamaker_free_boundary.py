@@ -406,6 +406,7 @@ def test_a_pre_2325_d_r_sep_that_cannot_be_reclassified_is_set_aside(tmp_path, m
         payload = json.loads(case.manifest.read_text(encoding="utf-8"))
         assert payload["topology"]["d_r_sep_upper_minus_lower"] == pytest.approx(0.03)
         assert "d_r_sep_convention" not in payload["topology"]   # retried next resume
+        assert payload["schema_version"] == 1                    # still an old-classifier report
 
 
 def test_resume_reloads_succeeded_cases_without_solving(tmp_path, monkeypatch):

@@ -635,7 +635,10 @@ class FreeBoundaryScan:
                 return
             payload["topology"] = reloaded.topology
             payload["discontinuity"] = reloaded.discontinuity
-            payload["schema_version"] = SCAN_SCHEMA_VERSION
+            if (reloaded.topology or {}).get("d_r_sep_convention") == D_R_SEP_CONVENTION:
+                # a quarantined pre-#2325 report keeps its old schema label:
+                # its topology and X-points still come from the old classifier
+                payload["schema_version"] = SCAN_SCHEMA_VERSION
             _write_json_atomic(reloaded.manifest, payload)
 
     # ----------------------------------------------------------------- #

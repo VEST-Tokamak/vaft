@@ -390,9 +390,9 @@ can differ from a new one by more than its sign.
 
 | Carrier | Old (upper − lower) | New (lower − upper) |
 | --- | --- | --- |
-| `BoundaryRepresentation.d_r_sep.definition` | `R_out(psi_X,upper)-R_out(psi_X,lower) at Z=Z_axis` | `R_out(psi_X,lower)-R_out(psi_X,upper) at Z=Z_axis` |
+| `BoundaryRepresentation.d_r_sep.definition` | starts `R_out(psi_X,upper)-R_out(psi_X,lower)` (` at Z=Z_axis` only on available values) | `R_out(psi_X,lower)-R_out(psi_X,upper) at Z=Z_axis` |
 | `TopologyReport.to_dict()` / `case_manifest.json` `topology` | no `d_r_sep_convention` key | `d_r_sep_convention: "lower_minus_upper"` |
-| Free-boundary scan manifests | `schema_version: 1` | `schema_version: 2` |
+| Free-boundary scan manifests | `schema_version: 1` (also kept by a case whose re-classification failed, see below) | `schema_version: 2` |
 | EFIT a-file `DRSEP` | always the EFIT sign (cm, 40 cm sentinel) | unchanged; never a VAFT value |
 | TES `DRSEP` (RESULT in m, a-file in cm) | always lower − upper, on `Z = 0` | unchanged |
 
@@ -409,8 +409,8 @@ notebooks.
 | `TopologyReport.d_r_sep` → `case_manifest.json` | Only in free-boundary scan workdirs; none exist on any audited machine | Resume re-classifies (below) |
 | `FreeBoundaryScan` jump flags (`d_r_sep_jump_m`, `d_r_sep_m` threshold) | Absolute values | None |
 | `TESConfig.drsep` | Input `(0, 0.0)`; TES never uses the target | None; TES output already uses the EFIT sign |
-| EFIT a-files / `vaft.data.aeqdsk` `drsep` | Native EFIT value, parsed but not mapped into an ODS | Kept separately, never re-signed |
-| IMAS/OMAS equilibrium products, HSDS, FileDB | No; no VAFT writer emitted a `d_r_sep` field (checked at the pre-#2326 baseline f878d31ae) | Phase D adds a mapping with its own definition |
+| EFIT a-files / `vaft.data.aeqdsk` `drsep` | Native EFIT value (cm). `AEQDSK.to_omas` stores it in EFIT ODS products at `equilibrium.code.parameters.time_slice.{i}.aeqdsk.drsep` | Kept separately, never re-signed; it was always the EFIT sign |
+| IMAS/OMAS equilibrium products, HSDS, FileDB | No VAFT-derived `d_r_sep` was written (checked at the pre-#2326 baseline f878d31ae); the only dRsep there is EFIT's native `aeqdsk.drsep` above | Phase D adds a mapping with its own definition |
 | Notebook outputs (`edge_and_boundary_representation`) | The old definition string | Re-executed |
 
 **Regenerating.**
@@ -419,7 +419,8 @@ notebooks.
   manifest without `d_r_sep_convention` is re-classified from its own g-file,
   without re-solving, and rewritten at schema version 2. If that
   re-classification fails, the stored report is kept. Its old value moves to
-  `d_r_sep_upper_minus_lower` and `d_r_sep` becomes `None`. An old-sign value is
+  `d_r_sep_upper_minus_lower` and `d_r_sep` becomes `None`. That manifest keeps
+  `schema_version: 1`, because its topology still comes from the old classifier. An old-sign value is
   never placed next to new ones in the jump check.
 * *Your own stored values.* Recompute them with
   `derive_boundary_representation` from the source equilibrium. If the source is
