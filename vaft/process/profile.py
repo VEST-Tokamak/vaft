@@ -979,7 +979,9 @@ def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None, edge_mapping=
     One equilibrium time slice of an ODS is used: the first, unless ``time``
     names another.  The legacy ``"closed_flux"`` mode labels a private-flux
     channel (``psi_norm <= 1`` below an X-point) as closed flux; only
-    ``"preserve"`` with an LCFS outline tells them apart.  Equilibrium
+    ``"preserve"`` with an LCFS outline tells them apart; without an
+    outline every on-grid point with ``psi_norm <= 1`` is labelled closed
+    flux (``region_basis`` says so).  Equilibrium
     (separatrix) uncertainty is not propagated into the mapped positions.
     """
     geq, _, _ = _equilibrium_slice_at_time(geq, time)
@@ -1218,7 +1220,12 @@ def profile_fitting_thomson_scattering(
     anyway, with status ``legacy_nonphysical`` -- not accepted evidence.
     The ``n_e`` coefficients describe ``n_e / 1e18``, not m^-3
     (``coefficient_scale``).  IMAS ``validity`` flags are not read, and
-    correlated channel errors are not used.
+    correlated channel errors are not used.  A separatrix prior on a
+    least-squares model enters as one weighted extra point, so it also moves
+    the ``eped_tanh`` / ``core_poly_edge_exp`` initial guess; a model with
+    more parameters than real channels is refused at that order.  With
+    ``channel_validity="independent"`` a quantity with no valid channel still
+    fails the whole call.
 
     Provenance
     ----------
@@ -1269,9 +1276,21 @@ def _region_of(mapped, n):
     """The mapping's region labels, or ``None`` for a legacy (closed-flux) mapping."""
     region = getattr(mapped, "region", None)
     if region is None:
+        if isinstance(mapped, MappedPositions) or mapped is None:
+            return None
+        positions = np.asarray(mapped, dtype=float).reshape(-1)
+        if np.any(np.isfinite(positions) & (positions > 1.0)):
+            warnings.warn(
+                "a bare position array carries values above 1 and no region labels; they are "
+                "clipped to the LCFS as they always were. Pass the MappedPositions record of an "
+                "edge_mapping='preserve' mapping to keep SOL channels out of the fit.",
+                UserWarning, stacklevel=4,
+            )
         return None
     region = np.asarray(region).reshape(-1)
-    return region if region.size == n else None
+    if region.size != n:
+        raise ValueError(f"the mapping labels {region.size} regions for {n} channel positions")
+    return region
 
 
 def _position_usable(position, region):
@@ -1398,7 +1417,10 @@ def _resolve_ne_separatrix(ne_separatrix, method, uncertainty_option, n_e_norm, 
     if name == "gp":
         assumptions.append(text)
         return point, None, assumptions
-    if name in _PSEUDO_POINT_METHODS or (name in _EDGE_ZERO_METHODS and target == 0.0):
+    if name in _EDGE_ZERO_METHODS:   # target == 0: the basis already enforces it exactly
+        assumptions.append(text.replace("Gaussian pseudo-observation", "satisfied exactly by the basis; no pseudo-observation"))
+        return None, None, assumptions
+    if name in _PSEUDO_POINT_METHODS:
         if uncertainty_option != 1:
             raise ValueError("a separatrix prior needs uncertainty_option=1: its weight is its sigma")
         assumptions.append(text)
@@ -1537,26 +1559,30 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
             return f"ne dynamic range {hi / lo:.1e} inside the LCFS"
         return None
 
+    def _ne_fit(o):
+        result = fit_profile(
+            rho_ne_fit, n_e_norm_fit, n_e_std_norm_fit_in, rho_eval,
+            order=o,
+            uncertainty_option=uncertainty_option,
+            fitting_function=fitting_function_ne,
+            gp_anchor=ne_anchor,
+            extrapolate=True,
+        )
+        # The separatrix pseudo-observation is a prior, not a channel: it must
+        # not make an otherwise under-determined model identifiable.
+        if ne_pseudo is not None and result[3] is not None and np.size(result[3]) > n_e_norm.size:
+            raise ValueError(f"{np.size(result[3])} parameters but only {n_e_norm.size} n_e channels "
+                             "(the separatrix prior does not count as one)")
+        return result
+
     n_e_rho_norm, n_e_std_norm_fit, n_e_function_raw, coeffs_ne, Ne_order_used = (
         _fit_profile_until_physical(
-            lambda o: fit_profile(
-                rho_ne_fit, n_e_norm_fit, n_e_std_norm_fit_in, rho_eval,
-                order=o,
-                uncertainty_option=uncertainty_option,
-                fitting_function=fitting_function_ne,
-                gp_anchor=ne_anchor,
-                extrapolate=True,
-            ),
+            _ne_fit,
             Ne_order, _ne_unphysical, "ne", time_ms, notes=ne_notes,
             method=fitting_function_ne, outcome=ne_outcome,
         )
         if enforce_physical else
-        (*fit_profile(
-            rho_ne_fit, n_e_norm_fit, n_e_std_norm_fit_in, rho_eval,
-            order=Ne_order, uncertainty_option=uncertainty_option,
-            fitting_function=fitting_function_ne, gp_anchor=ne_anchor,
-            extrapolate=True,
-        ), Ne_order)
+        (*_ne_fit(Ne_order), Ne_order)
     )
     if not enforce_physical:
         ne_outcome["status"] = "nonphysical" if _ne_unphysical(n_e_function_raw) else "accepted"
@@ -1623,9 +1649,11 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
                                 _extrapolation(fitting_function_ne), clipped_ne),
         },
     }
-    if ne_pseudo is not None:
-        target = float(ne_pseudo[1][0])
-        sigma = float(ne_pseudo[2][0])
+    prior_point = ne_pseudo if ne_pseudo is not None else (
+        ne_anchor if not (isinstance(ne_separatrix, str)) else None)
+    if prior_point is not None:
+        target = float(prior_point[1][0])
+        sigma = float(prior_point[2][0])
         at_edge = float(np.asarray(n_e_function_raw(np.array([1.0])), dtype=float).reshape(-1)[0])
         evidence["n_e"]["domains"]["separatrix_prior_penalty"] = float(((at_edge - target) / sigma) ** 2)
     return {

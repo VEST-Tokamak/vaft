@@ -311,3 +311,26 @@ def test_the_density_coefficients_record_their_scale():
     model = make_fit_function("polynomial")(x, *coeffs_ne)
     np.testing.assert_allclose(ne_fit(x), model * ne_fit.coefficient_scale, rtol=1e-12)
     assert ne_fit.status == te_fit.status == "accepted"
+
+
+def test_the_separatrix_prior_does_not_make_an_underdetermined_fit_identifiable():
+    from vaft.process.profile import MappedPositions, profile_fit_report_thomson_scattering
+
+    ods, x = _edge_ts_ods()
+    for i in range(3, 9):   # keep three n_e channels
+        ods[f"thomson_scattering.channel.{i}.n_e.data_error_upper"] = np.zeros(3)
+    pos = MappedPositions(x, np.sqrt(x), None, "t", "t")
+    ne = profile_fit_report_thomson_scattering(
+        ods, 300.0, pos, Te_order=2, Ne_order=4, coordinate="psi_norm", channel_validity="independent",
+        fitting_function_te="polynomial", fitting_function_ne="free_exponential",
+        ne_separatrix=(4e17, 1e17))["n_e"]
+    assert ne.n_used == 3 and ne.order_used <= 3
+    assert any("does not count" in note for note in ne.notes)
+
+
+def test_a_bare_array_above_one_warns_that_it_is_clipped():
+    ods, psi_n = _make_ts_ods()
+    rho = psi_n.copy()
+    rho[-1] = 1.05
+    with pytest.warns(UserWarning, match="clipped to the LCFS"):
+        _fit(ods, rho)
