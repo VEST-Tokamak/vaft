@@ -1,4 +1,4 @@
-# VAFT MCP conference demo (#188, log #1532)
+# VAFT MCP conference demo
 
 These scenarios show an agent reading VAFT's equilibrium, stability, transport and Z_eff results
 through the read-only MCP server (`python -m vaft.mcp`).
@@ -35,5 +35,5 @@ that does not pin `n_tor`.
 - Shot 39915 in scenario 1 is the packaged sample, which carries its own EFIT reconstruction. The
   Tier A atlas uses the `statistical_891` EFIT setting, so its 39915 states have different q95 and
   stored energy. Compare a shot within one source.
-- Stability, transport and Z_eff values are the lane products as written (N #1448, T #1453,
-  Z #1486). The MCP server adds no computation, joins or aggregation beyond row counts.
+- Stability, transport and Z_eff values are the stability-atlas, transport-atlas and resistive-Z_eff
+  products as written. The MCP server adds no computation, joins or aggregation beyond row counts.

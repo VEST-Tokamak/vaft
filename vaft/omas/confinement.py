@@ -1,4 +1,4 @@
-"""ODS adapter of the experimental Ohmic confinement chain (issue #1905).
+"""ODS adapter of the experimental Ohmic confinement chain.
 
 :func:`ohmic_confinement_ods` is the one ODS-facing entry to
 :func:`vaft.process.confinement.ohmic_confinement_series`: it reads the
@@ -38,7 +38,7 @@ __all__ = [
 ]
 
 #: Stored-energy sources and the definition recorded with each. Neither is a
-#: global energy (#1713): thermal-as-global is a caller's explicit choice downstream.
+#: global energy: thermal-as-global is a caller's explicit choice downstream.
 W_SOURCES: Mapping[str, str] = {
     "efit_pressure": ("W_MHD = (3/2) int p_EFIT dV of the equilibrium slice: a reconstruction-derived pressure "
                       "energy, not an independent kinetic measurement"),
@@ -92,7 +92,7 @@ def _slice_times(ods: Any) -> np.ndarray:
 
 
 def _li3_all(work: Any) -> np.ndarray:
-    """$l_{i,3}$ of every slice from the post-#1477 update routine; ``work`` is the private copy."""
+    """$l_{i,3}$ of every slice from the update routine; ``work`` is the private copy."""
     from vaft.omas.update import update_equilibrium_global_quantities_beta_li
 
     n = len(work["equilibrium.time_slice"])
@@ -154,7 +154,7 @@ def ohmic_confinement_ods(
     average_window_s: float = 5e-4,
     hold_li3_where_missing: bool = True,
 ) -> OhmicConfinementODS:
-    """Ohmic power balance and confinement time of a discharge from its ODS (#1905 Sec. 3).
+    """Ohmic power balance and confinement time of a discharge from its ODS.
 
     Parameters
     ----------
@@ -196,8 +196,8 @@ def ohmic_confinement_ods(
 
     Notes
     -----
-    Defaults are the VEST Tier A reference settings of #548 (recorded in the
-    result's ``settings``), numerical choices rather than physical constants.
+    Defaults are the VEST Tier A reference settings (provenance: #548; recorded
+    in the result's ``settings``), numerical choices rather than physical constants.
     The measured current is paired with the EFIT $l_{i,3}$ (a hybrid), and the
     loop is not on the plasma boundary: both are recorded assumptions.
     """

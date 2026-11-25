@@ -1,4 +1,4 @@
-"""The convergence study (#924): the bookkeeping its verdict rests on.
+"""The convergence study (open, #924): the bookkeeping its verdict rests on.
 
 The study runs EFIT; what is pinned here is how it plans the runs, pairs
 slices, measures the distance between two equilibria and picks the references
@@ -339,7 +339,7 @@ def test_the_magnetic_fit_reports_chi_square_against_the_sigma_efit_used(module)
 
 
 def test_the_magnetic_fit_covers_ip_pf_and_the_diamagnetic_flux(module):
-    """#891: every fitted family, not only probes and loops, with the chi-square
+    """Every fitted family, not only probes and loops, with the chi-square
     recomputed from the sigma rather than read from EFIT's chipasma/chidflux."""
     variables = {
         "plasma": np.array([80.0e3]), "cpasma": np.array([79.0e3]),
@@ -433,7 +433,7 @@ def _rows(recorded, *, table="packaged", grid=129, inner=None, error_minimum=Non
 
 
 def test_the_recorded_run_is_on_an_efit_whose_ip_chi_squared_matches_its_solve(recorded):
-    # #918: stock EFIT's NXITER > 1 stop test is contaminated; the research
+    # Open: #918, stock EFIT's NXITER > 1 stop test is contaminated; the research
     # build that removes the vessel term from the reported Ip chi-square is 3b5dae5.
     assert recorded["efit_install"]["source_revision"] == "3b5dae5"
     assert recorded["toolchain"]["efit"]["sha256"].startswith("4a4e645e")
@@ -446,7 +446,7 @@ def test_every_setting_that_reaches_errmin_1e_4_lands_on_the_same_equilibrium(re
 
 
 def test_a_silent_criterion_exit_counts_as_converged(module):
-    # #1038: an inner loop that drops the increment below ERROR on its first
+    # An inner loop that drops the increment below ERROR on its first
     # step leaves fit.F90 with no message; that is EFIT's criterion, not a cap.
     record = {"geqdsk": object(), "collapsed": False, "exit_path": "no_exit_message"}
     assert module.converged(record)

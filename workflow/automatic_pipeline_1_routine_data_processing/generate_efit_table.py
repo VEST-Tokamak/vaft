@@ -2,7 +2,7 @@
 
 The packaged table under ``efit.table_dir`` was built for one era; a shot of
 another era needs its own, because a Green table is a projection of that era's
-conductors (#805).  This builds it with the base table's EFUND configuration --
+conductors.  This builds it with the base table's EFUND configuration --
 grid, flags, quadrature -- so the two tables differ only in machine geometry.
 See :func:`vaft.code.efit.efund.generate_era_table` for the chain.
 """

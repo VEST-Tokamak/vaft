@@ -1,4 +1,4 @@
-"""Dimensionless-similarity population plots with literature reference points (#1624).
+"""Dimensionless-similarity population plots with literature reference points.
 
 A population is drawn on one of the global similarity projections of
 :mod:`vaft.diagram._similarity_space` (``"rho_star_nu_star"``,

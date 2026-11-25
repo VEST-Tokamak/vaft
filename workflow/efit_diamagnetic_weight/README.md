@@ -1,7 +1,8 @@
-# Is the diamagnetic constraint reachable, and is the pressure real? (#386)
+# Is the diamagnetic constraint reachable, and is the pressure real?
 
-> **Superseded in part by #1196 (2026-09-22).** Every run recorded here fed EFIT
-> a diamagnetic flux carrying an extra minus sign from the mapper port: a
+> **Superseded in part by the diamagnetic sign correction of 2026-09-22
+> (record: #1196).** Every run recorded here fed EFIT a diamagnetic flux
+> carrying an extra minus sign from the mapper port: a
 > diamagnetic-signed DFLUX (e.g. `-1.4275e-3` Wb) against a plasma whose loop
 > and whose reconstruction are both paramagnetic (`cdflux` `+1.88e-3` Wb). So
 > the weighted rungs pushed EFIT toward the wrong answer, and the collapse at
@@ -12,20 +13,21 @@
 > conclusion here about weighting is used; the measurements of what EFIT did
 > with the inputs it was given stand.
 
-#649 stopped two ill-conditioned virial checks from gating acceptance and the
-yield went from 0 of 31 to 30 of 77. That makes this the moment of maximum risk
-of reading "more slices pass" as "the reconstructions are good". #386 records
-the reason to doubt it: the reconstructed pressure sits roughly ninety times
-below what force balance requires, and the one measurement that would pin
+Removing the two ill-conditioned virial checks from the acceptance gate took
+the yield from 0 of 31 to 30 of 77. That makes this the moment of maximum risk
+of reading "more slices pass" as "the reconstructions are good". The packaged
+39915 reconstruction gives the reason to doubt it (Open: #386): the
+reconstructed pressure sits roughly ninety times below what force balance
+requires, and the one measurement that would pin
 pressure — the diamagnetic loop — carries no weight.
 
 This workflow asks whether that is a **weighting** problem or a **data**
 problem, and it exists because the obvious experiment has already been run and
 could not have detected the answer.
 
-## Why #663's answer does not settle it
+## Why the constraint-information study's answer does not settle it
 
-#663 swept `objective_scales["diamagnetic_flux"]` from ×1 to ×10,000 on all
+The constraint-information study (`workflow/efit_constraint_information`) swept `objective_scales["diamagnetic_flux"]` from ×1 to ×10,000 on all
 three reference shots and classified the family as inactive within a produced
 solution. That is a correct measurement of what it measured. It is not a
 statement about the diagnostic, because the sweep never left the region where
@@ -43,12 +45,15 @@ EFIT processes a statistical row as `FWT/sigma`:
 So the processed row weight VEST submits is `FWTDLC/sigdia = 1e-4`. The stored
 3 % measurement error would give `2.3e4`. **The gap is 8.4 decades, and the
 ×1…×10,000 ladder covers four of them** — every one inside the inactive region.
-#664's `10^0`–`10^4` ladder sits in the same place.
+The identifiability study's (`workflow/efit_identifiability`) `10^0`–`10^4`
+ladder sits in the same place.
 
 The instrument this workflow adds is
 `constraints.uncertainty_scales["diamagnetic_flux"]`, which divides `SIGDLC`
-for that family alone. It ships at `1.0` for every family, so an unscaled
-k-file is byte-identical to the one the writer has always produced.
+for that family alone. The routine configuration sets it to `1.0` for every
+family, so the baseline rung's k-file is byte-identical to the routine
+writer's. (The statistical default in force since 2026-10-01 uses per-family
+working scales instead; this study does not use it.)
 
 ### Why the sigma and not the weight
 
@@ -73,17 +78,18 @@ Ten rungs, one decade apart, carrying the processed row weight from `1e-4` to
 
 | rung | SIGDLC [mWb] | processed row weight | |
 | --- | ---: | ---: | --- |
-| `legacy_sigma` | `1e7` | `1e-4` | today's production configuration |
+| `legacy_sigma` | `1e7` | `1e-4` | legacy routine configuration (production default until 2026-10-01) |
 | `sigma_x1e1` … `sigma_x1e3` | `1e6` … `1e4` | `1e-3` … `1e-1` | |
-| `sigma_x1e4` | `1e3` | `1` | the far end of #663, in row-weight terms |
+| `sigma_x1e4` | `1e3` | `1` | the far end of the constraint-information ladder, in row-weight terms |
 | `sigma_x1e5` … `sigma_x1e7` | `100` … `1` | `10` … `1e3` | |
 | `sigma_x1e8` | `0.1` | `1e4` | near the stored 3 % error (`2.3e4`) |
 | `sigma_x1e9` | `0.01` | `1e5` | past it |
 
-Everything else is the frozen #579/#663 configuration: the `(2,2)` zero-edge
+Everything else is the frozen baseline of the profile-model and
+constraint-information studies: the `(2,2)` zero-edge
 profile, the qualified seed, the numerical controls, the grid, the cadence, and
-unit objective scales. One axis at a time, which is the rule #588 established
-for the seed study.
+unit objective scales. One axis at a time, which is the rule the seed-sensitivity
+study (`workflow/efit_numerics`) followed.
 
 ## What is asked, in order
 
@@ -93,22 +99,23 @@ for the seed study.
    boundary.
 2. **Consequence** — does the reconstructed pressure follow? `p_axis`, `wmhd`
    and `betap`, **on slices common to every rung**. Population change is
-   reported separately and never mixed in. #663 had to publish a correction for
+   reported separately and never mixed in. The constraint-information study had
+to publish a correction for
    reporting a smaller aggregate residual at high weight that turned out to be
    population selection; comparing only common slices is what makes that
    mistake impossible rather than merely unlikely.
 3. **Direction** — does it move *toward* a measurement the fit never used?
 
-Classification reuses #663's own thresholds, imported from its module rather
+Classification reuses that study's own thresholds, imported from its module rather
 than restated: LCFS median ≥ 5 mm, area or volume ≥ 2 %, another family's
 residual or χ² ≥ 20 %, acceptance ≥ 10 pp. The two studies therefore compose.
-The response floor on the residual is `1e-3`: #663 measured invariance at
+The response floor on the residual is `1e-3`: that study measured invariance at
 `1e-7` through its whole ladder and a real but sub-threshold 0.5 % response at
 one slice, so the floor sits three orders from each.
 
 Both chi-squares are kept. The m-file's is `(physical residual/sigma)²` with
 the submitted weight divided out; the solver's own contribution is
-`(weight × residual)²`. #663's correction notes these are different quantities.
+`(weight × residual)²`. That study's correction notes these are different quantities.
 
 ## The kinetic cross-check
 
@@ -167,7 +174,7 @@ configured. `/scratch/dia-weight` is fine; a deep temporary directory is not.
 
 **The m-file is not required, and is not available.** `write_m.F90` writes
 NetCDF and this EFIT build is configured `ENABLE_NETCDF=OFF`, so no
-`m0*.nc` appears and #663's `constraint_audit` — which reads `fwtdia` and
+`m0*.nc` appears and the constraint-information study's `constraint_audit` — which reads `fwtdia` and
 `chidflux` from it — attaches nothing. The diamagnetic row is therefore
 reconstructed from the a-file's `cdflux` and the k-file's `DFLUX`/`SIGDLC`/
 `FWTDLC`, which EFIT always writes:
@@ -229,13 +236,13 @@ slices are vacuum. Vacuum solutions pass the acceptance gate trivially.
 
 So between inert and collapse there is **no usable band**, and the transition
 takes less than one decade. The diamagnetic constraint cannot be made to
-constrain a VEST reconstruction by weighting. **The pressure deficit of #386 is
+constrain a VEST reconstruction by weighting. **The ~90x pressure deficit is
 not a weighting problem.** (Both statements were made on sign-reversed DFLUX;
-see the #1196 note at the top.)
+see the sign-correction note at the top.)
 
 A mechanism worth testing rather than asserting: the row is confined to the
 FF' columns (`response_matrix.F90:2192-2196` writes only
-`(nbase+1):(nbase+kffcur)`), and #663 found the VEST solution is selected by Ip
+`(nbase+1):(nbase+kffcur)`), and the constraint-information study found the VEST solution is selected by Ip
 plus PF-current anchoring. If FF' is effectively pinned by those, the
 diamagnetic row can push on it and be either overruled or fatal, with nothing
 in between — which is what this ladder measures.
@@ -243,10 +250,10 @@ in between — which is what this ladder measures.
 ### The sign convention, on all three shots
 
 The signed measurement reached `DFLUX` on **18 of 18, 11 of 11 and 32 of 32**
-compared slices. #385's convention holds on 41524 and 41672, which the
+compared slices. The signed (`"imas"`) pass-through holds on 41524 and 41672, which the
 packaged-sample regression never covered.
 
-These runs predate #1196. The stored measurement they read still carried an
+These runs predate the sign correction. The stored measurement they read still carried an
 extra minus sign added by the mapper port (the donor has none), so every
 measured value in this README has the opposite sign under the corrected
 convention: the `-1.4275e-3` Wb above is `+1.4275e-3`, paramagnetic, the same
@@ -262,7 +269,7 @@ unmeasured ions: **the pressure is real and the fit is missing it. Not a data
 problem either.**
 
 State the factor carefully. This is 2-4.6x *at the Thomson channel positions*,
-not the ~90x #386 records — that figure is a volume-integral beta_p against a
+not the ~90x recorded for the packaged reconstruction — that figure is a volume-integral beta_p against a
 virial estimate, a different quantity measured a different way. Thomson
 confirms the direction and the reality of the deficit; it does not
 independently confirm its size.
@@ -274,28 +281,31 @@ This arm falls silent exactly where the ladder is most aggressive.
 
 `chi_squared` and `chi_squared_reweighted` are equal throughout these runs,
 because `FWTDLC = 1` makes the processed weight exactly `1/sigma` and the two
-definitions coincide. They are kept separate because #663's correction is
+definitions coincide. They are kept separate because the
+constraint-information study's correction is
 about configurations where the submitted `FWT` is not one; here the
 distinction is real but degenerate.
 
 ## Scope
 
-Characterization only. No production default changes: `uncertainty_scales`
-ships at `1.0` for every family and the baseline rung is today's configuration
-exactly. Choosing a real `SIGDLC` is a diagnostic-owner decision — loop
-calibration and TF pickup residual — per #386, and this study can only bracket
-it.
+Characterization only. No production default changes: the baseline rung is the
+legacy routine configuration exactly, with `uncertainty_scales` at `1.0` for
+every family. Choosing a real `SIGDLC` is a diagnostic-owner decision — loop
+calibration and TF pickup residual (Open: #386) — and this study can only
+bracket it.
 
 One consequence worth knowing before running: adding `uncertainty_scales` to
 `EFITConstraintConfig` changes `EFITScientificConfig.sha256`, so result
-directories cached by earlier #663/#664 runs will re-run rather than resume.
+directories cached by earlier constraint-information and identifiability runs
+will re-run rather than resume.
 That is the cache behaving correctly, not a regression.
 
 ## What this study is not
 
-- Not the #659 linearisation bias. That is a ~2 % effect on `beta_p` and its
-  sign is *upward*, while #386's deficit is a factor of ninety downward; the
+- Not the bias from linearising the diamagnetic row about vacuum F (Open:
+  #659). That is a ~2 % effect on `beta_p` and its sign is *upward*, while the
+  pressure deficit is a factor of ninety downward; the
   two are not the same root cause. It is measured from stored reconstructions
   and reported on that issue.
-- Not the virial gate. #649's decision stands: `delbp` and `dbpli` cannot
+- Not the virial gate. Keeping the virial checks out of acceptance stands: `delbp` and `dbpli` cannot
   decide acceptance at `A ≈ 1.4`, and nothing here re-enables them.

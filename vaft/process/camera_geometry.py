@@ -27,7 +27,7 @@ import numpy as np
 
 @dataclass(frozen=True)
 class CameraProjection:
-    """How machine coordinates become camera pixels (issue #261 sections 20-21).
+    """How machine coordinates become camera pixels.
 
     One calibrated pinhole model: intrinsics (``camera_matrix``, Brown-Conrady
     ``dist_coeffs``), the camera pose for a shot (``rvec``, ``tvec``), the

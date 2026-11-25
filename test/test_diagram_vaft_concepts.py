@@ -1,4 +1,4 @@
-"""VAFT framework concept diagrams (#1090): topology and implementation neutrality, not pixels."""
+"""VAFT framework concept diagrams: topology and implementation neutrality, not pixels."""
 
 import re
 from pathlib import Path
@@ -18,7 +18,8 @@ def test_the_registry_lists_the_expected_builders():
     assert set(BUILDERS) == {
         "fusion_science_knowledge_lifecycle", "vaft_four_pillars", "scientific_workflow", "interoperability_layers",
         "scientific_provenance_chain", "scientific_infrastructure_principles", "machine_agnostic_architecture",
-        "experiment_modeling_theory_data_network", "integrated_scientific_framework", "human_ai_interface",
+        "experiment_modeling_theory_data_network", "integrated_scientific_framework", "integration_paradigms_lineage",
+        "human_ai_interface",
         "machine_research_archive", "plasma_state_provenance"}
 
 
@@ -288,7 +289,7 @@ def test_the_framework_encloses_the_network_and_feeds_analysis(domain):
     edges = _edges(d)
     modes = d.model["activities"]
     assert modes == ("experiment", "modelling", "theory", "data_driven")
-    # the four modes and the shared state are drawn exactly as in the common-model network (#1698: no redesign)
+    # the four modes and the shared state are drawn exactly as in the common-model network (no redesign)
     for role in [f"node:{k}" for k in modes] + ["node:hub"]:
         assert d.scene.role(role) == network.scene.role(role)
     assert all((k, "hub") in edges for k in modes) and ("hub", "analysis") in edges
@@ -315,12 +316,94 @@ def test_the_framework_encloses_the_network_and_feeds_analysis(domain):
         assert not re.search(r"DCON|RDCON|delta-W|Delta-prime|Stability", text)
 
 
+def test_the_equilibrium_panel_keeps_only_the_modes_and_their_shared_state():
+    framed = vaft.diagram.integrated_scientific_framework("equilibrium")
+    d = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False)
+    modes = d.model["activities"]
+    # the modes and the shared state are the framed figure's, unchanged
+    for role in [f"node:{k}" for k in modes] + ["node:hub"]:
+        assert d.scene.role(role) == framed.scene.role(role)
+    assert not d.scene.role("framework") and not d.scene.role("note") and not d.scene.role("node:analysis")
+    assert d.model["framework_frame"] is False and d.model["outputs"] == () and d.model["analysis"] is None
+    assert d.model["analysis_categories"] == ()
+    assert {(a, b) for a, b in _edges(d)} == {(k, "hub") for k in modes}
+    # the references sit just below the lower modes
+    lowest_mode = min(_box_role_bounds(d, f"node:{k}")[2] for k in modes)
+    assert lowest_mode - 0.8 < d.scene.role("references")[0].at[1] < lowest_mode
+    assert not vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False,
+                                                            references=False).scene.role("references")
+    # frame=False alone keeps the analysis node
+    plain = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False)
+    assert plain.model["outputs"] == ("analysis",) and not plain.scene.role("framework")
+
+
+def test_the_ids_key_names_the_equilibrium_ids():
+    d = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, ids_key=True)
+    assert "\\ttfamily equilibrium" in d.scene.role("node:hub")[1].text
+    with pytest.raises(ValueError, match="ids_key"):
+        vaft.diagram.integrated_scientific_framework(frame=False, analysis=False, ids_key=True)
+
+
+def test_the_analysis_goes_only_with_the_frame():
+    with pytest.raises(ValueError, match="analysis=False needs frame=False"):
+        vaft.diagram.integrated_scientific_framework("equilibrium", analysis=False)
+    with pytest.raises(ValueError, match="frame"):
+        vaft.diagram.integrated_scientific_framework("equilibrium", frame="no")
+
+
 def test_the_framework_rejects_an_unknown_domain():
     with pytest.raises(ValueError, match="domain"):
         vaft.diagram.integrated_scientific_framework("transport")
     # the framework is its own figure, not a fourth topology of the network
     with pytest.raises(ValueError, match="communication"):
         vaft.diagram.experiment_modeling_theory_data_network("integrated_framework")
+
+
+def _points(item):
+    """Every coordinate an item is drawn at."""
+    if isinstance(item, Polyline):
+        return list(item.points)
+    if isinstance(item, Arrow):
+        return [item.start, item.end]
+    return [item.at]
+
+
+def test_the_lineage_reuses_the_three_figures_unchanged():
+    d = vaft.diagram.integration_paradigms_lineage()
+    assert d.model["paradigms"] == ("pairwise", "common_model", "framework")
+    assert d.model["precedents"] == {"pairwise": "OMFIT", "common_model": "IMAS Data Dictionary", "framework": "VAFT"}
+    sources = {"pairwise": vaft.diagram.experiment_modeling_theory_data_network("point_to_point", labels=False),
+               "common_model": vaft.diagram.experiment_modeling_theory_data_network("common_model", labels=False),
+               "framework": vaft.diagram.integrated_scientific_framework(labels=False)}
+    modes = d.model["activities"]
+    rows = {}
+    for key, source in sources.items():
+        # every item of the source figure but its adapter-count caption, shifted only (no redesign)
+        mine = [i for i in d.scene.items if i.role.startswith((f"panel:{key}:", f"edge:{key}:"))]
+        theirs = [i for i in source.scene.items if i.role != "caption"]
+        assert len(mine) == len(theirs)
+        shift = vc._PARADIGM_X[d.model["paradigms"].index(key)]
+        for a, b in zip(mine, theirs):  # the same item, moved by the panel's offset and nothing else
+            assert type(a) is type(b) and getattr(a, "text", None) == getattr(b, "text", None)
+            # flattened: pytest.approx rejects nested tuples on newer pytest
+            assert [c for pt in _points(a) for c in pt] == pytest.approx(
+                [c for x, y in _points(b) for c in (x + shift, y)])
+        rows[key] = {k: _box_role_bounds(d, f"panel:{key}:node:{k}")[2:] for k in modes}
+        recorded = {(a, b) for a, b, _ in d.model["edges"] if a.startswith(f"{key}:")}
+        assert recorded == {(f"{key}:{a}", f"{key}:{b}") for a, b, _ in source.model["edges"]}
+    # the research modes stand on one row across the panels
+    assert rows["pairwise"] == rows["common_model"] == rows["framework"]
+    pairwise = {(a, b) for a, b, _ in d.model["edges"] if a.startswith("pairwise:")}
+    assert len(pairwise) == d.model["pairwise_links"] == 6 and d.model["hub_links"] == 4
+    assert ("framework:hub", "framework:analysis") in {(a, b) for a, b, _ in d.model["edges"]}
+    # the panels do not lead into one another: no arrow joins two panels
+    assert all(a.split(":")[0] == b.split(":")[0] for a, b, _ in d.model["edges"])
+    text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
+    assert "Representative conceptual precedent: OMFIT" in text
+    assert "Representative conceptual precedent: IMAS Data Dictionary" in text
+    assert "Meneghini" in text and "Imbeaux" in text and "not a historical lineage" in text
+    assert "adapters" not in text  # the sources' adapter counts give way to the paradigm captions
+    assert not vaft.diagram.integration_paradigms_lineage(labels=False).scene.role("note")
 
 
 def test_the_plasma_state_layers_feed_the_reconstruction_and_then_the_derived_state():
@@ -334,3 +417,16 @@ def test_the_plasma_state_layers_feed_the_reconstruction_and_then_the_derived_st
     text = " ".join(i.text for i in d.scene.items if isinstance(i, Label))
     for quantity in ("Thomson", "diamagnetic flux", "Z_\\mathrm{eff}", "q_{95}", "\\ell_i", "\\nu^*"):
         assert quantity in text
+
+
+def test_boundary_models_split_modelling_and_drop_data_driven():
+    d = vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, references=False,
+                                                     boundary_models=True)
+    assert d.model["activities"] == ("experiment", "theory", "fixed_boundary", "free_boundary")
+    assert d.model["routes"]["free_boundary"] == "TokaMaker, TES"
+    assert {("fixed_boundary", "hub", "both"), ("free_boundary", "hub", "both")} <= set(d.model["edges"]) or \
+        len(d.model["edges"]) == 4
+    with pytest.raises(ValueError, match="boundary_models"):
+        vaft.diagram.integrated_scientific_framework(frame=False, analysis=False, boundary_models=True)
+    with pytest.raises(ValueError, match="references"):
+        vaft.diagram.integrated_scientific_framework("equilibrium", frame=False, analysis=False, boundary_models=True)

@@ -1,8 +1,8 @@
-"""Which ordering contracts a calculation consumes, from its plasma formalism (#1823).
+"""Which ordering contracts a calculation consumes, from its plasma formalism.
 
-The ordering contracts of :mod:`vaft.validation.orderings` (#1627) say what a
+The ordering contracts of :mod:`vaft.validation.orderings` say what a
 model assumes; the :class:`vaft.code.formalism.PlasmaFormalism` record of a run
-(#1727) says which model the run used. This module joins the two:
+says which model the run used. This module joins the two:
 
 * :func:`contracts_for` maps a formalism to the contracts it consumes, as
   ``(contract, role)`` pairs. The role says *how the assumption enters the
@@ -16,7 +16,7 @@ model assumes; the :class:`vaft.code.formalism.PlasmaFormalism` record of a run
   added to the formalism record: the mapping reads its fields as they are.
 * :data:`ADAPTER_MODES` lists the scientifically distinct modes of VAFT's code
   adapters with their formalism, following the audit of
-  ``docs/_guide/Plasma_models.md`` (#1725). A mode whose backend builds its own
+  ``docs/_guide/Plasma_models.md``. A mode whose backend builds its own
   record (CGYRO) is taken from that builder, so the two cannot disagree.
 * :func:`advisory_ordering_check` evaluates those contracts on a run's input
   state -- the rows :mod:`vaft.process.ordering_state` builds -- with
@@ -263,6 +263,25 @@ def _cgyro(nonlinear: bool):
     return plasma_formalism(CGYROConfig(nonlinear=True, n_toroidal=8) if nonlinear else CGYROConfig())
 
 
+def _neo(**parameters):
+    from vaft.code.gacode.neo import plasma_formalism
+
+    return plasma_formalism(parameters=parameters or None)
+
+
+def _tglf(**parameters):
+    from vaft.code.gacode.tglf import plasma_formalism
+
+    return plasma_formalism(parameters=parameters or None)
+
+
+def _tglf_nn():
+    from vaft.code.gacode._formalism import tglf_surrogate_plasma_formalism
+
+    # The mode, not one trained model: SAT rule and field model are whatever the model says (unknown here).
+    return tglf_surrogate_plasma_formalism(sat_rule=None, electromagnetic=None, model="unspecified")
+
+
 def _build_modes() -> Tuple[AdapterMode, ...]:
     pm = "Plasma_models.md"
     return (
@@ -296,31 +315,17 @@ def _build_modes() -> Tuple[AdapterMode, ...]:
                             kinetic_population=("thermal_ions",), distribution_formulation="delta_f",
                             orbit_representation="bounce_averaged", regime="static", solver="pentrc",
                             **_GPEC_COMMON), f"{pm} §3.5"),
-        AdapterMode("gacode", "neo", "neoclassical",
-                    _record(scientific_operation="neoclassical_transport", bulk_description="kinetic",
-                            kinetic_equation="drift_kinetic", kinetic_population=("all",),
-                            distribution_formulation="delta_f", spatial_domain="local",
-                            topology_domain="closed_flux_surface", regime="steady_state", solver="neo"), f"{pm} §4"),
-        AdapterMode("gacode", "neo_analytic", "neoclassical",
-                    _record(scientific_operation="neoclassical_transport", bulk_description="reduced",
-                            kinetic_population=("all",), spatial_domain="local", topology_domain="closed_flux_surface",
-                            regime="steady_state", derived_from="drift_kinetic", solver="neo"),
+        # NEO, TGLF and TGLF-NN modes are the backends' own records of their default input (#1735), so
+        # the registry and a run's provenance cannot disagree (#1738).
+        AdapterMode("gacode", "neo", "neoclassical", _neo(), f"{pm} §4"),
+        AdapterMode("gacode", "neo_analytic", "neoclassical", _neo(SIM_MODEL=0),
                     f"{pm} §4 (Hinton-Hazeltine, Sauter values in a NEO run's theory output)"),
         AdapterMode("gacode", "cgyro_linear", "gyrokinetic", _cgyro(False), f"{pm} §4 (cgyro.plasma_formalism)"),
         AdapterMode("gacode", "cgyro_nonlinear", "gyrokinetic", _cgyro(True), f"{pm} §4 (cgyro.plasma_formalism)"),
         # tglf_linear / tglf: TGLFConfig.use_transport_model False (one mode) / True (quasilinear fluxes)
-        AdapterMode("gacode", "tglf_linear", "gyrokinetic",
-                    _record(scientific_operation="microstability", bulk_description="reduced",
-                            kinetic_population=("all",), spatial_domain="local", topology_domain="closed_flux_surface",
-                            regime="linear", derived_from="gyrokinetic", solver="tglf"), f"{pm} §4"),
-        AdapterMode("gacode", "tglf", "gyrokinetic",
-                    _record(scientific_operation="turbulent_transport", bulk_description="reduced",
-                            kinetic_population=("all",), spatial_domain="local", topology_domain="closed_flux_surface",
-                            regime="quasilinear", derived_from="gyrokinetic", solver="tglf"), f"{pm} §4"),
-        AdapterMode("gacode", "tglf_nn", "gyrokinetic",
-                    _record(scientific_operation="turbulent_transport", bulk_description="reduced",
-                            kinetic_population=("all",), spatial_domain="local", topology_domain="closed_flux_surface",
-                            regime="quasilinear", derived_from="gyrokinetic", solver="tglf_nn"),
+        AdapterMode("gacode", "tglf_linear", "gyrokinetic", _tglf(USE_TRANSPORT_MODEL=False), f"{pm} §4"),
+        AdapterMode("gacode", "tglf", "gyrokinetic", _tglf(), f"{pm} §4"),
+        AdapterMode("gacode", "tglf_nn", "gyrokinetic", _tglf_nn(),
                     f"{pm} §4 (provisional; a learned surrogate, valid only in its training domain)"),
         AdapterMode("nubeam", "fast_ions", "fast_ions",
                     _record(scientific_operation="fast_ion_sources", bulk_description="particle",
@@ -536,7 +541,7 @@ def _json_label(label: Any) -> Any:
 def ordering_provenance(formalism, state: Optional[Mapping[str, Any]] = None, points: Any = None, *,
                         transport_coupled: bool = False,
                         notes: Sequence[str] = ()) -> Optional[Dict[str, Any]]:
-    """The advisory ordering check of one run, as a JSON-ready provenance record (#1823).
+    """The advisory ordering check of one run, as a JSON-ready provenance record.
 
     :func:`advisory_ordering_check` on ``state`` and ``points``, reduced to
     plain values an adapter can store in its run provenance: the contracts the

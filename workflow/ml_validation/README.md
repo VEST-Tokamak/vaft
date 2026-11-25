@@ -1,4 +1,4 @@
-# #2047: declared ML data uses and scientific evidence
+# Declared ML data uses and scientific evidence
 
 Core contract: `ml.import_data_roles(dataset, assignments, permissions,
 role_to_partition=..., provenance=...)` returns a fingerprinted dataset and a

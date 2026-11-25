@@ -7,7 +7,7 @@ the registry holds -- whatever its ``status`` -- with the identity
 :func:`vaft.plot.discovery.capability_for` already derives, plus the adapter
 it is reached through, the source line of its renderer, and the renderer's
 docstring parsed under the plot contract (``documentation``:
-:meth:`vaft.plot.PlotDocumentation.as_dict`, issue #1505) -- the same parsed
+:meth:`vaft.plot.PlotDocumentation.as_dict`) -- the same parsed
 form GUI help panels read, so the page keeps no prose of its own.
 
 It also lists ``entry_points``: the plotting functions users reach from

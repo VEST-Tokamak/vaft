@@ -164,7 +164,7 @@ def test_composition_never_reads_a_manifest_in_the_locale_encoding():
 
 
 def test_an_eddy_that_recorded_no_output_is_refused_by_name(tmp_path):
-    """#1568: composition names the eddy stage's reason instead of 'carries no pf_passive'."""
+    """Composition names the eddy stage's reason instead of 'carries no pf_passive'."""
     from vaft.database.composition import EddyNoOutputError
 
     time = np.linspace(0.0, 0.01, 50)

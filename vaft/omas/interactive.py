@@ -1,4 +1,4 @@
-"""Interactive equilibrium exploration (issue #261 §14-17).
+"""Interactive equilibrium exploration.
 
 :func:`plot_equilibrium_interactive` is a public entry point, not a view: it
 puts the static slice summary of :func:`vaft.omas.plot_equilibrium_overview`
@@ -175,7 +175,7 @@ def plot_diagnostics_time_interactive(
     show: bool = False,
     **options: Any,
 ) -> Any:
-    """The diagnostics overview with its panels and processing chosen live (issue #482).
+    """The diagnostics overview with its panels and processing chosen live.
 
     A thin entry point over ``plot_diagnostics_overview(..., interactive=True)``:
     the same composite, the same options, the same figure for the same

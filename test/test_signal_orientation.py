@@ -1,4 +1,4 @@
-"""Display sign policy (issue #307): one multiplier per figure, inferred in the
+"""Display sign policy: one multiplier per figure, inferred in the
 processing layer from the active region, never rectification, never a guess."""
 
 from __future__ import annotations
@@ -104,7 +104,7 @@ def test_intuitive_is_the_default_for_signed_conventions_and_visible_when_it_fli
 
 
 def test_the_packaged_shot_shows_a_positive_diamagnetic_envelope_and_an_unflipped_current(sample):
-    # The stored flux is paramagnetic and positive (#1196): neither
+    # The stored flux is paramagnetic and positive: neither
     # orientation flips it, and both draw the same positive envelope.
     figure, axes = vaft.omas.plot_diamagnetic_flux_time(sample)
     intuitive = axes.lines[0].get_ydata()
@@ -115,7 +115,7 @@ def test_the_packaged_shot_shows_a_positive_diamagnetic_envelope_and_an_unflippe
     np.testing.assert_allclose(axes.lines[0].get_ydata(), intuitive)
     plt.close(figure)
     figure, axes = vaft.omas.plot_plasma_current_time(sample)
-    assert "intuitive" not in axes.get_title()  # VEST samples store ip > 0 today (#307 note)
+    assert "intuitive" not in axes.get_title()  # VEST samples store ip > 0 today
     plt.close(figure)
 
 
@@ -133,7 +133,7 @@ def test_no_plotting_path_rectifies_with_abs():
     import pathlib
 
     # The canonical pipeline only: the legacy vaft.plot.<view> modules are
-    # deprecated wholesale and their abs() uses were audited in #307.
+    # deprecated wholesale and their abs() uses were audited.
     root = pathlib.Path(vaft.__file__).parent / "plot"
     offenders = []
     files = list((root / "backend").rglob("*.py")) + list((root / "renderers").rglob("*.py")) + [
@@ -197,7 +197,7 @@ def _equilibrium(sign: float) -> omas.ODS:
 
 
 def test_profiles_take_the_same_sign_policy_as_lines():
-    """A q stored negative is a COCOS statement, not a different plasma (#458)."""
+    """A q stored negative is a COCOS statement, not a different plasma."""
     assert RECIPES["equilibrium_profile_q"].orientation == "intuitive"
     for name in ("equilibrium_profile_f", "equilibrium_profile_ffprime", "equilibrium_profile_pprime"):
         # Their sign also carries gradient direction; flipping is opt-in.

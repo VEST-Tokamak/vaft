@@ -1,6 +1,6 @@
 """Atomic identity: elements, isotopes, charge states and how species are written.
 
-The canonical owner of VAFT's atomic vocabulary (#1711).  ``C III`` names an
+The canonical owner of VAFT's atomic vocabulary.  ``C III`` names an
 *ionization stage*; ``C2+`` names the *charge state* of the same ion;
 ``carbon`` names the *element* of both.  ``D`` is not an element at all -- it
 is hydrogen with a mass number.  This module keeps those apart and converts
@@ -8,8 +8,9 @@ between the notations that different diagnostics and communities prefer.
 
 It owns **identity only**.  Densities, populations, solver species indices and
 impurity fractions are higher-level models that consume an
-:class:`AtomicSpecies`: the composition of :mod:`vaft.process.impurity`
-(#1565), the canonical multi-species state of #1567, and the solver-specific
+:class:`AtomicSpecies`: the composition of :mod:`vaft.process.impurity`,
+the canonical multi-species state of :mod:`vaft.process.species`, and the
+solver-specific
 projections built on it.  Spectral-line identity lives one level up in
 :mod:`vaft.data.spectroscopy`; atomic equations live in
 :mod:`vaft.formula.atomic`.

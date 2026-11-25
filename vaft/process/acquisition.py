@@ -1,4 +1,4 @@
-"""Declared acquisition settings checked against the acquired timebase (#2159).
+"""Declared acquisition settings checked against the acquired timebase.
 
 A configured sample rate is a claim about the digitizer, not a measurement.
 Filters, Nyquist limits, resampling and index windows are all designed from

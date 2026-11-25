@@ -1,4 +1,4 @@
-"""Explicit composition of one shot across named HSDS sources (issue #305).
+"""Explicit composition of one shot across named HSDS sources.
 
 Reading a source returns that source and nothing else: `main` never silently
 carries `impa`, and no union of the two is presented as one shot.  That is what
@@ -126,9 +126,9 @@ class EddyNoOutputError(StageCompositionError):
     """The eddy stage finished ``no_output``: there are no passive currents to compose.
 
     The eddy stage records a shot whose inputs do not exist in the data (a PF
-    circuit that was not recorded, #1568) as a result rather than a failure.
+    circuit that was not recorded) as a result rather than a failure.
     Composition refuses it by name, so the EFIT constraint builder can record
-    EFIT as not applicable with the reason (#205) and the eddy validation
+    EFIT as not applicable with the reason and the eddy validation
     figures can be skipped knowingly.
     """
 
@@ -222,7 +222,7 @@ def compose_stage_products(
     downgrade it to a warning; nothing downgrades the grid check.
 
     That second check has one accepted way to disagree.  Migrating a product
-    onto a new container (``vaft.cli filedb migrate-products``, #813) re-encodes
+    onto a new container (``vaft.cli filedb migrate-products``) re-encodes
     bytes that are already correct, so the diagnostics file hashes differently
     while holding the same data -- and the migration deliberately does **not**
     rewrite the eddy manifest's ``input``, because those hashes record the files

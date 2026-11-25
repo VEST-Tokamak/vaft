@@ -1,4 +1,4 @@
-"""Plots of fluctuation-analysis results that are not a single IDS read (issue #1005).
+"""Plots of fluctuation-analysis results that are not a single IDS read.
 
 Two figures a fluctuation study needs that the recipe registry does not
 describe on its own:
@@ -133,7 +133,7 @@ def plot_multi_diagnostic_phase(
     )
 
 #: Typical observed frequency bands of common tokamak perturbations [Hz].
-#: Order of magnitude only (issue #1005 section 4): the numbers depend on the
+#: Order of magnitude only: the numbers depend on the
 #: machine, the rotation and the mode, and a feature inside a band is not
 #: thereby that phenomenon.  ``None`` marks a phenomenon with no single band.
 TYPICAL_PHENOMENON_BANDS: dict[str, tuple[float, float] | None] = {

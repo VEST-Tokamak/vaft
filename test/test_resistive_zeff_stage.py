@@ -1,4 +1,4 @@
-"""The resistive Z_eff stage of pipeline 2 (#1842 item 5): Lane Z's Romero estimate in the kinetic state.
+"""The resistive Z_eff stage of pipeline 2: the Romero-balance estimate in the kinetic state.
 
 Built on the packaged 39915 equilibrium (nine slices, weber flux) with synthetic
 electron profiles at three of its times, so the real Romero balance, the real

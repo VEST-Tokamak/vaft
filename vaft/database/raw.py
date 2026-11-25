@@ -59,7 +59,7 @@ __all__ = [
     "SLOW_SPAN_S",
     "SQL_TABLE_PATH",
     "SecureConfigManager",
-    "V2_LAST_SHOT",
+    "V2_LAST_SHOT",  # noqa: F822 - served by module __getattr__
     "compare_db_and_dumped_raw_signals_for_shot",
     "configuration",
     "date_from_shot",
@@ -460,7 +460,8 @@ def _load_from_shot_waveform_3(
 
 # The eras' time-encoding conventions, measured directly from the VEST tables:
 #
-# * shotDataWaveform_2 (29350 <= shot <= 42190) stores per-sample times on the
+# * shotDataWaveform_2 (29350 <= shot <= 42190, the vest.yaml
+#   ``machine_history.daq.waveform_table_fallback`` bounds) stores per-sample times on the
 #   ``arange`` convention -- t = arange(n) * dt with dt exactly the nominal
 #   FAST_DT / SLOW_DT, ending one sample short of the acquisition span.
 # * shotDataWaveform_3 (shot > 42190) stores one linspace(0, span, n) string
@@ -470,12 +471,30 @@ def _load_from_shot_waveform_3(
 # Because the span is fixed by class and n is stored in every archive entry,
 # the true cadence of a legacy two-rate archive entry is fully recoverable
 # offline; :func:`upgrade_archive_timebase` uses exactly this inference.
-#: Shot at which the *time convention* changes, for archives that carry nothing
-#: but a shot number to identify themselves.  This is **not** a table-selection
-#: boundary: `shotDataWaveform_2` is in use more than five thousand shots past
-#: it, and the two tables overlap (issue #761).  Live table selection goes
-#: through :func:`waveform_generation_for_shot`, which asks the database.
-V2_LAST_SHOT = 42190
+# ``V2_LAST_SHOT`` -- the shot at which the *time convention* changes, for
+# archives that carry nothing but a shot number to identify themselves -- is
+# the last shot of generation 2 in vest.yaml's
+# ``machine_history.daq.waveform_table_fallback``, read on
+# access through the module ``__getattr__`` below.  It is **not** a
+# table-selection boundary: `shotDataWaveform_2` is in use more than five
+# thousand shots past it, and the two tables overlap.  Live table
+# selection goes through :func:`waveform_generation_for_shot`, which asks the
+# database.
+
+
+def _machine_history():
+    # Imported lazily: vaft.machine_mapping imports this module at load time.
+    from vaft.machine_mapping import machine_history
+
+    return machine_history
+
+
+def __getattr__(name: str):
+    if name == "V2_LAST_SHOT":
+        return _machine_history().last_shot_of_waveform_generation(2)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 FAST_SPAN_S = 0.1
 SLOW_SPAN_S = 1.0
 
@@ -503,7 +522,7 @@ def _generation_from_counts(count_v2: int, count_v3: int) -> Optional[int]:
     Whichever table actually holds the shot wins.  When both do -- 19 shots
     between 42647 and 42853 -- the fuller one wins: the other side carries a
     two-to-four field stub, and reading it produced a product with 2 of a
-    shot's 127 fields while reporting success (issue #761).
+    shot's 127 fields while reporting success.
     """
     if count_v2 <= 0 and count_v3 <= 0:
         return None
@@ -527,10 +546,10 @@ def waveform_generation_for_shot(conn: Any, shot: int) -> Optional[int]:
     Resolved from the tables rather than from a shot-number boundary, because
     the boundary does not match them: `_2` spans 29350-47588 and `_3` spans
     42647-48864, so a range rule either misses 598 shots outright or silently
-    reads a stub for 19 more (issue #761).
+    reads a stub for 19 more.
 
     A read error propagates.  Reporting it as "no data" would be the same
-    mistake as #446, where a busy server was recorded as a missing namespace:
+    mistake as recording a busy HSDS server as a missing namespace:
     both callers retry on :class:`MysqlError`, and a swallowed error would skip
     that and hand back a shot that merely looks empty.
     """
@@ -561,7 +580,7 @@ def upgrade_archive_timebase(payload: dict) -> dict:
     the live database.  Entries already carrying ``t0``/``dt``, or too short
     or unlabeled to infer, are left untouched, so the upgrade is idempotent.
 
-    **A label does not pin down a rate, and nothing here can (#770).** On this
+    **A label does not pin down a rate, and nothing here can.** On this
     machine ``fast`` covers 250 kHz, 500 kHz and 2 MHz -- the classifier splits
     on 5 us, so all three land in it -- and the v2 branch below assigns the
     nominal 250 kHz regardless.  The sample count cannot rescue it: a 250 kHz
@@ -594,7 +613,7 @@ def upgrade_archive_timebase(payload: dict) -> dict:
         if n < 2 or label not in ("fast", "slow"):
             report["skipped"] += 1
             continue
-        if shot > V2_LAST_SHOT:
+        if shot > _machine_history().last_shot_of_waveform_generation(2):
             span = FAST_SPAN_S if label == "fast" else SLOW_SPAN_S
             dt = span / (n - 1)
         else:
@@ -656,10 +675,10 @@ def _require_consistent_cadence(
 def _parse_sample_archive(json_path: str, mtime_ns: int, size: int) -> dict:
     """One archived raw dump, parsed once.
 
-    Callers ask for a handful of field codes at a time, so a build that needs
-    every magnetics channel used to re-read and re-decode the whole file once
-    per field -- 114 full parses of a 13 MB archive for a single magnetics
-    build, 96.5 s of which ~95 s was redundant (issue #444).  The memoisation
+    Callers ask for a handful of field codes at a time, so without this cache a
+    build that needs every magnetics channel re-reads and re-decodes the whole
+    file once per field -- measured at 114 full parses of a 13 MB archive for a
+    single magnetics build, 96.5 s of which ~95 s was redundant.  The memoisation
     one level up (`_safe_vest_load_cached`) is keyed on the field, so it never
     collapsed those reads.
 
@@ -794,20 +813,16 @@ def _daq_trigger_time_correction(shot: int) -> float:
     """
     Correct time array for DAQ trigger delay.
 
+    The offset is vest.yaml's ``machine_history.daq.fast_trigger_offset``
+    (issue #2267).
+
     Args:
         shot: Shot number
 
     Returns:
         float: Time shift value
     """
-    if shot < 41446:
-        return 0.24
-    elif 41446 <= shot <= 41451:
-        return 0.26
-    elif 41452 <= shot <= 41659:
-        return 0.24
-    else:  # shot >= 41660
-        return 0.26
+    return _machine_history().fast_trigger_offset_s(shot)
 
 def load_raw(
     shot: int,
@@ -926,17 +941,13 @@ def vest_check_table(mydb: Any, shot: int) -> int:
     """Return the waveform table generation used by a shot.
 
     Asks the database when a connection is available; the shot-number ranges
-    are only a last resort, and they are wrong for 617 shots (issue #761).
+    are only a last resort, and they are wrong for 617 shots.
     """
     if mydb is not None:
         generation = waveform_generation_for_shot(mydb, shot)
         if generation is not None:
             return generation
-    if 29349 < shot <= V2_LAST_SHOT:
-        return 2
-    if shot > V2_LAST_SHOT:
-        return 3
-    return 1
+    return _machine_history().fallback_waveform_generation(shot)
 
 
 def vest_load_shot_waveform_2(mydb: Any, shot: int, field: int) -> Tuple[np.ndarray, np.ndarray]:
@@ -1067,7 +1078,7 @@ def plot(
 
     This function loads and labels the data; rendering is delegated to
     :func:`vaft.plot.render_line_series`, so no Matplotlib code lives in the
-    database namespace (issue #63).
+    database namespace.
 
     :param shots: int or list of int
     :param fields: int or list of int
@@ -1391,7 +1402,7 @@ def get_all_field_codes_for_shot(shot: int, max_retries: int = 3):
 
     Which waveform table holds the shot is resolved from the tables, not from a
     shot-number range: the ranges overlap and `shotDataWaveform_2` runs well
-    past the nominal boundary (issue #761). A shot in neither table returns an
+    past the nominal boundary. A shot in neither table returns an
     empty list.
     """
     global DB_POOL
@@ -1544,7 +1555,7 @@ def dump_all_raw_signals_for_shot(
         shot_data["pulse_datetime"] = pulse_datetime
 
     # Collect one panel model per field when plotting is requested; rendering
-    # happens once at the end through vaft.plot (issue #63).
+    # happens once at the end through vaft.plot.
     panel_models: list = []
     flagged_fields: dict[str, str] = {}
 

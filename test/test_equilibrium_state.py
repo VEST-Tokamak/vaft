@@ -1,4 +1,4 @@
-"""The equilibrium-state table of the multi-machine operational-space notebook (#1620)."""
+"""The equilibrium-state table of the multi-machine operational-space notebook."""
 
 from __future__ import annotations
 
@@ -135,7 +135,7 @@ def test_confinement_notebook_was_renamed_and_every_reference_follows():
 
 
 def test_operation_space_notebook_uses_the_comparison_notebooks_sources():
-    """One source set for both public-equilibrium notebooks, without a dataset registry (#1620 B)."""
+    """One source set for both public-equilibrium notebooks, without a dataset registry."""
     def defaults(path):
         """The ``*_url`` strings a notebook assigns, evaluated (``FUSE + "..."`` and implicit concatenation)."""
         source = "\n".join(line for line in _code(path).splitlines() if not line.lstrip().startswith("%"))
@@ -183,7 +183,7 @@ def test_operation_space_notebook_discovers_projections_and_restates_no_boundary
 
 
 def test_operation_space_notebook_displays_at_screen_size_and_exports_print_sizes_only():
-    """Inline output uses the screen preset; a journal preset is only an export (#1815)."""
+    """Inline output uses the screen preset; a journal preset is only an export."""
     code = _code(NEW_NOTEBOOK)
     assert "figure.dpi" not in code                      # no notebook-global raster override
     assert 'FORMAT, THEME = "screen"' in code
@@ -320,9 +320,9 @@ def _quotes_the_registry(value: str, declared: str) -> bool:
 
 
 def test_notebook_outputs_quote_the_registry_as_shipped():
-    # #1778 declared the Freidberg kink limits and the ITER-1991 q95 guideline for
+    # The registry declares the Freidberg kink limits and the ITER-1991 q95 guideline for
     # conventional aspect ratio, which puts VEST (A = 1.43) OUTSIDE on their ST panels;
-    # the committed outputs of cells 27, 31, 35, 37 still showed the pre-#1778 strings and
+    # the committed outputs of cells 27, 31, 35, 37 still showed the older strings and
     # UNASSESSED (cold review 0.8.0 delta-absorb-18 stability-opspace F1).
     from vaft.formula import boundaries as B
 
@@ -355,7 +355,7 @@ def test_both_state_tables_declare_the_radius_of_every_field_or_radius_dependent
     assert '["radius_symbol"]' in code and "COMBINED" in code
 
 
-# --- the VEST Tier A atlas as an equilibrium-state table (#1620) -----------------------
+# --- the VEST Tier A atlas as an equilibrium-state table -----------------------
 
 
 def _atlas_rows(ods, rows, *, quality="good"):

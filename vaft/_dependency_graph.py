@@ -1,7 +1,7 @@
 """The observed import graph of VAFT, read from the source, for the documentation site.
 
 ``python -m vaft._dependency_graph --output docs/_data/dependency_graph.yml``
-writes what ``/reference/dependency-graph/`` renders (issue #1646).  The page
+writes what ``/reference/dependency-graph/`` renders.  The page
 shows the architecture that *exists* -- which module imports which -- next to
 the curated conceptual one; it says nothing about which dependencies *should*
 exist, and no edge here is a verdict.

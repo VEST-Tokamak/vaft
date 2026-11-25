@@ -1,4 +1,4 @@
-"""Project CGYRO results into IMAS ``gyrokinetics_local`` and ``core_transport`` (#1354).
+"""Project CGYRO results into IMAS ``gyrokinetics_local`` and ``core_transport``.
 
 The rule is the one :mod:`vaft.machine_mapping.neoclassical` and
 :mod:`~vaft.machine_mapping.turbulence` follow: a quantity reaches an IDS only when the
@@ -785,7 +785,8 @@ def _core_transport_from_cgyro(
         ods[f"{base}.ion.{ion}.particles.flux"] = particle[:, index]
         ods[f"{base}.ion.{ion}.energy.flux"] = energy[:, index]
         ion += 1
-    # An IDS the classical mapper (#1654) made heterogeneous stays so: every slice
+    # An IDS the classical mapper made heterogeneous (its slice indices are per
+    # entry, not a shared core_transport.time) stays so: every slice
     # here also carries its own profiles_1d time, so 0 remains true.
     if ods.get("core_transport.ids_properties.homogeneous_time", None) != 0:
         ods["core_transport.ids_properties.homogeneous_time"] = 1

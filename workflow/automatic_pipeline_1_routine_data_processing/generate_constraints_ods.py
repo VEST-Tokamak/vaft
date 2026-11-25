@@ -67,15 +67,14 @@ def _assessment_present(ods) -> bool:
 
 
 def _decisions_for(ods, times, *, require_assessment: bool):
-    """The per-channel, per-slice decisions the constraint builder consumes (#296).
+    """The per-channel, per-slice decisions the constraint builder consumes.
 
     Formed by the acceptance policy from the validity the diagnostics stage
-    projected (#189) and nothing else: the routine manual exclusion list is
-    gone (#295), so a channel is a constraint unless the assessment says it
+    projected and nothing else: there is no manual exclusion list, so a channel is a constraint unless the assessment says it
     is not.  No detector runs here: a
     product that carries no assessment is refused when ``require_assessment``
     (the routine setting), otherwise every channel is usable by default
-    (#424) and the log says so.  Sensor health is decided once, at the
+    and the log says so.  Sensor health is decided once, at the
     diagnostics stage; a product that predates it is re-run through that
     stage, not patched here.
     """
@@ -96,7 +95,7 @@ def _decisions_for(ods, times, *, require_assessment: bool):
 def _recovery_for(option: int, ods, count: int, shot: int | None = None):
     """The compatibility recovery backend selected by ``--gaussian-fit-option``.
 
-    With *shot*, the probe families are the registry's for that shot (#2164).
+    With *shot*, the probe families are the registry's for that shot.
     """
     if int(option) <= 0:
         return None
@@ -163,13 +162,13 @@ class ConstraintWindow(NamedTuple):
 def _constraint_window(ods, *, policy: PlasmaTimingPolicy | None = None) -> ConstraintWindow:
     """The shared ``plasma_analysis`` range intersected with the detected plasma window.
 
-    The range comes from the timing policy in ``vest.yaml`` (issue #409); the
+    The range comes from the timing policy in ``vest.yaml``; the
     window from ``vaft.omas.plasma_timing`` -- the slow H-alpha line, then the
     fast one, then the plasma current.  When no source shows a plasma the
     whole range is used and the choice is flagged ``analysis_range_fallback``
     with the reason, so a vacuum shot's slices are visibly not plasma slices;
     :func:`_no_plasma_window_reason` then decides whether that fallback is
-    the shot's "not applicable" verdict (#2195).
+    the shot's "not applicable" verdict.
     """
     policy = policy or resolve_plasma_timing_policy()
     ip_time = resolve_signal_time(ods, "magnetics.ip.0")  # the node's own time, else magnetics.time
@@ -237,7 +236,7 @@ def _select_times(
 def _drop_vacuum_times(
     ods, times: np.ndarray, *, average_window: float
 ) -> tuple[np.ndarray, list[tuple[float, float]]]:
-    """Remove the instants EFIT would answer with a vacuum solution (#76).
+    """Remove the instants EFIT would answer with a vacuum solution.
 
     The constraint window comes from the plasma timing -- H-alpha and the Ip
     pulse -- which says when there *was* a discharge, not when there was
@@ -265,7 +264,7 @@ def _drop_vacuum_times(
 
     # The same resolver the window selector uses: a homogeneous-time product
     # stores only `magnetics.time`, and reading `ip.0.time` by name skipped the
-    # cut exactly there (cold review 0.7.0 data F10, #1888).
+    # cut exactly there.
     waveform = resolve_signal_waveform(ods, "magnetics.ip.0")
     if waveform is None:
         LOGGER.warning(
@@ -300,7 +299,7 @@ def _drop_vacuum_times(
 def _efit_not_applicable(
     ods, error: NoPlasmaCurrentError, *, average_window: float = 0.0005
 ) -> str | None:
-    """Why EFIT does not apply to this shot, or ``None`` when the cut is a fault (#205).
+    """Why EFIT does not apply to this shot, or ``None`` when the cut is a fault.
 
     The plasma current decides: a shot whose current stays below ``CUTIP``
     over the whole *diagnostics window* never carried a plasma EFIT could
@@ -315,7 +314,7 @@ def _efit_not_applicable(
     averaged over ``average_window`` like :func:`_drop_vacuum_times` does,
     and in the discharge direction -- the sign of the pulse the plasma timing
     accepted (``|Ip|`` when it accepted none).  Raw samples are not the
-    measure: on the class shots 48886-48937 (#1731) single-sample ringing
+    measure: on the class shots 48886-48937 single-sample ringing
     reads 41 kA where every millisecond averages below 9 kA, and a PF pickup
     swing of -12 to -22 kA ahead of a +5 kA pulse is current in the wrong
     direction, not a discharge the window missed -- when H-alpha is dark.
@@ -323,8 +322,8 @@ def _efit_not_applicable(
 
     A current that is low because the sensor is dead is not a vacuum shot
     either: the diagnostics stage condemns such a plasma-current Rogowski in
-    ``magnetics.rogowski_coil.0.current.validity`` (its whole-record verdict,
-    #1373; ``magnetics.ip.0`` itself carries no validity node), and that
+    ``magnetics.rogowski_coil.0.current.validity`` (its whole-record verdict;
+    ``magnetics.ip.0`` itself carries no validity node), and that
     stays a visible failure too.
 
     The class from :func:`vaft.omas.shot_class.shot_class` -- what the
@@ -349,7 +348,7 @@ def _efit_not_applicable(
     current, clock = current[finite], clock[finite]
     from vaft.code.efit.legacy import box_average_series
 
-    # The current each constraint instant would see there (#2162 B3.10).
+    # The current each constraint instant would see there.
     averaged = box_average_series(clock, current, float(average_window))
 
     verdict = None
@@ -392,7 +391,7 @@ def _efit_not_applicable(
 
 
 #: Detector flags that say the current could not be judged, not that it showed
-#: no discharge: a verdict of "no plasma" must not rest on them (#2195 review).
+#: no discharge: a verdict of "no plasma" must not rest on them.
 _UNJUDGED_CURRENT_FLAGS = frozenset({
     "ip_unusable", "baseline_inside_search", "record_too_short",
     "reference_too_short", "reference_not_finite",
@@ -416,7 +415,7 @@ def _reverse_current_pulse(ods, window: ConstraintWindow) -> bool:
     """Whether the sign-flipped current shows a pulse the Ip detector accepts.
 
     The detector accepts positive pulses only (VEST stores Ip positive-going),
-    so a discharge recorded with the wrong sign -- a sign fault, #275 -- shows
+    so a discharge recorded with the wrong sign -- a sign fault -- shows
     no pulse at all.  Running the same detector, with the same rule and span,
     on ``-Ip`` tells that apart from pickup.  Any failure to judge counts as a
     pulse: the verdict is then withheld.
@@ -460,13 +459,13 @@ def _no_plasma_window_reason(
     cut: int,
     average_window: float = 0.0005,
 ) -> str | None:
-    """Why the equilibrium branch does not apply when the timing found no plasma (#2195).
+    """Why the equilibrium branch does not apply when the timing found no plasma.
 
     :func:`vaft.omas.plasma_timing.plasma_timing` returns ``found = False``
     when neither source *shows* a plasma.  The constraint window then falls
     back to the whole analysis range, and the vacuum cut used to keep
     whatever instants PF pickup pushed past ``CUTIP`` -- 39417, 45919 and
-    46406 each reached EFIT with one to three such instants (#2166 D2).  Not
+    46406 each reached EFIT with one to three such instants.  Not
     showing one is not yet evidence of its absence, so the verdict is drawn
     only where the evidence is positive:
 
@@ -477,7 +476,7 @@ def _no_plasma_window_reason(
       refusals are trusted as they stand -- a sub-millisecond flash under an
       impulsive current is refused by both, and a wrong-signed current of any
       size under that light is pickup, the dark-window reading
-      :func:`_efit_not_applicable` already applies (#205); or
+      :func:`_efit_not_applicable` already applies; or
     * no light could be judged (39417 has no H-alpha line) and the current
       alone shows it: every kept instant is wrong-signed (VEST stores Ip
       positive-going) and the sign-flipped current shows no pulse either, so
@@ -488,13 +487,13 @@ def _no_plasma_window_reason(
     Withheld, too, when the current could not be judged at all: the timing
     refused it, its detector could not form a reference
     (:data:`_UNJUDGED_CURRENT_FLAGS`), or the diagnostics stage condemned the
-    plasma-current Rogowski (#1373) -- a dead sensor under a real discharge
+    plasma-current Rogowski -- a dead sensor under a real discharge
     is a fault to see, the same guard :func:`_efit_not_applicable` applies.
 
     It is asked after the vacuum cut, about the ``kept_times`` the cut left
     (``cut`` were dropped): a fallback shot whose every instant is below
-    ``CUTIP`` already got the #205 verdict and keeps its wording.  The verdict
-    travels the #205 way (not-applicable constraints; the k-file, EFIT and
+    ``CUTIP`` already got the not-applicable verdict and keeps its wording.  The
+    verdict travels the same way (not-applicable constraints; the k-file, EFIT and
     EFIT-ODS steps report ``skipped: not applicable``); the diagnostics and
     eddy products, which the vacuum benchmark reads, are untouched.  Manual
     mode has no window and is never judged here.
@@ -606,7 +605,7 @@ def main() -> int:
         help="Recovery backend: 0 none, 1 Gaussian family fit for rejected probes, 2 for every probe.",
     )
     # Accepted and ignored: the constraints product no longer records a
-    # profile basis it does not choose; the k-file stage's configuration does (#869).
+    # profile basis it does not choose; the k-file stage's configuration does.
     parser.add_argument("--npprime", default=None, type=int, help=argparse.SUPPRESS)
     parser.add_argument("--nffprime", default=None, type=int, help=argparse.SUPPRESS)
     args = parser.parse_args()
@@ -629,8 +628,8 @@ def main() -> int:
         )
     except EddyNoOutputError as error:
         # The eddy stage recorded that this shot has no passive currents to
-        # compute (a PF circuit that was never recorded, #1568). That is a
-        # result about the shot, carried on the way a vacuum shot's is (#205):
+        # compute (a PF circuit that was never recorded). That is a
+        # result about the shot, carried on the way a vacuum shot's is:
         # without it an unscoped run failed here and the worker retried the
         # shot to `gave_up` for a product that can never exist.
         reason = f"eddy produced no output: {error.reason}"
@@ -639,7 +638,7 @@ def main() -> int:
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
         return 0
     LOGGER.info("composed inputs: %s", json.dumps(composition, default=str))
-    # A shot whose raw dump has no TF waveform (42675, #1799) cannot be
+    # A shot whose raw dump has no TF waveform (42675) cannot be
     # reconstructed: BTOR has no other source. Recognised only from the
     # diagnostics stage's own record of the absence; a TF missing for any other
     # reason reaches build_constraints and fails there, by name.
@@ -680,7 +679,7 @@ def main() -> int:
         ods, window, times, cut=len(vacuum), average_window=args.average_window
     )
     if no_plasma is not None:
-        # A result, not a failure (#2195): the timing found no plasma, so the
+        # A result, not a failure: the timing found no plasma, so the
         # instants pickup lifted past CUTIP are not equilibria to reconstruct.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         vaft.omas.save(not_applicable_constraints(no_plasma), args.output)
@@ -728,7 +727,7 @@ def main() -> int:
         average_window=args.average_window,
         # Which era this shot belongs to is a VEST fact, resolved here and
         # handed in; the writer only compares it with what the table claims
-        # for itself (#805).
+        # for itself.
         expected_table_era=machine_era_for_shot(args.shot).name,
     )
 

@@ -66,12 +66,82 @@ way. `source` (default
 `"local"`) only labels the `source`/`equilibrium_source` columns. Both paths list the shots they
 skipped, with the reason, in `attrs["skipped"]`.
 
+### How each value was obtained
+
+`provenance=True` (on either path) records, for every row and column, how the value was obtained.
+The values are the same as without it; the record is attached as `attrs["provenance"]`:
+
+```python
+slices = vaft.database.summary(odss=samples, preset="equilibrium_global", provenance=True)
+record = slices.attrs["provenance"]
+record.table       # one row per (row key, column): status, step, reason, inputs
+record.counts()    # status counts per column
+record.code        # {"vaft_version", "commit", "dirty"} of the code that ran
+```
+
+| status | meaning |
+|---|---|
+| `computed` | calculated in this run by its primary method; `step` names the updater or the extractor (a recomputation that reproduces the stored number says so) |
+| `copied` | the stored value, read as it is (unit conversion aside): no updater exists for it, or the updater skipped this slice, and `reason` says why |
+| `fallback` | calculated through a substitute branch; `inputs` names it |
+| `failed` | a step raised; `reason` carries the exception and the value is NaN |
+| `missing` | NaN because an input is absent; `reason` says which, from the updater's own warning where it gave one |
+| `unrecorded` | the preset's extractor does not record provenance yet |
+
+`equilibrium_global` records every column. The branches it names as `fallback` are the ones that
+change values silently otherwise: `R0` taken from `tf.r0` because the stored
+`vacuum_toroidal_field.r0` disagrees with the TF field (moves `beta_pol`, `li_3` and, through the
+rebuilt `B0`, the toroidal betas), the stored `B0` kept because `profiles_1d.f` has no finite
+boundary value, and a slice with no stored time. `inputs` carries the `R0` and `B0` source on every
+column that depends on them. The other presets report `unrecorded`/`missing` until their extractors
+record. `record` compares by identity, so `concat` and `merge` of the table work as usual; a shot
+in `attrs["skipped"]` has no record rows.
+
+## Preset row contracts
+
+Every preset declares what one row is and what each column measures. The contract changes no value
+and no column name; it is carried with the table:
+
+<!-- preset-contract-table: generated from vaft.database.summary_contract(); test_summary_preset_contract checks it -->
+| preset | grain | identity | time (IDS time base) | columns | with quantity |
+|---|---|---|---|---|---|
+| `equilibrium_global` | slice | `shot` | `time_s` (`equilibrium.time`) | 69 | 11 |
+| `core_profiles` | slice | `shot` | `time_s` (`core_profiles.time`) | 25 | 3 |
+| `volume_averaged` | slice | `shot` | `time_core_s` (`core_profiles.time`) | 12 | 0 |
+| `efit_magnetic_reliability` | measurement | `shot`, `measurement_type`, `measurement_index` | `time_s` (`equilibrium.time`) | 25 | 0 |
+| `efit_kinetic_reliability` | measurement | `shot`, `measurement_type`, `measurement_index` | `time_s` (`equilibrium.time`) | 25 | 0 |
+| `neoclassical` | model_output | `shot` | `time_s` (`core_profiles.time`) | 32 | 0 |
+| `turbulent_transport` | model_output | `source`, `shot`, `model_index`, `profile_index` | `time_s` (`core_transport.model[:].profiles_1d[:].time`) | 27 | 0 |
+| `classical_transport` | model_output | `source`, `shot`, `model_index`, `profile_index` | `time_s` (`core_transport.model[:].profiles_1d[:].time`) | 28 | 0 |
+| `shot_overview` | shot | `shot` | — | 9 | 0 |
+<!-- /preset-contract-table -->
+
+```python
+vaft.database.summary_contract()                       # the overview above
+vaft.database.summary_contract("equilibrium_global")   # column, unit, quantity, definition, formula, ids_path
+slices.attrs["units"]["beta_normal"]                   # '% m T/MA'
+slices.attrs["quantities"]["li_3"]                     # 'internal_inductance_li3'
+vaft.database.summary_contract(slices.attrs["preset"])   # definitions travel with the contract, not the frame
+```
+
+- `unit` is `-` for a dimensionless column and empty for one that is not a physical quantity
+  (an index, a label, a flag, a timestamp). A unit in a column name can be wrong; the declared unit
+  is read from the extractor (`ne_volume_m3` holds m^-3).
+- `quantity` names a `vaft.formula.boundaries` quantity only where the column *is* that quantity in
+  the same unit: `li_3` is `internal_inductance_li3`, `virial_li_volume` is `internal_inductance_li1`,
+  `beta_normal` is `normalized_beta`. `beta_tor` declares none: it is a fraction, the registered
+  toroidal beta is in percent. Same-named columns of different definitions (`beta_pol` and
+  `beta_pol_circumference`) stay distinct quantities.
+- `vaft.plot.operational_space` reads `attrs["quantities"]` and `attrs["units"]`, so a summary table
+  draws its reference boundaries without renaming columns:
+  `operational_space_population(slices, "beta_n_li")` plots `beta_normal` against `li_3` with Troyon.
+
 ## Transport summary hierarchy
 
 `equilibrium_global` and `core_profiles` describe their respective time
 slices. `neoclassical` summarizes bootstrap current from canonical
 `core_profiles`, one row per slice. Each row also carries the NEO `core_transport`
-slice that corresponds to it (#1655):
+slice that corresponds to it:
 
 - **Status column.** `transport_match_status` names the result.
 - **When the descriptors fill.** The flux descriptors (`q_e`/`q_i`/`gamma_e` point counts, finite `rho_tor_norm` coverage, |peak|, `transport_rho_grid_*`) are filled only when the status is `matched`.
@@ -109,9 +179,10 @@ provenance. `configuration_status=not_standardized` makes that limit explicit.
 The current TGLF mapper reuses its anomalous model slot and does not persist
 SAT/field settings there, so comparisons across settings need the upstream
 run record until that mapping contract is extended.
-`classical_transport` summarizes the classical (Braginskii) baseline of #1435
-once `vaft.machine_mapping.classical.core_transport_from_classical` has written it
-to `core_transport` (#1654). The data dictionary has no classical identifier, so
+`classical_transport` summarizes the classical (Braginskii) baseline of
+`vaft.process.transport_state.classical_heat_fluxes` once
+`vaft.machine_mapping.classical.core_transport_from_classical` has written it
+to `core_transport`. The data dictionary has no classical identifier, so
 the entry uses the private index `-1` with the name `classical`, and both are
 required. One entry holds one formulation and one EFIT lineage, and every time
 slice names its resolved `state_identity` in `code.parameters`. Rows therefore
@@ -135,7 +206,7 @@ What each source field means, and where it goes:
 | `model` (`CLASSICAL_MODEL`) | Formulation text | `code.parameters` | `formulation_sha256` |
 
 Some quantities never appear at all:
-- **Reference scale.** The order-of-magnitude `nu rho^2` reference scale (#780/#1112) is not a product of #1435 and is never written or summarized.
+- **Reference scale.** The order-of-magnitude `nu rho^2` reference scale (`vaft.formula.transport.classical_diffusivity_from_nu_rho`) is not a product of the classical-flux model and is never written or summarized.
 - **Undefined surfaces.** A surface below 10 eV, where the electron Coulomb logarithm is undefined, is dropped and named rather than filled.
 - **Missing versus zero.** Missing data shows as zero points and NaN peaks. A stored zero is a physical zero.
 
@@ -153,8 +224,8 @@ summary row: q_e_peak_abs_W_m2 42.1, q_i_peak_abs_W_m2 181.5,
 
 The negative inner electron flux is real: VEST's hollow `T_e` makes the inner
 gradient point outward, and the peak columns report magnitudes.
-`power_balance` likewise awaits the stored-energy and loss-power definitions
-tracked in issues #1282 and #548.
+`power_balance` has no summary yet: it awaits validated stored-energy and
+loss-power definitions (Open: #548).
 
 | Back-end | Module | What a shot looks like | What you get back |
 | --- | --- | --- | --- |
@@ -218,7 +289,7 @@ vaft hsds configure
 
 | Field | Value |
 | --- | --- |
-| Server endpoint | `http://147.46.36.244:5101` |
+| Server endpoint | sent with the account (see [Contact]({{ site.baseurl }}/reference/contacts/)) |
 | Username / Password | `reader` / `test` (read-only public account) |
 
 This writes `~/.hscfg` with mode `0600`; `h5pyd` reads a `.hscfg` in the working directory instead
@@ -283,21 +354,18 @@ be declared in `VAFT_HSDS_EXTRA_SOURCES`.
 ### Transitional TGLF configuration sources
 
 TGLF results depend on the saturation rule (SAT0–SAT3) and the field model
-(`es`, `em-bper`, `em-bper-bpar`), and no configuration is the default
-([#1482](https://github.com/VEST-Tokamak/vaft/issues/1482)). Each
+(`es`, `em-bper`, `em-bper-bpar`), and no configuration is the default. Each
 configuration is therefore stored as its own sparse source beneath the
 reconstruction its state was mapped on, so alternative configurations of one
-state coexist instead of overwriting one another
-([#1900](https://github.com/VEST-Tokamak/vaft/issues/1900)). The
+state coexist instead of overwriting one another. The
 `turbulent_transport` stage owns `core_transport` only. Its FileDB product is
 `omas/turbulent_transport/{family}/tglf-sat<n>-<field>/{shot}/`, and
 `replication_for_stage("turbulent_transport", family=..., product="tglf-sat3-em-bper")`
 names its destination. There is no default configuration: a call without
 `product` is refused.
 
-These sources are **transitional**. In the self-describing occurrence model of
-[#1128](https://github.com/VEST-Tokamak/vaft/issues/1128) and
-[#1129](https://github.com/VEST-Tokamak/vaft/issues/1129), each one becomes a
+These sources are **transitional**. Once IDS occurrences are self-describing
+(Open: #1128; the VEST IDS-instance catalog is Open: #1129), each one becomes a
 named `core_transport` occurrence. The builder already writes the future name
 into `ids_properties.name`, so migration renames nothing:
 
@@ -319,7 +387,7 @@ travels in `core_transport.model[:].code.parameters` and in the stage manifest.
 Coexistence holds across configurations and lineages. Alternative Ti
 assumptions of one state (a different `--ti-te-ratio`, `--use-inferred-ti` or
 `--rho-max` gives a different state identity on the same path) are refused, not
-stored side by side, until #1128/#1129: writing a product whose state
+stored side by side, until that occurrence catalog exists: writing a product whose state
 identities differ from the stored one raises, and rewriting the same states is
 allowed.
 
@@ -516,7 +584,7 @@ from the supplied object and rejects a conflicting explicit `representation`.
 A write **adds** to the shot rather than replacing it. A shot's `master.h5` links every IDS file stored
 beside it, and a reader resolves the shot through those links. Each write therefore replaces the
 master with the stored one plus its own IDS. It re-reads the stored master immediately before
-replacing it, and holds a per-shot lock while it does (issue #913). Two writes of one shot on the same
+replacing it, and holds a per-shot lock while it does. Two writes of one shot on the same
 host can no longer drop each other's links, and different shots never wait for each other. The lock
 lives in `$VAFT_HSDS_LOCK_DIR` (default `/tmp/vaft-hsds-locks`); if this account cannot create files
 there, the writer locks in a per-user directory under the temp root and warns once. It does not
@@ -672,7 +740,7 @@ directory instead of the SQL table; it is described in the Pipelines guide and i
 `workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md`. The rest of this section is the routine worker.
 
 On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
-Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
+Snakemake pipeline on each new shot as soon as its upload has finished. The upload
 counts as finished when either condition holds:
 
 - the shot's field inventory contains every field the previous shot had, and nothing new has

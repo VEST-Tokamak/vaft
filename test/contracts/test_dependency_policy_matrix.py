@@ -38,11 +38,11 @@ class DependencyPolicyMatrixTests(unittest.TestCase):
         self.assertIn("h5pyd==0.24.0", dependencies)
 
     def test_exact_pins_are_the_reviewed_ones(self):
-        """#1012: an exact pin must have a recorded reason, not come from a freeze.
+        """An exact pin must have a recorded reason, not come from a freeze.
 
         omas: VAFT depends on its internals. h5pyd: the HSDS client, whose
-        upgrade is #969. A new ``==`` has to be argued for here and in the
-        comment beside it in pyproject.toml. A direct URL or a three-part ``~=``
+        1.x upgrade waits on an HSDS server upgrade. A new ``==`` has to be
+        argued for here and in the comment beside it in pyproject.toml. A direct URL or a three-part ``~=``
         pins just as hard, so they count too; an environment marker's ``==`` does
         not.
         """

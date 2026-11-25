@@ -1,4 +1,4 @@
-"""Current diffusion and current drive: how $j_\\phi(\\rho, t)$ and $q(\\rho, t)$ evolve (#1605).
+"""Current diffusion and current drive: how $j_\\phi(\\rho, t)$ and $q(\\rho, t)$ evolve.
 
 ``current_diffusion``
     a fast ohmic ramp ($t_\\mathrm{ramp} \\ll \\tau_R$) leaves the current in an

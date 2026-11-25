@@ -9,7 +9,7 @@ drawn by hand.
   equation (``s_alpha_marginal_alpha``).
 * ``hugill``: the registered ``greenwald_hugill`` and ``murakami_hugill``
   boundaries of :mod:`vaft.formula.boundaries`, selected by the ``hugill``
-  projection (#1425); an optional reference $q_\\mathrm{cyl}$ line.
+  projection; an optional reference $q_\\mathrm{cyl}$ line.
 * ``troyon``: the registered ``troyon`` boundary through the definition of
   $\\beta_N$; an optional reference cutoff from ``q_cyl_from_B_R_epsilon_kappa_I``.
 * ``peeling_ballooning``: a *schematic* -- the edge-stability boundary has no
@@ -35,7 +35,7 @@ from vaft.formula import boundaries as _b
 from vaft.formula.stability import s_alpha_marginal_alpha
 
 from ._op_space import overlay_plan
-from ._chart import Chart, nice_ticks as _nice_ticks, render_chart as _render_chart
+from ._chart import CHART_HEIGHT, CHART_WIDTH, Chart, nice_ticks as _nice_ticks, render_chart as _render_chart
 from ._render import Diagram
 
 # ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ def hugill(*, elongation: float = 1.0, q_limit: Optional[float] = None, labels: 
     r"""Hugill diagram: $1/q_\mathrm{cyl}$ against the Murakami parameter $\bar n R/B$.
 
     The lines are the registered boundaries of the ``hugill`` projection
-    (:mod:`vaft.formula.boundaries`, #1425): ``greenwald_hugill``, the
+    (:mod:`vaft.formula.boundaries`): ``greenwald_hugill``, the
     Greenwald density in these coordinates, a straight line through the
     origin $1/q_\mathrm{cyl} = (\pi/50\kappa_a)\,\bar nR/B$ ($\bar n$ in
     $10^{19}\,\mathrm{m^{-3}}$) whose slope depends only on the area
@@ -345,7 +345,7 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
     The registered ``troyon`` stability reference
     ($\beta_N = 2.2\,\mu_0 \cdot 10^6 \approx 2.76$, :mod:`vaft.formula.boundaries`) is
     drawn through the definition of $\beta_N$, $\beta_T[\%] = \beta_N\,I_p/(aB_T)$,
-    with the projection's experimental references (#1691: DIII-D, ST, NSTX levels)
+    with the projection's experimental references (DIII-D, ST, NSTX levels)
     dashed beside it. None is a limit, so no side is marked stable or unstable.
     ``beta_N_max`` overrides the Troyon value for a what-if picture, and the note
     then says so.
@@ -375,29 +375,40 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
     # the Troyon name below its line, the experimental references' names where each meets the top of the frame
     chart.labels["beta"] = (0.95 * x_q, 0.45 * level * x_q)
     text = {"beta": f"Troyon $\\beta_N = {level:.3g}$"}
-    for k, curve in enumerate(c for c in plan.curves if c.key != "troyon"):
+    tag_styles: Dict[str, str] = {}
+    references = []
+    by_level = sorted((c for c in plan.curves if c.key != "troyon"),
+                               key=lambda c: -float(_b.get_boundary(c.key).coefficient))
+    for k, curve in enumerate(by_level):
         entry = _b.get_boundary(curve.key)
         name = f"ref{k}"
+        level_k = float(entry.coefficient)
         chart.curves[name] = curve.xy
         styles[name] = "approx"
-        # just right of its line, alternating heights so neighbouring steep lines keep their names apart
-        y_label = (0.92 - 0.12 * (k % 2)) * y_max
-        x_label = y_label / float(entry.coefficient) + 0.06 * x_max
-        if x_label < 0.97 * x_max:
-            chart.labels[name] = (x_label, y_label)
-            text[name] = f"{entry.coefficient:.3g}"
+        machine, kind, source = _experimental_reference(entry)
+        references.append(f"{machine} {level_k:.3g} {kind} ({source})")
+        # the tag runs along its own line near where the line leaves the frame (the lines fan out from
+        # the origin, so the gaps are widest there): on the lower-right side, one tag in each gap down
+        # to the Troyon line, except the steepest line's, which has the open side above it
+        x_end = min(x_max, y_max / level_k)
+        angle = math.atan2(level_k * CHART_HEIGHT / y_max, CHART_WIDTH / x_max)
+        offset = _REFERENCE_TAG_OFFSET_CM if k == 0 else -_REFERENCE_TAG_OFFSET_CM
+        chart.labels[name] = (0.9 * x_end - offset * math.sin(angle) * x_max / CHART_WIDTH,
+                              0.9 * level_k * x_end + offset * math.cos(angle) * y_max / CHART_HEIGHT)
+        text[name] = f"{machine} {level_k:.3g}"
+        tag_styles[name] = f"note,rotate={math.degrees(angle):.1f}"
     if q_limit is not None:
         chart.curves["low_q"] = np.array([[x_q, 0.0], [x_q, y_max]])
         styles["low_q"] = "approx"
-        chart.labels["low_q"] = (1.18 * x_q, 0.45 * level * x_q)
+        chart.labels["low_q"] = (1.18 * x_q, 0.18 * level * x_q)   # below the Troyon name, right of the cutoff
         text["low_q"] = "\\begin{tabular}{c}Reference\\\\$q_\\mathrm{cyl}$\\end{tabular}"
     chart.parameters.update({"beta_N_max": level, "beta_N_registered": registered, "aspect_ratio": aspect_ratio,
                              "elongation": elongation, "q_limit": q_limit, "current_at_q_limit": x_q})
     source = "registered Troyon stability reference" if beta_N_max is None else "user value, not the registered one"
-    levels = ", ".join(f"{_b.get_boundary(c.key).coefficient:.3g}" for c in plan.curves if c.key != "troyon")
     note = f"$\\beta_N = {level:.3g}$ ({source})"
-    if levels:   # the values from the registry, never restated here
-        note += f"; dashed: experimental $\\beta_N$ levels {levels} (references, not limits)"
+    if references:   # machine, level, kind and source from the registry, never restated here
+        note += ("; dashed: experimental $\\beta_N$ references, not limits\\\\ "
+                 + ", ".join(reversed(references)))
     if q_limit is not None:
         note += (f"; $q_\\mathrm{{cyl}} = {q_limit:g}$ at $R_0/a = {aspect_ratio:g}$, "
                  f"$\\kappa_a = {elongation:g}$")
@@ -410,8 +421,28 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
         x_ticks=_nice_ticks(float(x_max)),
         y_ticks=_nice_ticks(float(y_max)),
         note=note if labels else "",
+        region_styles=tag_styles,
     )
     return Diagram("troyon", scene, model=chart)
+
+
+_REFERENCE_KIND = {"experimental_envelope": "envelope", "experimental_achievement": "record"}
+#: distance of a reference line's tag centre from the line [cm]: half the text height and a gap
+_REFERENCE_TAG_OFFSET_CM = 0.22
+
+
+def _experimental_reference(entry) -> tuple:
+    """Machine, kind and short source of a registered experimental beta_N reference.
+
+    The machine is the parenthesised part of the registry's machine class
+    ("conventional tokamak (DIII-D)" -> "DIII-D"), the source the first
+    author and year of the boundary key ("sabbagh_2006_..." -> "Sabbagh 2006").
+    """
+    machine_class = entry.applicability.machine_class
+    machine = machine_class.split("(", 1)[1].rsplit(")", 1)[0] if "(" in machine_class else machine_class
+    machine = machine.replace(", ", "/")
+    author, year = entry.key.split("_")[:2]
+    return machine, _REFERENCE_KIND.get(entry.kind, entry.kind.replace("_", " ")), f"{author.capitalize()} {year}"
 
 
 _BUILDERS: Dict[str, Callable[..., Diagram]] = {

@@ -1,4 +1,4 @@
-"""Plots for the fluctuation-diagnostics tutorial (issue #1005).
+"""Plots for the fluctuation-diagnostics tutorial.
 
 The coherence plot is checked numerically against a lag built into two
 synthetic channels stored on different time bases; the ridge overlay against a

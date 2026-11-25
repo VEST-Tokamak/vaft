@@ -4,7 +4,7 @@ The single implementation of the PENTRC reader, owned by the GPEC suite that
 runs PENTRC (:func:`vaft.code.gpec.run_pentrc`) and exported from
 :mod:`vaft.code.gpec`.  :mod:`vaft.code.pentrc` and
 :mod:`vaft.code.pentrc.outputs` re-export these same objects for existing
-imports (#1883).
+imports.
 
 PENTRC computes the neoclassical toroidal viscous torque a non-axisymmetric
 field exerts on a tokamak plasma, given the perturbed field GPEC produced and

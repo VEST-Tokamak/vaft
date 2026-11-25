@@ -109,7 +109,7 @@ def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
     assert metrics["ids_domain_open_count"] == 1
     assert metrics["metadata_dataset_count"] > 0
     # One selection for two reads is the guarantee that matters: the payload is
-    # not re-read. Since issue #329 the second read is served by the ODS and
+    # not re-read. The second read is served by the ODS and
     # never reaches the store, so the store's own `leaf_cache_hits` no longer
     # fires through this path -- it is checked directly below instead.
     assert metrics["payload_selection_count"] == 1
@@ -117,7 +117,7 @@ def test_store_reports_client_side_lazy_read_metrics(fake_hsds):
 
 
 def test_the_store_still_caches_for_a_caller_that_bypasses_the_ods(fake_hsds):
-    """`leaf_cache_hits` is shadowed by the ODS-level cache added for #329, so it
+    """`leaf_cache_hits` is shadowed by the ODS-level cache, so it
     is exercised here at the level where it still applies: a caller holding the
     store directly."""
     _ods, store = make_ods(fake_hsds, ids="equilibrium")
@@ -220,7 +220,7 @@ def test_store_rejects_empty_ids(fake_hsds):
 
 
 def test_a_write_to_a_stored_leaf_is_kept_not_clobbered(fake_hsds):
-    """Issue #329. ``__getitem__`` re-fetched on every read of a path the store
+    """Regression guard for #329: ``__getitem__`` re-fetched on every read of a path the store
     holds, so an assignment appeared to succeed and the next read handed back the
     stored value again -- silently. That made every in-place updater a no-op on
     HSDS-backed data for any leaf the database already had, while writes to
@@ -300,7 +300,7 @@ def _long_aos_ods():
 
 
 def test_aos_children_are_listed_in_numeric_order():
-    """#1331: children were sorted as strings, so `flat()` visited coil 10 right
+    """Regression guard: children were sorted as strings, so `flat()` visited coil 10 right
     after coil 1 and OMAS refused the gap -- `em_coupling`'s static signature
     raised IndexError on every DB shot with more than ten elements."""
     ods = _long_aos_ods()
@@ -374,3 +374,72 @@ def test_an_ids_that_cannot_be_indexed_is_an_error_not_an_absence(failure, raise
     assert unreachable.closed and store.opened_ids == ()
     with pytest.raises(OSError):  # not cached as an empty IDS: the second access fails again
         "magnetics.time" in store
+
+
+def _in_flight_probe(monkeypatch, delay=0.05):
+    """Make every FakeDataset read take ``delay`` and record the peak concurrency."""
+    import threading
+    import time
+
+    state = {"now": 0, "peak": 0}
+    lock = threading.Lock()
+    original = FakeDataset.__getitem__
+
+    def slow(self, selection):
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(delay)
+        try:
+            return original(self, selection)
+        finally:
+            with lock:
+                state["now"] -= 1
+
+    monkeypatch.setattr(FakeDataset, "__getitem__", slow)
+    return state
+
+
+def test_prefetch_reads_its_datasets_concurrently(monkeypatch):
+    """#1870: prefetch issued one full-dataset GET after another (207 for 39915's
+    three IDS), each a whole round trip. They are independent, so they overlap."""
+    state = _in_flight_probe(monkeypatch)
+    ods = _long_aos_ods()
+    assert ods.prefetch("pf_active.coil") == 4
+    assert state["peak"] > 1
+    assert ods["pf_active"].flat()["coil.11.element.0.turns_with_sign"] == 11.0
+
+
+def test_one_prefetch_worker_reads_the_same_values_one_at_a_time(monkeypatch):
+    monkeypatch.setenv("VAFT_HSDS_PREFETCH_WORKERS", "1")
+    state = _in_flight_probe(monkeypatch, delay=0.0)
+    serial, parallel = _long_aos_ods(), None
+    assert serial.prefetch("pf_active.coil") == 4
+    assert state["peak"] == 1
+    monkeypatch.delenv("VAFT_HSDS_PREFETCH_WORKERS")
+    parallel = _long_aos_ods()
+    parallel.prefetch("pf_active.coil")
+    assert serial["pf_active"].flat() == parallel["pf_active"].flat()
+
+
+def test_a_failed_prefetch_read_raises_and_replaces_nothing(monkeypatch):
+    """A read that fails mid-prefetch surfaces its error; no dataset of that
+    pass is swapped for an in-memory copy, so nothing half-read is served."""
+    original = FakeDataset.__getitem__
+    calls = {"n": 0}
+
+    def flaky(self, selection):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise OSError("503 Service Unavailable")
+        return original(self, selection)
+
+    monkeypatch.setattr(FakeDataset, "__getitem__", flaky)
+    ods = _long_aos_ods()
+    store = ods.store
+    with pytest.raises(OSError):
+        ods.prefetch("pf_active.coil")
+    assert not any(isinstance(record.dataset, np.ndarray) for record in store._records["pf_active"])
+    assert not any(isinstance(d, np.ndarray) for d in store._aos_shape_datasets["pf_active"].values())
+    monkeypatch.setattr(FakeDataset, "__getitem__", original)
+    assert ods.prefetch("pf_active.coil") == 4

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install, publish or remove the isolated vaft gui TEST instance (#1862).
+# Install, publish or remove the isolated vaft gui TEST instance.
 #
 #   sudo bash test-instance.sh install <40-hex commit>   # step B: user, venv, env file, unit
 #   sudo bash test-instance.sh nginx <cidr> [<cidr>...]  # step D: conf.d zone + include, allow ranges
@@ -84,8 +84,10 @@ install_instance() {
   fi
   run install -m 0644 "$HERE/vaft-gui-test.service" "$UNIT"
   run systemctl daemon-reload
-  if [[ ! -e $ENV_FILE ]] || grep -q '^HS_PASSWORD=change-me' "$ENV_FILE"; then
-    echo "NOT STARTED: fill in $ENV_FILE (the read-only HSDS account), then: systemctl enable --now vaft-gui-test"
+  if [[ ! -e $ENV_FILE ]] || grep -q '^HS_PASSWORD=change-me' "$ENV_FILE" \
+     || ! grep -qE '^VAFT_GUI_ORIGINS=.+' "$ENV_FILE" || grep -q '^VAFT_GUI_ORIGINS=.*example\.org' "$ENV_FILE"; then
+    echo "NOT STARTED: fill in $ENV_FILE (the read-only HSDS account and VAFT_GUI_ORIGINS, the host"
+    echo "names readers open), then: systemctl enable --now vaft-gui-test"
   else
     run systemctl enable --now vaft-gui-test
   fi

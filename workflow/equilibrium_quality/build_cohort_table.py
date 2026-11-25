@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Build the #1644 equilibrium-quality cohort table from study records and their EFIT products.
+"""Build the equilibrium-quality cohort table from study records and their EFIT products.
 
     python workflow/equilibrium_quality/build_cohort_table.py \\
         --records ~/runs/campaign/tierA_analysis.json \\
         --filedb ~/runs/campaign/filedb --output ~/runs/campaign/atlas/equilibrium_quality
 
-``--records`` is a study analysis JSON (``{"records": [...]}``: the #1331 Tier A
+``--records`` is a study analysis JSON (``{"records": [...]}``: the Tier A campaign
 analysis, or a ``weight_scan.py`` table).  With ``--filedb``, each row also
 gets the :mod:`vaft.omas.efit_quality` and ``validate_equilibrium`` columns of
 its slice, read from that shot's magnetic EFIT product and matched **by time**
@@ -104,7 +104,7 @@ class ProductEvidence:
 
 
 def write_figures(table, points, census, directory: Path, *, fmt: str = "screen", theme: str | None = None) -> list[Path]:
-    """The population views of #1644 §3-§5, one PNG each, at a :mod:`vaft.plot.presentation` format.
+    """The population views (validation matrix, measured vs reconstructed, residual ECDF, reduced chi^2), one PNG each, at a :mod:`vaft.plot.presentation` format.
 
     ``fmt="legacy"`` keeps the sizes the views had before the format existed.
     """

@@ -1,4 +1,4 @@
-"""Effective processing provenance per shot (issue #195)."""
+"""Effective processing provenance per shot."""
 
 import pytest
 
@@ -80,7 +80,7 @@ def test_equilibrium_magnetics_era_is_recoverable(shot, daq_mode, probe_baseline
 
 def test_the_probe_wiring_and_recorded_faults_are_in_provenance():
     """Which raw field fed each probe, and which probe was known broken, is
-    recoverable per shot (#956); 39204 is supported like its neighbours."""
+    recoverable per shot; 39204 is supported like its neighbours."""
     record = vest_processing_provenance(36000)["equilibrium_magnetics"]
     assert record["geometry_supported"] is True
     assert record["required_geometry_version"] is None
@@ -98,7 +98,7 @@ def test_the_probe_wiring_and_recorded_faults_are_in_provenance():
         "probe_overrides": [],
         "revision": {"context": "VEST equilibrium_magnetics wiring", "revision_index": None, "revision_bounds": None},
     }
-    # C4-04 is recorded on every shot (#977).
+    # C4-04 is recorded on every shot.
     assert [(f["kind"], f["index"]) for f in modern["known_faults"]] == [("b_field_pol_probe", 45)]
     assert vest_processing_provenance(39204)["equilibrium_magnetics"]["geometry_supported"] is True
 

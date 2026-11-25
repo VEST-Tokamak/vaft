@@ -1,9 +1,10 @@
 """Concept-diagram primitives: boxes, connectors and bands.
 
-Flow charts, taxonomies and process sequences (#1041, #1047, #1090, ...)
-are built from these. Each expands into the existing scene items -- a
-closed ``Polyline`` and a ``Label`` -- so the renderer is unchanged and a
-concept diagram is hashed, rendered and checked like any other scene.
+Flow charts, taxonomies and process sequences (disruption, plasma-wall
+interaction and framework diagrams, among others) are built from these.
+Each expands into the existing scene items -- a closed ``Polyline`` and a
+``Label`` -- so the renderer is unchanged and a concept diagram is hashed,
+rendered and checked like any other scene.
 Layout is explicit: coordinates in centimetres, chosen by the builder.
 """
 

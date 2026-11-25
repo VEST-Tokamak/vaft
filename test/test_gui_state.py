@@ -1,4 +1,4 @@
-"""The GUI's toolkit-free session: sources, catalog and the plot on screen (#1086)."""
+"""The GUI's toolkit-free session: sources, catalog and the plot on screen."""
 
 from __future__ import annotations
 

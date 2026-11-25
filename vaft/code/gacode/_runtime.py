@@ -213,7 +213,7 @@ class GACODERun(tuple):
     """What :func:`run_gacode` returns: unpacks as ``(returncode, log)``.
 
     ``returncode`` is ``None`` when the run was stopped by a time limit; then
-    ``runtime_status`` is ``"timeout"`` or ``"queue_timeout"`` (#1016) and the
+    ``runtime_status`` is ``"timeout"`` or ``"queue_timeout"`` and the
     reason is the log's last line. ``elapsed_s`` is the wall time [s].
     """
 
@@ -269,7 +269,7 @@ def run_gacode(
     unpacks as that pair). A non-zero status is returned, not raised: whether
     it is fatal is the backend's judgement, and NEO in particular writes
     useful diagnostics alongside a failure. A timeout is returned too, with
-    ``returncode=None`` (#1016); it used to raise ``TimeoutExpired``.
+    ``returncode=None``.
     """
     command = (str(executable), *[str(argument) for argument in arguments])
     timeout = None if config is None else config.timeout

@@ -1,4 +1,4 @@
-"""Contract for Tutorial 02: VEST startup and vacuum-field analysis (issue #888).
+"""Contract for Tutorial 02: VEST startup and vacuum-field analysis.
 
 The tutorial runs offline from the packaged VEST samples, while teaching the
 same public workflow on any database shot.  The tests pin the narrative spine
@@ -518,7 +518,7 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
 
 
 # ---------------------------------------------------------------------------
-# #783: the reduced models after breakdown
+# the reduced models after breakdown
 # ---------------------------------------------------------------------------
 
 TOYS = ("s02-toy3", "s02-toy4", "s02-toy5", "s02-toy6", "s02-toy7", "s02-toy8")
@@ -532,7 +532,7 @@ def test_the_reduced_models_follow_breakdown_in_order(book):
 
 
 def test_every_reduced_model_states_what_it_supports_and_what_it_does_not(book):
-    """#783: assumptions, the supported conclusion and the unsupported one, for each toy."""
+    """Assumptions, the supported conclusion and the unsupported one, for each toy."""
     notes = {"s02-breakdown-note": "s02-toy2", "s02-toy4-intro": "s02-toy3", "s02-toy5-intro": "s02-toy4", "s02-toy6-intro": "s02-toy5",
              "s02-toy7-intro": "s02-toy6", "s02-toy8-intro": "s02-toy7", "s02-toy8-note": "s02-toy8"}
     for note, toy in notes.items():
@@ -593,7 +593,7 @@ def test_the_penetration_crossing_is_inside_the_scan(executed):
 
 
 # ---------------------------------------------------------------------------
-# #254: an analysis task, stated first and accepted on its semantics
+# an analysis task, stated first and accepted on its semantics
 # ---------------------------------------------------------------------------
 
 

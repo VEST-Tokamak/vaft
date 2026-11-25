@@ -142,7 +142,7 @@ def mirror_particle_field(B0=1.0, length=10.0):
     Provenance
     ----------
     .. [1] Curl of A=(-y f(z)/2, x f(z)/2, 0), f=B0(1+z^2/L^2),
-       an exactly divergence-free benchmark for issue #2005.
+       an exactly divergence-free benchmark.
     """
     _positive(B0=B0, length=length)
     c = B0 / length**2
@@ -233,7 +233,7 @@ def toroidal_particle_field(
 
     Provenance
     ----------
-    .. [1] Analytic curl of the stated vector potential, issues #2008/#2009.
+    .. [1] Analytic curl of the stated vector potential.
     """
     _positive(R0=R0, B0=B0, minor_radius=minor_radius, derivative_step=derivative_step)
     if (

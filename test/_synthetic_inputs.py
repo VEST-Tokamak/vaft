@@ -88,7 +88,7 @@ def make_eddy_solved(sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
-# impa_* -- IMPA left the diagnostics product for its own stage (#305), so the
+# impa_* -- IMPA left the diagnostics product for its own stage, so the
 # regenerated 39915 sample no longer carries it.  Build the IMPA product from
 # the packaged raw dump and append its channels the way
 # vaft.database.composition.compose does: after the base probes, by IMPA identity.
@@ -261,7 +261,7 @@ def make_neoclassical(sample: ODS) -> ODS:
 
 def make_zeff_profile(sample: ODS) -> ODS:
     """core_profiles_profile_zeff -- the stored Z_eff with the provenance record a
-    vaft.process.impurity writer leaves beside it (#1565)."""
+    vaft.process.impurity writer leaves beside it."""
     ods = _with_core_profiles(sample, zeff=True)
     ods["core_profiles.profiles_1d.0.zeff_fit.parameters"] = "origin=assumed; method=impurity_model_preset"
     return ods
@@ -302,6 +302,27 @@ def make_ntms(_sample: ODS) -> ODS:
             entry["m_pol"] = int(m_pol)
             entry["deltaw"][0]["name"] = "classical"
             entry["deltaw"][0]["value"] = float(value)
+    return ods
+
+
+# ---------------------------------------------------------------------------
+# ntms_overview_delta_prime -- the real RDCON fixture of test_rdcon_ods_closure.py,
+# mapped exactly as a run is
+# ---------------------------------------------------------------------------
+def make_rdcon_mapped(_sample: ODS) -> ODS:
+    import shutil
+    import tempfile
+
+    from vaft.machine_mapping.mhd_linear import mhd_linear
+
+    fixture = Path(__file__).resolve().parent / "data" / "gpec" / "rdcon_39915_319_n1"
+    ods = ODS(consistency_check=False)
+    ods["dataset_description.data_entry.pulse"] = 39915
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "rdcon"
+        target.mkdir()
+        shutil.copy(fixture / "rdcon_output_n1.nc", target / "rdcon_output_n1.nc")
+        mhd_linear(ods, str(target), {"module": "rdcon", "modes": [1]})
     return ods
 
 
@@ -390,7 +411,7 @@ def make_chease(_sample: ODS) -> ODS:
 
 
 # ---------------------------------------------------------------------------
-# thomson_scattering_profile_fit / charge_exchange_profile_fit (issue #952):
+# thomson_scattering_profile_fit / charge_exchange_profile_fit:
 # the packaged kinetic-EFIT input of shot 48224 at 300 ms -- Thomson, CES and
 # the equilibrium they are mapped through, in one loose ODS file.
 # ---------------------------------------------------------------------------
@@ -404,7 +425,7 @@ def make_kinetic_48224(_sample: ODS) -> ODS:
 
 
 def make_kinetic_state(_sample: ODS) -> ODS:
-    """The 40326/322 ms archive case as a stored kinetic state (issue #1837)."""
+    """The 40326/322 ms archive case as a stored kinetic state."""
     from _kinetic_state_fixture import kinetic_state_ods
 
     return kinetic_state_ods(40326, "magnetics")
@@ -436,7 +457,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "coil_3d_geometry_topview": make_coils_3d,
     "pf_plasma_geometry_poloidal": make_pf_plasma,
     "neoclassical_profile_bootstrap_current": make_neoclassical,
-    # issue #551: 39915 carries no core_profiles; the gradient views read the
+    # 39915 carries no core_profiles; the gradient views read the
     # synthetic profiles through the equilibrium slice at their time.
     "electron_temperature_profile_gradient": make_core_profiles,
     "electron_density_profile_gradient": make_core_profiles,
@@ -458,6 +479,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "camera_visible_image_vacuum_field_line": make_camera,
     "camera_visible_animation_frames": make_camera,
     "ntms_time_delta_prime": make_ntms,
+    "ntms_overview_delta_prime": make_rdcon_mapped,
     "mhd_linear_time_energy_perturbed": make_mhd_linear,
     "mhd_linear_profile_displacement": make_mhd_linear,
     "mhd_linear_profile_b_field_perturbed": make_mhd_linear,
@@ -472,7 +494,7 @@ OPTIONS: dict[str, dict] = {
     "charge_exchange_profile_fit": {"order": 2},
     "camera_visible_image_field_line": {"field_line_start": (0.4, 0.0)},
     "camera_visible_image_vacuum_field_line": {"shot": 39915, "max_turns": 0.25, "resolution": 21},
-    # #1446: the island separatrices take no default field -- the total and
+    # The island separatrices take no default field -- the total and
     # vacuum resonant pairs are different objects drawn on the same axes.
     "mhd_linear_geometry_island": {"field": "total"},
 }
@@ -550,7 +572,7 @@ for _name in (
 
 # ---------------------------------------------------------------------------
 # mirnov_spatial_phase -- the packaged 39915 sample has no toroidal array (it
-# sits in the 35521-44155 gap, and its field-171 twin is gone since #724/#825),
+# sits in the 35521-44155 gap, and the field-171 twin is no longer published),
 # so the view is built on the shape of the modern outboard fluctuation array:
 # one poloidal row at 135/225/315 deg carrying an n=1 band.
 # ---------------------------------------------------------------------------
@@ -639,7 +661,7 @@ SYNTHETIC["field_line_topology_field_connection_length"] = make_field_line_plane
 
 
 # ---------------------------------------------------------------------------
-# gyrokinetics_* (#1591): a real CGYRO linear run (the packaged EM fixture) mapped
+# gyrokinetics_*: a real CGYRO linear run (the packaged EM fixture) mapped
 # with vaft.machine_mapping.gyrokinetics, plus a quasilinear ky-resolved flux block
 # of the shape the TGLF mapping writes. turbulent_transport_*: two anomalous
 # core_transport models (TGLF and CGYRO) on one radial grid.
@@ -686,6 +708,36 @@ def make_turbulent_transport(_sample: ODS) -> ODS:
     return out
 
 
+# transport_hierarchy_*: one state's classical (-1), Chang-Hinton and NEO (5) and
+# TGLF (6) entries, each at its own surfaces, the shape the four mappers write.
+def make_transport_hierarchy(_sample: ODS) -> ODS:
+    out = ODS()
+    out["core_transport.ids_properties.homogeneous_time"] = 0
+    dense, neo, tglf = np.linspace(0.1, 0.8, 15), np.linspace(0.2, 0.7, 6), np.linspace(0.2, 0.7, 4)
+    entries = (
+        (-1, "classical", "vaft.process.transport_state.classical_heat_fluxes", dense, True, 1.0),
+        (5, "neoclassical", "vaft.process.transport_state.chang_hinton_heat_flux", dense, False, 2.0),
+        (5, "neoclassical", "NEO", neo, True, 3.0),
+        (6, "anomalous", "TGLF", tglf, True, 1e3),
+    )
+    for m, (index, name, code, rho, electrons, scale) in enumerate(entries):
+        base = f"core_transport.model.{m}"
+        out[f"{base}.identifier.index"] = index
+        out[f"{base}.identifier.name"] = name
+        out[f"{base}.code.name"] = code
+        profile = f"{base}.profiles_1d.0"
+        out[f"{profile}.time"] = 0.3
+        out[f"{profile}.grid_flux.rho_tor_norm"] = rho
+        if electrons:
+            out[f"{profile}.electrons.energy.flux"] = scale * np.cos(4.0 * rho)
+        out[f"{profile}.ion.0.z_ion"] = 1.0
+        out[f"{profile}.ion.0.energy.flux"] = scale * np.sin(5.0 * rho)
+    return out
+
+
+for _name in ("transport_hierarchy_profile_electron_energy_flux",
+              "transport_hierarchy_profile_ion_energy_flux", "transport_hierarchy_overview"):
+    SYNTHETIC[_name] = make_transport_hierarchy
 for _name in ("gyrokinetics_spectrum_growth_rate", "gyrokinetics_spectrum_frequency",
               "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
               "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview"):

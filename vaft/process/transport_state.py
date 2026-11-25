@@ -1,6 +1,6 @@
 """Resolved transport states: one qualified plasma state shared by TGLF, NEO and classical.
 
-Routine transport analysis (issues #1428, #1431, #1435) asks the same upstream
+Routine transport analysis (TGLF, NEO, classical) asks the same upstream
 question before any solver runs: *which* equilibrium and kinetic-profile slice
 describe this instant, where did each kinetic quantity come from, and is the result
 fit to hand to a model?  This module answers it once, so a TGLF and a NEO result
@@ -11,10 +11,10 @@ The chain::
 
     ODS (equilibrium + core_profiles)
     -> equilibrium slice at the state time, core_profiles slice within dt   [times]
-    -> ion temperature: measured -> pressure-inferred (#1426) -> policy      [ti]
+    -> ion temperature: measured -> pressure-inferred -> policy             [ti]
     -> composition closure via prepare_gacode_profile(impurity=, z_eff=)     [GACODEProfile]
     -> ResolvedTransportState (profile + per-quantity provenance + identity)
-    -> canonical species state + physics projection (#1567)                  [optional]
+    -> canonical species state + physics projection                          [optional]
     -> solver readiness: assess_tglf_readiness / assess_neo_readiness
 
 Nothing here runs a solver.  Execution stays with :mod:`vaft.code.gacode`; this
@@ -60,8 +60,10 @@ __all__ = [
     "assess_neo_readiness",
     "assess_tglf_readiness",
     "inferred_ti_supported",
+    "CHANG_HINTON_MODEL",
     "CLASSICAL_MODEL",
     "ClassicalHeatFluxes",
+    "chang_hinton_heat_flux",
     "classical_heat_fluxes",
     "surface_toroidal_field",
     "physics_parameters",
@@ -75,10 +77,10 @@ __all__ = [
 #: Bumped whenever a change here can alter a resolved state; part of every identity.
 RESOLVER_VERSION = 2
 
-#: The two EFIT lineages of lane K's State key contract v1 (#1454).
+#: The two EFIT lineages of the kinetic-state key contract v1.
 EFIT_LINEAGES = ("magnetics", "electron_kinetic")
 
-#: Only these #1331 slice labels are resolved; an unreconstructible slice is refused.
+#: Only these EFIT-campaign slice-quality labels are resolved; an unreconstructible slice is refused.
 EFIT_QUALITIES = ("good", "admissible")
 
 #: The routine radial scan, as r/a.  Inside the Thomson span, clear of the axis where
@@ -107,7 +109,7 @@ _TEMPERATURE_SCALE = 1.0e3
 class TransportStateKey:
     """Which plasma state: ``(shot, time_efit_s, efit_lineage)``.
 
-    Lane K's State key contract v1 (#1454): ``time_efit_s`` is the EFIT slice time
+    The kinetic-state key contract v1: ``time_efit_s`` is the EFIT slice time
     rounded to 1e-4 s, and ``efit_lineage`` is ``magnetics`` or ``electron_kinetic``.
     """
 
@@ -124,7 +126,7 @@ class TransportStateKey:
 
     @property
     def time_ms(self) -> int:
-        """The slice time in whole milliseconds, the #1331 label table's key [ms]."""
+        """The slice time in whole milliseconds, the EFIT-campaign label table's key [ms]."""
         return int(round(self.time_efit_s * 1e3))
 
     def as_dict(self) -> dict[str, Any]:
@@ -176,7 +178,7 @@ class ResolvedTransportState:
         """Everything that, changed, makes this a different state.
 
         The resolved profile's own arrays are hashed, so a different input file, a
-        different #1426 temperature or a change in the GACODE converter all change
+        different pressure-inferred temperature or a change in the GACODE converter all change
         the identity without anyone bumping a version.  Paths and the Ti sigma
         (provenance only) are left out: moving a file or restating an uncertainty
         does not change the physics a solver is given.
@@ -595,7 +597,7 @@ def resolve_transport_state(
         ``(shot, time_efit_s, efit_lineage)``; ``time_efit_s`` must be an equilibrium
         slice time within ``tolerance`` [s].
     efit_quality : str
-        The #1331 slice label, ``"good"`` or ``"admissible"``; anything else is
+        The EFIT-campaign slice-quality label, ``"good"`` or ``"admissible"``; anything else is
         refused with :class:`ValueError`, an unreconstructible slice not being a state [-].
     quality_source : str
         Where ``efit_quality`` came from, e.g. ``"criteria"`` or
@@ -609,20 +611,20 @@ def resolve_transport_state(
         :func:`vaft.machine_mapping.core_profiles.policy_for_ods`; a number is used
         as given and recorded as caller-supplied; ``None`` disables the fallback.
         Any other string is refused with :class:`ValueError` at entry.  A product whose
-        ion temperature is itself a ratio record (``ti_te_ratio=...; status=assumed``,
-        #1414) is resolved at the record's own ratio, as ``assumed`` [-].
+        ion temperature is itself a ratio record (``ti_te_ratio=...; status=assumed``)
+        is resolved at the record's own ratio, as ``assumed`` [-].
     ti_te_ratio_sigma : float, optional
         Its 1-sigma, for provenance; the policy's when ``None`` [-].
     inferred_ti : mapping, optional
-        A pressure-partition result (#1426), ``{"temperature", "method", "time"}`` on
+        A pressure-partition result, ``{"temperature", "method", "time"}`` on
         the core_profiles grid of the matched slice, preferred over the policy
         fallback; its ``time`` must match the paired slice within ``tolerance`` [eV].
     use_stored_inferred_ti : bool
         Whether an ion temperature the product itself labels as inferred
         (``temperature_fit.parameters`` reading ``origin=inferred; ...`` by
-        :func:`vaft.machine_mapping.core_profiles.classify_ti_record`, lane K's #1426
-        partition) is used as the ``inferred_ti`` step. Off by default: the routine atlas
-        keeps Ti = Te (#1414), and such a state is refused as
+        :func:`vaft.machine_mapping.core_profiles.classify_ti_record`, the pressure-partition
+        inference) is used as the ``inferred_ti`` step. Off by default: the routine atlas
+        keeps Ti = Te, and such a state is refused as
         ``inferred_ti_not_enabled``. A temperature is taken as measured only when its
         record is a measured fit's (or absent); a record in no known grammar is refused
         as ``ti_record_unrecognised`` [-].
@@ -745,10 +747,10 @@ def resolve_transport_state(
         position += 1
     # Each ion's ``temperature_fit.parameters`` record says what its temperature is
     # (shared grammar: vaft.machine_mapping.core_profiles.classify_ti_record). A product
-    # may carry one that was inferred, not measured (lane K's #1426 pressure partition,
+    # may carry one that was inferred, not measured (the pressure partition,
     # ``origin=inferred; method=...``): it is never taken as a measurement; it is used
     # as the inferred step only when the caller opts in (``use_stored_inferred_ti``),
-    # else refused. A ratio record (#1414, ``ti_te_ratio=...; status=assumed``) is the
+    # else refused. A ratio record (``ti_te_ratio=...; status=assumed``) is the
     # product's own Ti = ratio * Te and resolves as assumed, at that ratio.
     from vaft.machine_mapping.core_profiles import classify_ti_record, ti_record_fields
 
@@ -844,7 +846,7 @@ def resolve_transport_state(
                     "no_defensible_ion_temperature",
                 )
             if assumed:
-                # The product already applied a ratio to its Te (#1414) and says so:
+                # The product already applied a ratio to its Te and says so:
                 # that ratio, not the caller's, is what shaped the stored temperature.
                 fields = ti_record_fields(records[assumed[0]])
                 try:
@@ -875,7 +877,7 @@ def resolve_transport_state(
                 return _insufficient(base, "non_positive_ti_te_ratio")
             hierarchy.append(step)
             temperature = ratio * te
-            # Contract v1 spells the #1414 Ti = Te policy ``ti_eq_te_assumed``; any
+            # Contract v1 spells the assumed Ti = Te policy ``ti_eq_te_assumed``; any
             # other ratio keeps its value in the name so two ratios never share one.
             lineage = "ti_eq_te_assumed" if ratio == 1.0 else f"ti_te_{ratio:g}_{status}"
             ti = {"lineage": lineage, "method": "ti_te_ratio",
@@ -971,7 +973,7 @@ def resolve_transport_state(
     profile.provenance = provenance
     if product_species:
         settings["z_eff"], settings["impurity"] = None, None
-        # From the species the solvers read, not from any z_eff column (#803).
+        # From the species the solvers read, not from any z_eff column: NEO reads the species list.
         ni = np.atleast_2d(np.asarray(profile.ni, dtype=float))
         charge = np.asarray(profile.z, dtype=float)[:, None]
         ne_profile = np.asarray(profile.ne, dtype=float)
@@ -1104,7 +1106,7 @@ def assess_tglf_readiness(
                                surfaces=tuple(results))
     conditions = _state_conditions(state) + projected
     if any(s.ready and s.local_input.vexb_shear is None for s in results):
-        # prepare_tglf_input does not derive ExB shear yet (#553), so TGLF runs with
+        # prepare_tglf_input does not derive ExB shear yet (open: #553), so TGLF runs with
         # its own zero whatever rotation core_profiles carries.
         conditions = (*conditions, "no_exb_shear")
     return ReadinessReport("tglf", "conditional" if conditions else "ready",
@@ -1489,7 +1491,7 @@ def run_identity(
     solver_revision : str, optional
         The GACODE revision the run used or will use [-].
     projection : TransportProjection, optional
-        The species projection the run used (#1567).  A reduced projection's
+        The species projection the run used.  A reduced projection's
         ``projection_id`` is folded in, so an effective-impurity run differs from
         the explicit one; an explicit projection is the state's own species list
         and gives the identity this function always gave [-].
@@ -1679,7 +1681,7 @@ def transport_partition(
             "channels": channels}
 
 
-# --------------------------------------------------------------------------- classical (#1435)
+# --------------------------------------------------------------------------- classical
 
 #: GACODE's deuterium mass, the unit TGLF's MASS_* carry [kg].
 _MASS_DEUTERIUM_KG = 3.34358e-27
@@ -1703,7 +1705,7 @@ CLASSICAL_MODEL = {
 
 @dataclass(frozen=True)
 class ClassicalHeatFluxes:
-    """The classical (Braginskii) baseline at one surface (#1435, typed by #1899).
+    """The classical (Braginskii) baseline at one surface.
 
     Fluxes are physical fluxes of the stated reduced model (``CLASSICAL_MODEL``);
     ``chi_*`` are that model's diffusivities; the collision times, Coulomb logarithms,
@@ -1736,7 +1738,7 @@ class ClassicalHeatFluxes:
 
     def as_record(self) -> dict[str, Any]:
         """The JSON-ready mapping the atlas driver stores and the core_transport
-        projection reads; the keys of the pre-#1899 dict, unchanged. A deep copy."""
+        projection reads; the keys of the earlier untyped dict, unchanged. A deep copy."""
         return {
             "r_over_a": self.r_over_a,
             "electron_energy_flux_W_m2": self.electron_energy_flux_W_m2,
@@ -1811,9 +1813,9 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
     ``kappa_perp,i = 2 n_i T_i / (m_i Omega_i^2 tau_i)``; ``q = kappa T (a/L_T) / a``,
     so a positive flux runs down the temperature gradient, the sign the TGLF and NEO
     mappers use.  This is a physical flux of a stated reduced model, not the
-    order-of-magnitude ``nu rho^2`` reference scale (#780/#1112).  This function
+    order-of-magnitude ``nu rho^2`` reference scale.  This function
     writes nothing; :func:`vaft.machine_mapping.classical.core_transport_from_classical`
-    projects its records into ``core_transport`` (#1654).
+    projects its records into ``core_transport``.
 
     Applicability
     -------------
@@ -1826,8 +1828,8 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
     ``coulomb_log_valid`` is False below 10 eV, where the electron form is not
     defined.  ``gamma_1'`` is interpolated linearly in Z between Braginskii's tabulated
     charges and is held at its Z = 4 value (3.6) for every Z_eff above 4, the Z = inf
-    asymptote (3.25) being unreachable; below Z = 1 it is clamped to 4.66.  The rest is
-    listed in #1453.
+    asymptote (3.25) being unreachable; below Z = 1 it is clamped to 4.66.  Further
+    limitations are recorded in the transport-atlas log (#1453).
 
     Provenance
     ----------
@@ -1874,8 +1876,8 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
     lnl_e = float(coulomb_logarithm_from_n_T(ne, te_ev))
     lnl_i = float(ion_ion_coulomb_logarithm_from_n_T(n_i, ti_ev, z_i))
     if not lnl_i > 0.0:
-        # The NRL ion-ion form is not defined there (cold, dense ions); before #1899 a
-        # negative logarithm silently gave a negative tau_i and chi_i.
+        # The NRL ion-ion form is not defined there (cold, dense ions); a negative
+        # logarithm would silently give a negative tau_i and chi_i.
         raise ValueError(f"ion-ion Coulomb logarithm {lnl_i:.3g} is not positive at "
                          f"n_i = {n_i:.3g} m^-3, T_i = {ti_ev:.3g} eV, Z = {z_i:g}; "
                          "the classical ion baseline is not defined")
@@ -1900,3 +1902,110 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
         gamma1_perp=gamma1, b_tesla=b,
         model=dict(CLASSICAL_MODEL),
     )
+
+
+CHANG_HINTON_MODEL = {
+    "formulation": "Chang-Hinton closed-form neoclassical ion heat flux with the Z_eff "
+                   "impurity correction (vaft.formula.neoclassical.chang_hinton_ion_heat_flux)",
+    "terms": "conductive q_i of the main ion only; no electron channel, no particle flux, "
+             "no 5/2 T Gamma convection, no impurity heat flux",
+    "collision_frequency": "nu_ii = 1/tau_i (Braginskii, main ion against itself), "
+                           "lnLambda in GACODE's electron form "
+                           "(vaft.formula.equilibrium.coulomb_logarithm_from_n_T), as NEO",
+    "geometry": "epsilon = rmin/rmaj, q, dR_0/dr from the TGLF local input; rho_i on "
+                "GACODE's B_unit, so (q/epsilon) rho_i is the poloidal gyroradius",
+    "main_ion": "the densest positive species, Z_eff from the species list (NEO's own rules)",
+    "reference": "C. S. Chang and F. L. Hinton, Phys. Fluids 25 (1982) 1493; the formula "
+                 "reproduces NEO's neo_theory.f90 compute_CH from NEO's inputs, and this "
+                 "wrapper from a profile within 0.5 percent (test_formula_neoclassical.py)",
+}
+
+
+def chang_hinton_heat_flux(local: Any) -> dict[str, Any]:
+    """The closed-form neoclassical ion heat flux at one surface, from a TGLF local input.
+
+    Parameters
+    ----------
+    local : TGLFInput
+        From :func:`assess_tglf_readiness`, supplying n_e, T_e, every ion's n/n_e
+        and charge, the main ion's T_i/T_e, a/L_T, a/L_n and mass, q, r/a, R/a,
+        dR/dr and B_unit at the surface [-].
+
+    Returns
+    -------
+    dict
+        ``r_over_a``; ``ion_energy_flux_W_m2`` keyed ``z=<charge>`` for the main ion;
+        ``K1``, ``K2``, ``nu_star_i``, ``nu_ii_s``, ``coulomb_logarithm``,
+        ``b_unit_T`` and ``model`` (:data:`CHANG_HINTON_MODEL`) [W/m^2].
+
+    Convention
+    ----------
+    A positive flux runs down the temperature gradient, the sign the classical,
+    TGLF and NEO mappers use.  The collision frequency, Coulomb logarithm, main-ion
+    choice (the densest positive species) and Z_eff (from the species list, never a
+    ``z_eff`` column) are NEO's, so at a surface NEO also solves this agrees with the
+    closed form NEO prints beside its drift-kinetic flux (``out.neo.theory``) to a
+    fraction of a percent; the residual is the profile interpolation of the inputs.  Writes nothing; :func:`vaft.machine_mapping.neoclassical.
+    core_transport_from_chang_hinton` projects the records.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Conductive ion flux of the main (lowest-charge) ion only; the electron
+    neoclassical heat flux has no closed form here, and Sauter / Redl carry no heat
+    flux at all.  The Chang-Hinton fit was built for shifted circles at conventional
+    aspect ratio; at spherical-tokamak epsilon it is an extrapolation and NEO is the
+    reference.
+
+    Provenance
+    ----------
+    .. [1] C. S. Chang and F. L. Hinton, Phys. Fluids 25 (1982) 1493.
+    .. [2] GACODE ``neo/src/neo_theory.f90`` ``compute_CH`` and
+       ``neo_make_profiles.f90`` (collision frequency and Coulomb logarithm).
+    """
+    from scipy import constants as c
+
+    from vaft.formula.constants import AMU
+    from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
+    from vaft.formula.kinetic import ion_collision_time_from_T_i_n_species
+    from vaft.formula.neoclassical import (
+        chang_hinton_ion_heat_coefficients,
+        chang_hinton_ion_heat_flux,
+    )
+
+    norm = local.normalisation
+    ne = float(norm.electron_density)
+    te_ev = float(norm.electron_temperature) / c.e
+    a = float(norm.minor_radius)
+    charges = np.asarray(local.zs, dtype=float)[1:]
+    fractions = np.asarray(local.as_, dtype=float)[1:]
+    # NEO's main ion is the densest positive species; its Z_eff is the species list's.
+    main = int(np.argmax(fractions)) + 1
+    z_i = float(local.zs[main])
+    mass_number = float(local.mass[main]) * _MASS_DEUTERIUM_KG / AMU
+    n_i = float(local.as_[main]) * ne
+    ti_ev = float(local.taus[main]) * te_ev
+    lnl = float(coulomb_logarithm_from_n_T(ne, te_ev))
+    tau_i = float(ion_collision_time_from_T_i_n_species(ti_ev, mass_number, z_i, [n_i], [z_i], lnl))
+    nu_ii = 1.0 / tau_i
+    rmaj = float(local.rmaj_loc) * a
+    epsilon = float(local.rmin_loc) / float(local.rmaj_loc)
+    q = float(local.q_loc)
+    zeff = max(float(np.sum(fractions * charges**2)), 1.0)
+    shift = float(local.drmajdx_loc)
+    b_unit = abs(float(norm.b_unit))
+    flux = float(chang_hinton_ion_heat_flux(
+        n_i, ti_ev, mass_number, z_i, b_unit, q, rmaj, epsilon, nu_ii, zeff,
+        -float(local.rlts[main]) / a, -float(local.rlns[main]) / a, shift))
+    nu_star = nu_ii * abs(q) * rmaj / (epsilon**1.5 * np.sqrt(ti_ev * c.e / (mass_number * AMU)))
+    k1, k2 = chang_hinton_ion_heat_coefficients(epsilon, nu_star, zeff, shift)
+    return {
+        "r_over_a": float(local.rho),
+        "ion_energy_flux_W_m2": {f"z={z_i:g}": flux},
+        "K1": float(k1), "K2": float(k2), "nu_star_i": float(nu_star), "nu_ii_s": nu_ii,
+        "coulomb_logarithm": lnl, "b_unit_T": b_unit, "z_eff": zeff,
+        "model": dict(CHANG_HINTON_MODEL),
+    }

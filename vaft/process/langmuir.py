@@ -247,11 +247,11 @@ def probe_surface_area(*, tip_radius_m: float, tip_length_m: float) -> float:
 def _triple_probe_residual(te: float, vd2: float, vd3: float) -> float:
     # Classical triple-probe relation (theoretical form):
     #   (1 - exp(-Vd2/Te)) / (1 - exp(-Vd3/Te)) = 1/2
-    # The MATLAB expression quoted by issue #152 parses as
+    # The donor MATLAB expression (as quoted in issue #152) parses as
     #   1 - exp(-Vd2/Te)/(1 - exp(-Vd3/Te)) - 1/2 = 0
     # which is not the same equation (a `1 - a/b` transcription of `(1-a)/b`).
-    # No reference .mat data was available in-repo to arbitrate between the two
-    # (see issue #152 discussion), so this implements the theoretically correct
+    # No reference .mat data was available in-repo to arbitrate between the two,
+    # so this implements the theoretically correct
     # relation rather than reproducing the apparent transcription bug.
     denominator = 1.0 - np.exp(-vd3 / te)
     numerator = 1.0 - np.exp(-vd2 / te)
@@ -313,8 +313,8 @@ def solve_electron_temperature(
     assumes a Maxwellian electron distribution, equal collecting areas on the
     three tips, and a thin sheath.
 
-    The implemented relation is the theoretically correct one. The MATLAB
-    expression quoted by issue #152 parses as a different equation, a
+    The implemented relation is the theoretically correct one. The donor MATLAB
+    expression parses as a different equation, a
     ``1 - a/b`` transcription of ``(1-a)/b``, and no reference data was available
     to arbitrate; this deliberately does not reproduce that apparent transcription
     error.
@@ -527,7 +527,7 @@ def process_triple_probe(
     --------
     The gain, divisor and baseline length are machine-specific VEST values
     mirrored from ``vest.yaml``. ``median_kernel`` is deliberately unset:
-    issue #152 does not record the kernel the original workflow used, so no
+    the kernel the original workflow used is not recorded, so no
     filtering is applied rather than a guessed width. The time tolerances are
     numerical conveniences.
 

@@ -1,9 +1,9 @@
-"""Synthetic / reconstructed overlays on diagnostic time plots (issue #261 §9).
+"""Synthetic / reconstructed overlays on diagnostic time plots.
 
 The full diagnostic waveform stays the primary signal; an equilibrium's
 prediction of it is drawn as markers at the slices that hold one, in the same
 unit, in the same panel, named by its role.  The packaged shots now carry
-EFIT's own reconstructions (m-file replay, #952); the fixtures clear them and
+EFIT's own reconstructions (m-file replay); the fixtures clear them and
 write a known pattern instead, so every assertion here is about the overlay
 and not about the fit.
 """

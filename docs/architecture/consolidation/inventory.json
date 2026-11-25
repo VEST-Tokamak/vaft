@@ -4,7 +4,7 @@
   "duplicate": 1,
   "intentional_specialization": 39,
   "legacy": 8,
-  "unverified": 383
+  "unverified": 386
  },
  "entry_modules": {
   "pipeline1": [
@@ -2477,6 +2477,7 @@
     }
    ],
    "callers": [
+    "vaft.data.public.equilibria._read_vest_sample",
     "vaft.mcp._tools.list_samples",
     "vaft.omas.sample.sample_ods",
     "vaft.plot.docs_catalog._thumbnails",
@@ -2537,6 +2538,37 @@
    "resolved_by": "",
    "scientific_risk": "unassessed",
    "source_file": "vaft/data/pfile.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(times_ms, np.asarray(row['magnetics_plasma_current_times'], dtype=float), np.asarray(row['magnetics_plasma_current'], dtype=float), left=np.nan, ri..."
+    }
+   ],
+   "callers": [],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.data.public.equilibria._read_neurips_parquet",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "data",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/data/public/equilibria.py"
   },
   {
    "algorithm_semantics": "calls numpy.interp, numpy.trapezoid, scipy.interpolate.RegularGridInterpolator (not curated)",
@@ -6109,6 +6141,7 @@
    "callers": [
     "vaft.machine_mapping.classical.core_transport_from_classical",
     "vaft.machine_mapping.gyrokinetics._core_transport_from_cgyro",
+    "vaft.machine_mapping.neoclassical.core_transport_from_chang_hinton",
     "vaft.machine_mapping.turbulence._core_transport_from_tglf"
    ],
    "classification": "unverified",
@@ -7246,7 +7279,6 @@
     }
    ],
    "callers": [
-    "vaft.database._summary.extract_equilibrium_global",
     "vaft.plot.time.time_virial_equilibrium_quantities",
     "vaft.validation.equilibrium._virial_rows",
     "workflow.efit_uncertainty_calibration.weight_scan._virial",
@@ -7486,7 +7518,6 @@
     }
    ],
    "callers": [
-    "vaft.database._summary.extract_equilibrium_global",
     "vaft.plot.time.time_diamagnetic_flux"
    ],
    "classification": "unverified",
@@ -8346,8 +8377,7 @@
    ],
    "callers": [
     "vaft.plot.soft_x_rays.plot_soft_x_ray_pattern",
-    "vaft.plot.soft_x_rays.plot_soft_x_ray_signal",
-    "vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram"
+    "vaft.plot.soft_x_rays.plot_soft_x_ray_signal"
    ],
    "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -10519,7 +10549,7 @@
   {
    "algorithm_semantics": "calls numpy.gradient (not curated)",
    "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
+   "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "numpy.gradient",
@@ -10552,9 +10582,9 @@
    "primitives": [
     "numpy.gradient"
    ],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1,pipeline2",
    "production_reachability_note": "",
-   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "unassessed",
@@ -10864,7 +10894,8 @@
     }
    ],
    "callers": [
-    "vaft.plot.backend.recipes._build_mhd_linear_geometry_island"
+    "vaft.plot.backend.recipes._build_mhd_linear_geometry_island",
+    "vaft.process.perturbation.spectral_field_on_mesh"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -13354,6 +13385,41 @@
    "curated": false,
    "evidence": "",
    "implementation": "vaft.process.perturbation.finite_width_delta.at",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "process",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "unassessed",
+   "source_file": "vaft/process/perturbation.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].imag)"
+    },
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(mesh_psi_norm, psi_norm, coefficients[:, j].real)"
+    }
+   ],
+   "callers": [],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "vaft.process.perturbation.spectral_field_on_mesh",
    "operation": [
     "resampling"
    ],
@@ -17233,6 +17299,39 @@
    "resolved_by": "",
    "scientific_risk": "low",
    "source_file": "workflow/stability_atlas/build_atlas.py"
+  },
+  {
+   "algorithm_semantics": "calls numpy.interp (not curated)",
+   "assets": [],
+   "audit_scope": "derived_numerics_not_triaged",
+   "call_sites": [
+    {
+     "call": "numpy.interp",
+     "snippet": "np.interp(r_over_a * rmin[-1], rmin, rho)"
+    }
+   ],
+   "callers": [
+    "workflow.transport_atlas.audit_tglf_nn.audit_state"
+   ],
+   "classification": "unverified",
+   "configuration_source": "caller arguments / module literals (not curated)",
+   "curated": false,
+   "evidence": "",
+   "implementation": "workflow.transport_atlas.audit_tglf_nn._surface_rho",
+   "operation": [
+    "resampling"
+   ],
+   "owning_layer": "workflow_study",
+   "primitives": [
+    "numpy.interp"
+   ],
+   "production_reachability": "not_statically_reached",
+   "production_reachability_note": "",
+   "recommended_action": "research/study script outside the production Snakefiles; not migrated unless promoted.",
+   "related_issue": "",
+   "resolved_by": "",
+   "scientific_risk": "low",
+   "source_file": "workflow/transport_atlas/audit_tglf_nn.py"
   }
  ],
  "scan_roots": [

@@ -1,4 +1,4 @@
-"""Collisionality regimes: axisymmetric neoclassical and non-axisymmetric NTV (#1111).
+"""Collisionality regimes: axisymmetric neoclassical and non-axisymmetric NTV.
 
 ``neoclassical_collisionality``
     banana, plateau and Pfirsch--Schlueter along $\\hat\\nu = qR\\nu/v$, with the
@@ -55,7 +55,7 @@ def neoclassical_collisionality(*, epsilon: float = 0.1, labels: bool = True) ->
     $\epsilon$ widens the plateau. Each boundary sits in a shaded transition
     range, a factor :data:`TRANSITION_FACTOR` either side: real coefficients
     cross over smoothly, and where the crossover falls depends on the
-    collisionality convention and the coefficient fits (#1112).
+    collisionality convention and the coefficient fits.
     """
     labels = _check_labels(labels)
     if not 0.0 < epsilon < 1.0:

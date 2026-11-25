@@ -19,6 +19,9 @@ import pandas as pd
 
 import vaft
 
+from . import _summary_provenance as _provenance
+from ._summary_contract import PresetContract, TimeAxis, contract_attrs
+
 
 logger = logging.getLogger(__name__)
 
@@ -37,11 +40,11 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     # for continuity with the CHEASE history summaries. These are *different
     # definitions* of a quantity that shares a name, not two estimates of one:
     # they differ by the exact geometric factor R0*L_pol^2/(2V) -- 26% on the
-    # packaged reference. See issue #318.
+    # packaged reference.
     "beta_pol_circumference",
     "beta_tor",
     "beta_normal",
-    # #1691: the volume beta 2 mu0 <p>_V / <B^2>_V over the total field with the
+    # The volume beta 2 mu0 <p>_V / <B^2>_V over the total field with the
     # real F(psi) (Troyon's beta, Menard's aspect-ratio-robust normalization) and
     # its normalized form; a different definition from beta_tor/beta_normal, which
     # divide by the vacuum b0 at one radius.
@@ -81,7 +84,7 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "virial_li_lao",
     "virial_beta_bongard",
     "virial_li_bongard",
-    # #546: the three pairwise closures, the identity residuals evaluated on
+    # The three pairwise closures, the identity residuals evaluated on
     # the equilibrium's own volume integrals, and the conditioning that says
     # whether the RT-dependent ones mean anything. Report-only: no threshold
     # here gates anything.
@@ -118,7 +121,8 @@ EQUILIBRIUM_GLOBAL_PATHS = (
     # the virial mu_i columns are built on it; without it they are NaN.
     "magnetics",
     # beta_pol and li_3 divide by R_0, and the VEST database's
-    # equilibrium.vacuum_toroidal_field.r0 is not trustworthy (#325). The
+    # equilibrium.vacuum_toroidal_field.r0 is not trustworthy: b0*r0 disagrees
+    # with tf by 1.15-2.1x on affected shots. The
     # resolver cross-checks it against tf, so tf has to be loaded or the check
     # is blind and the corrupt value is used silently.
     "tf",
@@ -161,7 +165,7 @@ CORE_PROFILES_PATHS = (
     "tf",
 )
 
-#: The neoclassical product's queryable face (#550 phase 8). Deliberately small:
+#: The neoclassical product's queryable face. Deliberately small:
 #: what a campaign question asks of a bootstrap-current profile is how much current
 #: there is, where it sits, and over how much of the radius the solver was asked --
 #: and the last of those is what stops a partial run reading as a small current.
@@ -177,7 +181,7 @@ NEOCLASSICAL_COLUMNS = (
     "points_solved",
     "b0_T",
     "has_core_transport",
-    # The NEO core_transport slice this bootstrap current corresponds to (#1655).
+    # The NEO core_transport slice this bootstrap current corresponds to.
     # Flux descriptors are filled only when ``transport_match_status`` is
     # ``matched``; every other status names why there is no correspondence.
     "source",
@@ -204,6 +208,9 @@ NEOCLASSICAL_COLUMNS = (
 
 #: ``core_transport_identifier`` index of a neoclassical model (data dictionary).
 NEOCLASSICAL_MODEL_INDEX = 5
+#: Closed-form neoclassical entries share identifier 5 but are no NEO flux product;
+#: equal to ``vaft.machine_mapping.neoclassical.CHANG_HINTON_CODE_NAME``.
+_CLOSED_FORM_NEOCLASSICAL_PRODUCERS = ("vaft.process.transport_state.chang_hinton_heat_flux",)
 
 NEOCLASSICAL_PATHS = (
     "core_profiles",
@@ -244,7 +251,7 @@ TURBULENT_TRANSPORT_COLUMNS = (
     "gamma_e_peak_abs_m2_s",
 )
 
-# One row per classical core_transport entry and time slice (#1654). The entry holds
+# One row per classical core_transport entry and time slice. The entry holds
 # one formulation and one EFIT lineage, and each slice names its resolved state, so a
 # row never mixes states, lineages or formulations. Flux columns read only
 # ``energy.flux``; the model's diffusivities are reported as ``chi_*`` coefficients
@@ -327,7 +334,8 @@ EFIT_RELIABILITY_COLUMNS = (
     "equilibrium_lineage",
     # Which EFIT configuration produced the row: chi-square, weight and the
     # iteration counts mean different things under the routine legacy weights
-    # and the statistical default of 2026-10-01 (#891), so rows of both must
+    # and the statistical default of 2026-10-01 (constraint uncertainty as the
+    # only continuous fit scale, binary inclusion weights), so rows of both must
     # not be read as one population.  "name@sha12", or "unrecorded".
     "efit_configuration",
 )
@@ -355,7 +363,7 @@ SHOT_OVERVIEW_COLUMNS = (
     # The window is the envelope of the detector's segments, so its extent is
     # not how long the plasma was there.  Reported beside the duration rather
     # than folded into it: changing what `pulse_duration_s` means would move a
-    # published column under its readers (#752).
+    # published column under its readers.
     "pulse_duty_cycle",
     "max_ip_kA",
     "mean_b_t_T",
@@ -371,6 +379,9 @@ class SummaryPreset:
     replace_groups: tuple[str, ...]
     sort_columns: tuple[str, ...]
     extractor: Callable[[object, int], list[dict]]
+    #: The declared row contract (grain, identity, time axis, column meaning);
+    #: see :mod:`vaft.database._summary_contract`. It changes no value.
+    contract: PresetContract | None = None
 
 
 def _safe_get(container, key: str, default=np.nan):
@@ -417,7 +428,8 @@ def _extract_time(eq_slice, eq_times, index: int) -> float:
 
 
 def _extract_q_min(eq_slice) -> float:
-    # q_min is a structure in the DD; its signed min-|q| is q_min.value (#277).
+    # q_min is a structure in the DD; its value is the q of smallest magnitude,
+    # kept with its sign, in q_min.value.
     return _as_float(_safe_get(eq_slice, "global_quantities.q_min.value", np.nan))
 
 
@@ -448,7 +460,7 @@ def _virial_values(outputs: dict, index: int) -> dict[str, float]:
 
 
 def _virial_structured_values(values: dict) -> dict[str, float]:
-    """Flatten the #546 closure structure into the sheet's flat columns.
+    """Flatten the virial closure structure into the sheet's flat columns.
 
     The wrapper returns nested blocks; a spreadsheet row is flat. Missing
     blocks yield NaN rather than a KeyError, so a row computed by an older
@@ -532,7 +544,7 @@ def _beta_pol_circumference(eq_slice) -> float:
 
 
 def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> tuple[float, float]:
-    """The volume beta and its normalized form (#1691), or NaNs where they cannot be formed.
+    """The volume beta and its normalized form, or NaNs where they cannot be formed.
 
     ``beta_B = 2 mu0 int p dV / int B^2 dV``: the pressure integral from the 1-D
     profiles, the field integral over the inside of the boundary outline with
@@ -568,6 +580,10 @@ def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> t
         energy = float(compute_magnetic_energy(ods, time_slice=index, toroidal_field="equilibrium"))
     except Exception as exc:  # noqa: BLE001 - a slice without the inputs reports NaN
         logger.debug("slice %s: volume beta unavailable: %s", index, exc)
+        recorder = _provenance.active()
+        if recorder is not None:
+            recorder.note(index, ("beta_volume_B2", "beta_normal_B2"),
+                          f"volume beta raised {type(exc).__name__}: {exc}")
         return nan
     if pressure.size != volume.size or pressure.size < 2:
         return nan
@@ -582,16 +598,19 @@ def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> t
     return beta_volume, float(beta_normal_from_beta_volume(beta_volume, minor_radius, b0, ip))
 
 
-def _normalize_vacuum_field(ods, shot: int) -> None:
+def _normalize_vacuum_field(ods, shot: int) -> str | None:
     """Rebuild ``b0`` from ``profiles_1d.f``, which the database gets right.
+
+    Returns ``None`` when ``b0`` was rebuilt, otherwise why the stored ``b0``
+    was kept (the run record reports it as the fallback branch).
 
     The stored ``b0`` drifts by up to 101% within a shot while ``f`` at the
     boundary -- the vacuum ``R*B_phi``, since no poloidal current flows outside
-    the plasma -- holds flat to under 1% (issue #325). ``beta_tor`` and
+    the plasma -- holds flat to under 1%. ``beta_tor`` and
     ``beta_normal`` are computed from ``b0`` per time slice and ``vacuum_b0_T``
     reports it, so all three inherit that drift.
 
-    #325 fixes the producer, but only for data ingested after it. The shots
+    The producer is fixed, but only for data ingested after the fix. The shots
     already in HSDS keep their corrupt ``b0``, and re-ingesting them is not in
     scope, so the history sheet normalizes on the way past. This is a
     legacy-data repair, not the fix.
@@ -616,23 +635,23 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
         else:
             edges.append(np.nan)
     if not any(np.isfinite(edge) and edge != 0.0 for edge in edges):
-        return
+        return "no finite profiles_1d.f at the boundary"
 
     r0 = _as_float(vaft.omas.resolve_reference_major_radius(ods))
     if not np.isfinite(r0) or r0 <= 0.0:
         r0 = _as_float(_safe_get(ods, "equilibrium.vacuum_toroidal_field.r0"))
     if not np.isfinite(r0) or r0 <= 0.0:
-        return
+        return "no usable reference radius to divide f by"
 
     stored = _safe_get(ods, "equilibrium.vacuum_toroidal_field.b0")
     # The magnitude comes from |f_edge| because the stored b0's magnitude is
-    # what drifts (#325); the sign is the stored b0's, so this repair changes
+    # what drifts; the sign is the stored b0's, so this repair changes
     # magnitudes only and the sheet's vacuum_b0_T keeps the sign it always had.
     # f and b0 transform identically under a COCOS change (both TOR in OMAS's
     # table), so they cannot "follow different COCOS": a file whose f_edge and
     # b0 disagree in sign is internally inconsistent under every COCOS. Which of
     # the two is physical is not decided here -- the disagreement is logged and
-    # the stored sign kept (#692).
+    # the stored sign kept.
     sign = 1.0
     stored_has_sign = False
     try:
@@ -681,6 +700,7 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
                 100.0 * worst,
                 r0,
             )
+    return None
 
 
 def extract_equilibrium_global(ods, shot: int) -> list[dict]:
@@ -690,24 +710,41 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
 
+    # Only when summary(..., provenance=True) asked for it; None otherwise, and
+    # then nothing below differs from a run without the record.
+    recorder = _provenance.active()
+    if recorder is not None:
+        from vaft.omas.update import reference_major_radius_source
+
+        # before the repair below writes the resolved r0 back into the ODS
+        recorder.facts["r0_value"], recorder.facts["r0_source"] = reference_major_radius_source(ods, log=False)
+        stored_r0 = "equilibrium.vacuum_toroidal_field.r0"
+        # tested first: item access would create the leaf in the ODS
+        recorder.facts["r0_stored"] = _as_float(ods[stored_r0]) if stored_r0 in ods else np.nan
+        _provenance.snapshot_equilibrium(recorder, ods, "stored")
+
     # Before anything reads b0: the stored one drifts, profiles_1d.f does not.
     try:
-        _normalize_vacuum_field(ods, shot)
+        kept = _normalize_vacuum_field(ods, shot)
     except Exception as exc:
         logger.debug("Shot %s: vacuum field normalization failed: %s", shot, exc)
+        kept = f"the rebuild raised {type(exc).__name__}: {exc}"
+    if recorder is not None:
+        recorder.facts["b0_fallback"] = kept is not None
+        recorder.facts["b0_source"] = (
+            "rebuilt as |profiles_1d.f| at the boundary / R0, with the stored b0's sign"
+            if kept is None else f"stored equilibrium.vacuum_toroidal_field.b0 ({kept})"
+        )
 
     # The flux-surface geometry comes first: an EFIT-sourced ODS stores no
     # profiles_1d.volume/area, and without them the volume, area and
     # stored-energy columns below are empty no matter what runs after. Its trace
     # is the expensive step and is handed to the beta updater rather than repeated
     # -- over a shot range that doubling is the whole equilibrium cost.
-    surfaces = None
-    try:
-        surfaces = vaft.omas.update_equilibrium_profiles_1d_geometry(
-            ods, time_slice=None, return_surfaces=True
-        )
-    except Exception as exc:
-        logger.debug("Shot %s: flux-surface geometry failed: %s", shot, exc)
+    surfaces = _run_step(
+        recorder, ods, shot, vaft.omas.update_equilibrium_profiles_1d_geometry,
+        time_slice=None, return_surfaces=True,
+    )
 
     for updater in (
         vaft.omas.update_equilibrium_boundary,
@@ -716,30 +753,18 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         vaft.omas.update_equilibrium_global_quantities_area,
         vaft.omas.update_equilibrium_stored_energy,
     ):
-        try:
-            updater(ods, time_slice=None)
-        except Exception as exc:
-            logger.debug("Shot %s: %s failed: %s", shot, updater.__name__, exc)
+        _run_step(recorder, ods, shot, updater, time_slice=None)
 
     # beta_normal reads boundary.minor_radius, so this follows the boundary updater.
-    try:
-        vaft.omas.update_equilibrium_global_quantities_beta_li(
-            ods, time_slice=None, surfaces=surfaces
-        )
-    except Exception as exc:
-        logger.debug("Shot %s: global betas failed: %s", shot, exc)
-
-    try:
-        vaft.omas.update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None)
-    except Exception as exc:
-        logger.debug("Shot %s: diamagnetic update failed: %s", shot, exc)
-    try:
-        virial_outputs = vaft.omas.compute_virial_equilibrium_quantities_ods(
-            ods, time_slice=None
-        )
-    except Exception as exc:
-        logger.debug("Shot %s: virial calculation failed: %s", shot, exc)
-        virial_outputs = {}
+    _run_step(
+        recorder, ods, shot, vaft.omas.update_equilibrium_global_quantities_beta_li,
+        time_slice=None, surfaces=surfaces,
+    )
+    _run_step(recorder, ods, shot, vaft.omas.update_equilibrium_constraints_diamagnetic_flux,
+              time_slice=None)
+    virial_outputs = _run_step(
+        recorder, ods, shot, vaft.omas.compute_virial_equilibrium_quantities_ods, time_slice=None,
+    ) or {}
     eq_times = (
         np.asarray(ods["equilibrium.time"], dtype=float)
         if "equilibrium.time" in ods
@@ -787,7 +812,8 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             "time_s": _extract_time(eq_slice, eq_times, index),
             "ip_kA": _as_float(_safe_get(eq_slice, "global_quantities.ip")) / 1e3,
             # Column is labeled Wb: convert from the storage convention
-            # (Wb for DD-conformant files, Wb/rad for legacy ones; issue #236).
+            # (Wb for DD-conformant files, Wb/rad for legacy ones written before
+            # the native writer followed the DD).
             "psi_axis_Wb": _as_float(_safe_get(eq_slice, "global_quantities.psi_axis"))
             * ods_psi_to_wb_per_radian_factor(ods, index) * TWO_PI,
             "q_axis": _as_float(_safe_get(eq_slice, "global_quantities.q_axis")),
@@ -838,7 +864,41 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
         row["virial_beta"] = row["virial_beta_lao"]
         row["virial_li"] = row["virial_li_lao"]
         rows.append(row)
+    if recorder is not None:
+        recorder.facts["b0"] = b0_source
+        _provenance.classify_equilibrium_rows(
+            recorder, rows, [_time_source(ods["equilibrium.time_slice"][i], eq_times, i)
+                             for i in range(len(rows))],
+        )
     return rows
+
+
+def _run_step(recorder, ods, shot: int, updater, **kwargs):
+    """One updater; a failure is logged at DEBUG and the run goes on (result ``None``).
+
+    With a run recorder active the failure, the warnings the step logs and the
+    leaves it changed are recorded too.
+    """
+    name = updater.__name__
+    with _provenance.capture_step_warnings(recorder, name):
+        try:
+            result = updater(ods, **kwargs)
+        except Exception as exc:
+            logger.debug("Shot %s: %s failed: %s", shot, name, exc)
+            if recorder is not None:
+                recorder.step_errors[name] = f"{type(exc).__name__}: {exc}"
+            result = None
+    _provenance.snapshot_equilibrium(recorder, ods, name)
+    return result
+
+
+def _time_source(eq_slice, eq_times, index: int) -> str:
+    """Where :func:`_extract_time` took the slice's time from."""
+    if "time" in eq_slice:
+        return "equilibrium.time_slice[:].time"
+    if eq_times is not None and index < len(eq_times):
+        return "equilibrium.time"
+    return "no time stored; the slice index stands in for it"
 
 
 def _producer(ods, prefix: str) -> tuple[str | None, str | None]:
@@ -849,13 +909,14 @@ def _producer(ods, prefix: str) -> tuple[str | None, str | None]:
 
 
 def _neoclassical_transport(ods, time_s: float) -> dict:
-    """The NEO core_transport slice that corresponds to one bootstrap slice (#1655).
+    """The NEO core_transport slice that corresponds to one bootstrap slice.
 
     The correspondence is unambiguous only when all of these hold, and every
     failure is a named status rather than a fallback:
 
     - the slice time is known (``bootstrap_time_unknown``);
-    - exactly one ``core_transport`` model is neoclassical, identifier 5
+    - exactly one ``core_transport`` model is neoclassical, identifier 5, not
+      counting a closed-form entry VAFT evaluated itself (Chang-Hinton)
       (``no_neoclassical_model`` / ``ambiguous_models``; never the first);
     - exactly one of its slices is within 1 us of that time
       (``no_slice_at_time`` / ``ambiguous_slices``; never the nearest);
@@ -881,6 +942,8 @@ def _neoclassical_transport(ods, time_s: float) -> dict:
         index for index in range(count)
         if _as_float(_stored_value(ods, f"core_transport.model.{index}.identifier.index"))
         == NEOCLASSICAL_MODEL_INDEX
+        and _stored_value(ods, f"core_transport.model.{index}.code.name")
+        not in _CLOSED_FORM_NEOCLASSICAL_PRODUCERS
     ]
     if not models:
         return {**out, "transport_match_status": "no_neoclassical_model"}
@@ -944,8 +1007,8 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
     """Summarize a mapped neoclassical result, one row per core_profiles slice.
 
     Reads the canonical product -- `core_profiles.j_bootstrap` as the NEO mapping
-    wrote it -- and never a native `out.neo.*` file: #550 phase 8 is explicit that
-    the standardized product is the long-term query contract, and a summary that
+    wrote it -- and never a native `out.neo.*` file: the standardized product is
+    the long-term query contract, and a summary that
     parsed solver output would be a second, divergent one.
 
     The profile is NaN outside the surfaces NEO solved. That is carried into the
@@ -981,8 +1044,8 @@ def extract_neoclassical(ods, shot: int) -> list[dict]:
         if field is not None:
             values = np.asarray(field, dtype=float).reshape(-1)
             # One stored value genuinely applies to every slice; anything shorter
-            # than the slice list does not, and clamping to its last entry is how
-            # slice 0's field came to answer for every slice in PR #696.
+            # than the slice list does not, and clamping to its last entry would
+            # let slice 0's field answer for every slice.
             if values.size == 1:
                 b0 = float(values[0])
             elif cp_index < values.size:
@@ -1170,7 +1233,7 @@ def _classical_parameters(text) -> dict | None:
 
 
 def extract_classical_transport(ods, shot: int) -> list[dict]:
-    """Summarize classical ``core_transport`` entries by entry and time slice (#1654).
+    """Summarize classical ``core_transport`` entries by entry and time slice.
 
     An entry is classical when its identifier is index -1 *and* name ``classical``:
     a negative index is private, so the index alone identifies nothing. Each row
@@ -1308,7 +1371,7 @@ def _bootstrap_current_kA(ods, cp_index: int, current, rho, solved) -> float:
     )
 
 
-#: What the confinement columns of the ``core_profiles`` preset mean (#1905).
+#: What the confinement columns of the ``core_profiles`` preset mean.
 #: Two definitions live side by side and are never merged: the legacy modelled
 #: budget keeps ``p_loss_MW`` / ``tau_e_s`` as they always were, and the
 #: experimental Ohmic chain of :func:`vaft.omas.confinement.ohmic_confinement_ods`
@@ -1526,10 +1589,10 @@ def _efit_collection(ods) -> dict:
     """The EFIT collection payload, parsed out of the one string that replicates.
 
     ``equilibrium.code.parameters`` is a `STR_0D`, so this is where the EFIT
-    stage puts the provenance that has to survive an entry (#380).  Everything
-    else it writes under that field is a local parser cache that is left behind
-    on purpose (#642), which is why the lineage below reads the string rather
-    than the cache it used to read.
+    stage puts the provenance that has to survive an entry.  Everything else it
+    writes under that field is a local parser cache that is deliberately not
+    replicated, which is why the lineage below reads the string rather than the
+    cache.
     """
     raw = _safe_get(ods, "equilibrium.code.parameters", None)
     if not isinstance(raw, str):
@@ -1607,8 +1670,8 @@ _SLICE_TIME_TOLERANCE_S = 1.0e-6
 
 #: Recorded in place of a lineage field a replica cannot carry.  A field that
 #: cannot be filled is named rather than dropped: an absent key reads the same
-#: as an artifact nobody hashed, which is how three of these went missing from
-#: every summary for a year (#728).
+#: as an artifact nobody hashed, so a field that cannot be filled would
+#: otherwise go missing from every summary unnoticed.
 _UNAVAILABLE = "not replicated"
 
 #: Recorded when the payload says that run produced no such artifact.  The
@@ -2076,6 +2139,73 @@ PRESETS = {
 }
 
 
+def _attach_contracts() -> None:
+    """Give every preset its declared row contract (no value or column changes)."""
+    from dataclasses import replace
+
+    from ._summary_specs import CORE_PROFILES_SPECS, EQUILIBRIUM_GLOBAL_SPECS, SHOT_OVERVIEW_SPECS
+
+    contracts = {
+        "shot_overview": PresetContract(
+            name="shot_overview", version=1, grain="shot", identity=("shot",), time=None,
+            columns=SHOT_OVERVIEW_SPECS,
+        ),
+        "equilibrium_global": PresetContract(
+            name="equilibrium_global", version=1, grain="slice", identity=("shot",),
+            time=TimeAxis("time_s", "equilibrium.time"), columns=EQUILIBRIUM_GLOBAL_SPECS,
+            notes=("rows carry no source or EFIT lineage column: main and public, magnetics-only and kinetic "
+                   "reconstructions of one shot share a key",),
+        ),
+        "core_profiles": PresetContract(
+            name="core_profiles", version=1, grain="slice", identity=("shot",),
+            time=TimeAxis("time_s", "core_profiles.time", tolerance_s=1e-9), columns=CORE_PROFILES_SPECS,  # enforced by compute_tau_E_engineering_parameters
+            notes=("each row is a core_profiles slice matched by time to the equilibrium slice eq_index",),
+        ),
+    }
+    from ._summary_specs import PULSE_TIME_BEGIN
+    from ._summary_specs_transport import (
+        CLASSICAL_TRANSPORT_SPECS,
+        EFIT_RELIABILITY_SPECS,
+        NEOCLASSICAL_SPECS,
+        TURBULENT_TRANSPORT_SPECS,
+        VOLUME_AVERAGED_SPECS,
+    )
+
+    def with_pulse_time(specs):
+        # the preset columns are ("shot", "pulse_time_begin", ...): see _summary_columns
+        return (specs[0], PULSE_TIME_BEGIN, *specs[1:])
+
+    contracts["volume_averaged"] = PresetContract(
+        name="volume_averaged", version=1, grain="slice", identity=("shot",),
+        time=TimeAxis("time_core_s", "core_profiles.time"), columns=with_pulse_time(VOLUME_AVERAGED_SPECS),
+        notes=("eq_index is the nearest equilibrium slice in time, with no tolerance; time_diff_s says how far",),
+    )
+    for name in ("efit_magnetic_reliability", "efit_kinetic_reliability", "efit_reliability"):
+        contracts[name] = PresetContract(
+            name=name, version=1, grain="measurement", identity=("shot", "measurement_type", "measurement_index"),
+            time=TimeAxis("time_s", "equilibrium.time"), columns=with_pulse_time(EFIT_RELIABILITY_SPECS),
+            notes=("the unit of measured, reconstructed, residual and uncertainty is that of measurement_type",),
+        )
+    contracts["neoclassical"] = PresetContract(
+        name="neoclassical", version=1, grain="model_output", identity=("shot",),
+        time=TimeAxis("time_s", "core_profiles.time"), columns=with_pulse_time(NEOCLASSICAL_SPECS),
+        notes=("the export key (shot, cp_index) has no time column",),
+    )
+    for name, specs in (("turbulent_transport", TURBULENT_TRANSPORT_SPECS),
+                        ("classical_transport", CLASSICAL_TRANSPORT_SPECS)):
+        contracts[name] = PresetContract(
+            name=name, version=1, grain="model_output",
+            identity=("source", "shot", "model_index", "profile_index"),
+            time=TimeAxis("time_s", "core_transport.model[:].profiles_1d[:].time"),
+            columns=with_pulse_time(specs),
+        )
+    for name, contract in contracts.items():
+        PRESETS[name] = replace(PRESETS[name], contract=contract)
+
+
+_attach_contracts()
+
+
 def get_summary_preset(name: str) -> SummaryPreset:
     if name == "efit_reliability":
         warnings.warn(
@@ -2091,6 +2221,40 @@ def get_summary_preset(name: str) -> SummaryPreset:
         raise ValueError(
             f"unknown summary preset {name!r}; available presets: {available}"
         ) from exc
+
+
+def summary_contract(preset: str | None = None) -> pd.DataFrame:
+    """The declared row contract of one preset, or an overview of all of them.
+
+    With ``preset``, one row per column: ``column``, ``unit`` (``"-"``
+    dimensionless, ``""`` not a physical quantity), ``quantity`` (the
+    :mod:`vaft.formula.boundaries` identity, when the column is exactly it),
+    ``definition``, ``formula`` and ``ids_path``. Without it, one row per
+    preset: grain, identity, time column and its IDS time base, the number of
+    columns and of columns that declare a quantity, and notes. The deprecated
+    ``efit_reliability`` alias is left out of the overview.
+    """
+    from ._summary_contract import contract_table
+
+    if preset is not None:
+        return contract_table(get_summary_preset(preset).contract)
+    rows = []
+    for name, definition in PRESETS.items():
+        if name == "efit_reliability":
+            continue
+        contract = definition.contract
+        rows.append({
+            "preset": name,
+            "version": contract.version,
+            "grain": contract.grain,
+            "identity": ", ".join(contract.identity),
+            "time": contract.time.column if contract.time else "",
+            "time_reference": contract.time.reference if contract.time else "",
+            "columns": len(contract.columns),
+            "with_quantity": sum(spec.quantity is not None for spec in contract.columns),
+            "notes": "; ".join(contract.notes),
+        })
+    return pd.DataFrame(rows)
 
 
 #: Exception families raised by the transport under the HSDS client (requests,
@@ -2128,8 +2292,13 @@ def summary(
     preset: str = "equilibrium_global",
     source: str | None = None,
     directory: str | None = None,
+    provenance: bool = False,
 ) -> pd.DataFrame:
-    """Return a canonical preset summary for a range or every available shot."""
+    """Return a canonical preset summary for a range or every available shot.
+
+    ``provenance=True`` also records how every value was obtained (see
+    :mod:`vaft.database._summary_provenance`) in ``result.attrs["provenance"]``.
+    """
     definition = get_summary_preset(preset)
     from .sources import resolve
 
@@ -2157,13 +2326,15 @@ def summary(
         shots = list(range(start, end + 1))
     frames: list[pd.DataFrame] = []
     skipped: list[dict] = []
+    records: list[pd.DataFrame] = []
     from . import open as open_shot
 
     for shot in shots:
         try:
             paths = _preset_paths(definition)
             try:
-                with open_shot(shot, source=source, paths=paths) as ods:
+                with open_shot(shot, source=source, paths=paths) as ods, \
+                        _provenance.recording(provenance) as recorder:
                     rows = definition.extractor(ods, shot)
                     pulse_time_begin = _pulse_time_begin(ods)
             except FileNotFoundError as exc:
@@ -2172,12 +2343,17 @@ def summary(
                 if "dataset_description" not in str(exc) or "dataset_description" not in paths:
                     raise
                 remaining_paths = [path for path in paths if path != "dataset_description"]
-                with open_shot(shot, source=source, paths=remaining_paths) as ods:
+                with open_shot(shot, source=source, paths=remaining_paths) as ods, \
+                        _provenance.recording(provenance) as recorder:
                     rows = definition.extractor(ods, shot)
                 pulse_time_begin = None
             frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
             if frame is not None:
+                # built first: a record that fails must not leave the shot both kept and skipped
+                record = _shot_record(recorder, frame, definition, pulse_time_begin) if provenance else None
                 frames.append(frame)
+                if record is not None:
+                    records.append(record)
         except Exception as exc:
             if _is_connection_error(exc):
                 raise ConnectionError(
@@ -2186,7 +2362,7 @@ def summary(
                 ) from exc
             _skip(skipped, shot, preset, exc)
 
-    return _assemble(frames, definition, skipped)
+    return _assemble(frames, definition, skipped, records if provenance else None)
 
 
 def _preset_paths(definition: SummaryPreset) -> list[str]:
@@ -2226,8 +2402,29 @@ def _skip(skipped: list[dict], shot: int, preset: str, exc: BaseException) -> No
     skipped.append({"shot": int(shot), "reason": f"{type(exc).__name__}: {exc}"})
 
 
+def _shot_record(recorder, frame: pd.DataFrame, definition: SummaryPreset,
+                 pulse_time_begin) -> pd.DataFrame:
+    """One shot's run-record rows, with the columns ``_shot_frame`` fills in."""
+    if recorder is not None:
+        for position in range(len(frame)):
+            for column in ("source", "equilibrium_source"):
+                if column in definition.columns:
+                    recorder.set(position, column, "copied", reason="the source the shot was read from")
+            if "pulse_time_begin" in definition.columns:
+                if pulse_time_begin is not None:
+                    recorder.set(position, "pulse_time_begin", "copied",
+                                 reason="dataset_description.data_entry.pulse_time_begin")
+                else:
+                    recorder.set(position, "pulse_time_begin", "missing",
+                                 reason="no pulse_time_begin in dataset_description")
+    return _provenance.shot_table(recorder, frame, definition.columns, definition.key_columns)
+
+
 def _assemble(
-    frames: list[pd.DataFrame], definition: SummaryPreset, skipped: list[dict]
+    frames: list[pd.DataFrame],
+    definition: SummaryPreset,
+    skipped: list[dict],
+    records: list[pd.DataFrame] | None = None,
 ) -> pd.DataFrame:
     """The canonical table: preset columns in order, sorted, skipped shots in ``attrs``."""
     if not frames:
@@ -2242,7 +2439,13 @@ def _assemble(
             .sort_values(list(definition.sort_columns), kind="stable")
             .reset_index(drop=True)
         )
+    if definition.contract is not None:
+        result.attrs.update(contract_attrs(definition.contract))
     result.attrs["skipped"] = list(skipped)
+    if records is not None:
+        result.attrs["provenance"] = _provenance.run_record(
+            records, definition.key_columns, definition.columns
+        )
     return result
 
 
@@ -2291,6 +2494,7 @@ def summary_from_ods(
     *,
     preset: str = "equilibrium_global",
     source: str = "local",
+    provenance: bool = False,
 ) -> pd.DataFrame:
     """The same canonical preset table as :func:`summary`, from in-memory ODS.
 
@@ -2307,7 +2511,8 @@ def summary_from_ods(
     path; ``result.attrs["skipped"]`` lists ``{"shot", "reason"}`` for each.
     The caller's ODS objects are not modified. A shot that cannot be
     determined, or appears twice, raises ``ValueError`` before any extractor
-    runs; ``source=None`` means ``"local"``.
+    runs; ``source=None`` means ``"local"``. ``provenance=True`` adds the run
+    record, as on :func:`summary`.
     """
     definition = get_summary_preset(preset)
     source = "local" if source is None else source
@@ -2321,17 +2526,23 @@ def summary_from_ods(
         raise ValueError(f"shot(s) given more than once: {repeated}")
     frames: list[pd.DataFrame] = []
     skipped: list[dict] = []
+    records: list[pd.DataFrame] = []
     for shot, ods in items:
         try:
             view = _preset_view(ods, definition)
-            rows = definition.extractor(view, shot)
+            with _provenance.recording(provenance) as recorder:
+                rows = definition.extractor(view, shot)
             pulse_time_begin = _pulse_time_begin(view)
             frame = _shot_frame(rows, definition, preset, shot, source, pulse_time_begin)
             if frame is not None:
+                # built first: a record that fails must not leave the shot both kept and skipped
+                record = _shot_record(recorder, frame, definition, pulse_time_begin) if provenance else None
                 frames.append(frame)
+                if record is not None:
+                    records.append(record)
         except Exception as exc:
             _skip(skipped, shot, preset, exc)
-    return _assemble(frames, definition, skipped)
+    return _assemble(frames, definition, skipped, records if provenance else None)
 
 
 def _columns(values: Sequence[str] | None, label: str) -> tuple[str, ...]:

@@ -7,7 +7,8 @@
   offset sample that made every voltage-mode value exactly 0;
 * the power balance never matches a slice by its index as seconds, and a
   missing P_Br leaves the "synchrotron" residual unknown instead of 0;
-* the 2-D maps contain cells by the boundary outline as well as psi_N <= 1;
+* the equilibrium 2-D map contains cells by the boundary outline, as the
+  core-profile maps do since #2253;
 * the core-profile volume average replaces a sqrt(psi_N) stand-in radius.
 """
 
@@ -134,7 +135,8 @@ def test_an_untimed_slice_never_matches_and_never_hides_a_real_match():
 def _fake_power_balance(monkeypatch, *, with_br: bool):
     import vaft.omas.formula_wrapper as wrapper
 
-    t = np.array([0.30, 0.31, 0.32])
+    # 2.0 s is exactly where the old index-as-seconds fallback put slice 2.
+    t = np.array([0.30, 0.31, 2.0])
     result = {
         "time": t,
         "dWdt": np.ones(3),
@@ -159,9 +161,11 @@ def _power_balance_ods():
     from omas import ODS
 
     ods = ODS(consistency_check=False)
-    ods["equilibrium.time_slice.0.global_quantities.ip"] = 1e5  # no time stored
+    ods["equilibrium.time_slice.0.time"] = 0.30
+    ods["equilibrium.time_slice.0.global_quantities.ip"] = 1e5
     ods["equilibrium.time_slice.1.time"] = 0.31
     ods["equilibrium.time_slice.1.global_quantities.ip"] = 2e5
+    ods["equilibrium.time_slice.2.global_quantities.ip"] = 3e5  # no time stored
     return ods
 
 
@@ -173,8 +177,9 @@ def test_power_balance_matches_by_time_only(monkeypatch):
     _fake_power_balance(monkeypatch, with_br=True)
     model = build_model("summary_time_power_balance", normalize_entries(_power_balance_ods()))
     dw_mag = _series(model, 1, "dW_mag,p/dt")
-    # 0.31 s matches slice 1; the untimed slice 0 is not "0 s" and matches nothing.
-    assert np.isnan(dw_mag[0]) and dw_mag[1] == pytest.approx(2e5) and np.isnan(dw_mag[2])
+    # The untimed slice 2 is not "2 s" and matches nothing; the old fallback gave 3e5.
+    np.testing.assert_allclose(dw_mag[:2], [1e5, 2e5])
+    assert np.isnan(dw_mag[2])
     np.testing.assert_allclose(_series(model, 4, "P_sync"), 10.0 - 4.0 - 1.0)
 
 
@@ -194,47 +199,32 @@ def test_the_legacy_time_power_balance_does_the_same(monkeypatch):
     sync = next(line for line in axes[4].get_lines() if "sync" in line.get_label())
     assert np.all(np.isnan(sync.get_ydata()))
     mag = axes[1].get_lines()[0].get_ydata()
-    assert np.isnan(mag[0]) and mag[1] == pytest.approx(2e5)
+    np.testing.assert_allclose(mag[:2], [1e5, 2e5])
+    assert np.isnan(mag[2])
 
 
 # --- closed flux region ------------------------------------------------------------
 
 
-def test_closed_flux_region_excludes_a_region_outside_the_outline():
-    from vaft.process.equilibrium import closed_flux_region
+def test_the_equilibrium_map_uses_the_core_maps_containment_rule(sample):
+    """One rule for both 2-D maps: plasma_cell_weights >= 0.5 (#2253, #2270)."""
+    from vaft.process.equilibrium import plasma_cell_weights
 
-    r = np.linspace(0.0, 2.0, 41)
-    z = np.linspace(-2.0, 2.0, 81)
-    rr, zz = np.meshgrid(r, z, indexing="ij")
-    psi_norm = ((rr - 1.0) ** 2 + zz ** 2) / 0.25  # psi_N = 1 on a circle of radius 0.5
-    psi_norm[zz < -1.5] = 0.5  # an exterior pocket where the flux turns back below 1
-    theta = np.linspace(0.0, 2.0 * np.pi, 200)
-    # a hair outside the psi_N = 1 circle, so a polygon chord drops no cell on it
-    outline_r, outline_z = 1.0 + 0.51 * np.cos(theta), 0.51 * np.sin(theta)
-
-    threshold = closed_flux_region(r, z, psi_norm)
-    inside = closed_flux_region(r, z, psi_norm, outline_r, outline_z)
-    assert np.any(threshold[zz < -1.5]) and not np.any(inside[zz < -1.5])
-    assert np.array_equal(inside[zz > -1.0], threshold[zz > -1.0])
-    with pytest.raises(ValueError, match="expected"):
-        closed_flux_region(r, z, psi_norm.T)
-
-
-def test_the_projection_still_uses_the_same_rule():
-    """``project_flux_function`` now calls the shared helper; nothing moved."""
-    from vaft.process._analytic_plasma_state import _inside_boundary
-    from vaft.process.equilibrium import closed_flux_region
-    from types import SimpleNamespace
-
-    r = np.linspace(0.5, 1.5, 21)
-    z = np.linspace(-0.6, 0.6, 25)
-    rr, zz = np.meshgrid(r, z, indexing="ij")
-    psi_n = ((rr - 1.0) ** 2 + zz ** 2) / 0.16
-    theta = np.linspace(0.0, 2.0 * np.pi, 120)
-    lcfs = SimpleNamespace(r=1.0 + 0.4 * np.cos(theta), z=0.4 * np.sin(theta))
-    eq = SimpleNamespace(r=r, z=z, lcfs=lcfs)
-    np.testing.assert_array_equal(_inside_boundary(eq, psi_n),
-                                  closed_flux_region(r, z, psi_n, lcfs.r, lcfs.z))
+    base = "equilibrium.time_slice.0"
+    r = np.asarray(sample[f"{base}.profiles_2d.0.grid.dim1"])
+    z = np.asarray(sample[f"{base}.profiles_2d.0.grid.dim2"])
+    psi = np.asarray(sample[f"{base}.profiles_2d.0.psi"])
+    axis = float(sample[f"{base}.global_quantities.psi_axis"])
+    edge = float(sample[f"{base}.global_quantities.psi_boundary"])
+    plasma = plasma_cell_weights(r, z, (psi - axis) / (edge - axis),
+                                 sample[f"{base}.boundary.outline.r"],
+                                 sample[f"{base}.boundary.outline.z"]) >= 0.5
+    model = build_model("equilibrium_field_2d", normalize_entries(sample), field="pressure", time_slice=0)
+    # Exactly the plasma cells are filled: the edge-filled projection is finite
+    # everywhere, so blank == outside.  The mask is not symmetric (R spans
+    # 0.05-1.2 m, Z -1.5-1.5 m), so a transposed mask on this square grid fails.
+    assert plasma.any() and not np.array_equal(plasma, plasma.T)
+    np.testing.assert_array_equal(np.isfinite(model.values), plasma.T)
 
 
 def test_the_equilibrium_map_no_longer_paints_the_coil_region(sample):
@@ -250,9 +240,6 @@ def test_the_equilibrium_map_no_longer_paints_the_coil_region(sample):
     # psi_N <= 1 out there near the coils, and the map is blank there now.
     assert np.any((psi_norm <= 1.0) & far)
     assert not np.any(np.isfinite(model.values) & far)
-    # around the plasma nothing changed: every cell the outline drops is far away
-    near = np.broadcast_to(np.abs(z)[:, None] < 0.6, psi_norm.shape)
-    np.testing.assert_array_equal(np.isfinite(model.values)[near], (psi_norm <= 1.0)[near])
 
 
 def test_the_core_profile_map_no_longer_paints_the_coil_region():
@@ -287,3 +274,26 @@ def test_an_authentic_radius_is_used_as_stored(sample):
     ods["equilibrium.time_slice.3.profiles_1d.rho_tor_norm"] = authentic
     result = _volume_average_rho_tor_norm(ods, 3, ods["equilibrium.time_slice.3.profiles_1d"])
     assert result is not None and np.array_equal(result, authentic)
+
+
+def test_a_stand_in_radius_with_no_q_is_used_with_a_warning(sample, capsys):
+    """Without q a sqrt(psi_N) leaf cannot be told from a flat-q radius."""
+    from vaft.omas.update import _volume_average_rho_tor_norm
+
+    ods = copy.deepcopy(sample)
+    del ods["equilibrium.time_slice.3.profiles_1d.q"]
+    stored = np.asarray(ods["equilibrium.time_slice.3.profiles_1d.rho_tor_norm"])
+    result = _volume_average_rho_tor_norm(ods, 3, ods["equilibrium.time_slice.3.profiles_1d"])
+    np.testing.assert_array_equal(result, stored)
+    assert "no q to check it against" in capsys.readouterr().out
+
+
+def test_the_bremsstrahlung_power_refuses_an_untimed_core_slice():
+    from omas import ODS
+    from vaft.omas.formula_wrapper import compute_bremsstrahlung_power
+
+    ods = ODS(consistency_check=False)
+    ods["core_profiles.profiles_1d.0.electrons.temperature"] = np.ones(3)
+    ods["equilibrium.time_slice.0.time"] = 0.0
+    with pytest.raises(KeyError, match="has no time"):
+        compute_bremsstrahlung_power(ods, time_slice=0)

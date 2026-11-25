@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Regenerate the Phase A preprocessing and magnetics inventories (issue #2148).
+"""Regenerate the Phase A preprocessing and magnetics inventories of the consolidation audit.
 
 Read-only with respect to the package: it parses source files with :mod:`ast`
-and reads the three retired magnetics YAML assets (kept as the test fixture
-``test/data/legacy_magnetics`` since #2158) and ``vest.yaml``; it never imports
+and reads the three retired magnetics YAML assets (kept only as the test fixture
+``test/data/legacy_magnetics`` now that vest.yaml holds the sensor registry) and
+``vest.yaml``; it never imports
 ``vaft``.
 
 Two products, both deterministic (sorted keys, sorted rows, repository-relative
@@ -61,7 +62,7 @@ SCAN_ROOTS = ("vaft", "workflow")
 EXCLUDED_PREFIXES = ("workflow/architecture_audit/",)
 SCHEMA_VERSION = 1
 
-#: The three assets left the package for the vest.yaml sensor registry (#2158);
+#: The three assets left the package for the vest.yaml sensor registry;
 #: the audit keeps joining them from their test-fixture home.
 GEOMETRY_DIR = Path("test/data/legacy_magnetics")
 MD_YAML = "MD.yaml"
@@ -187,7 +188,7 @@ CONFIG_RESOLVERS = {
 }
 
 #: Loader APIs over the external magnetics YAMLs; calling one makes the caller
-#: a consumer for the migration map. Since #2158 the private loaders are gone
+#: a consumer for the migration map. The private loaders no longer exist
 #: and these public APIs read the vest.yaml registry instead; the asset each
 #: one replaced is kept so the map still says which YAML a consumer used to read.
 MAGNETICS_LOADERS = {
@@ -218,7 +219,8 @@ DEFINITION_OPERATIONS = {
 _SNIPPET_LIMIT = 160
 
 # --------------------------------------------------------------------------
-# Hand-curated classification table (issue #2148 section 3).
+# Hand-curated classification table (fields as specified by the audit
+# specification, #2148 section 3).
 #
 # Key: (source_file, implementation). Values override the defaults; every key
 # must match a scanned row, which the build checks so a rename cannot leave a
@@ -518,7 +520,7 @@ CURATED: dict[tuple[str, str], dict[str, Any]] = {
     },
 }
 
-# Remaining curated rows: production chains and the duplicates #2147 names.
+# Remaining curated rows: production chains and the known duplicate implementations.
 CURATED.update(
     {
         ("vaft/machine_mapping/magnetics.py", "vaft.machine_mapping.magnetics._apply_fl10_windowed_compensation"): {
@@ -826,7 +828,7 @@ LAYER_DEFAULTS: dict[str, dict[str, str]] = {
 }
 
 #: Uncurated callers of a public magnetics adapter that used to read the split
-#: YAMLs (MAGNETICS_LOADERS). Since #2181 every such adapter reads the
+#: YAMLs (MAGNETICS_LOADERS). Every such adapter now reads the
 #: vest.yaml registry, so the caller already consumes the canonical source.
 ASSET_CONSUMER_DEFAULTS = {
     "classification": "canonical",
@@ -1338,7 +1340,7 @@ def _entry_canonical_index(
 
     The two forms the runtime accepts (``vaft.machine_mapping.magnetics_registry.
     _entry_record``), with its rules restated so the audit does not import the
-    code it audits: ``{id: ...}`` (#2158), or the legacy ``{index, r, z}`` pinned
+    code it audits: ``{id: ...}`` (the registry id), or the legacy ``{index, r, z}`` pinned
     by position, where ``index`` is canonical for probes and counts within the
     kind for flux loops (``index_scope="kind"``). A pin that misses its record
     raises, as it does at runtime.
@@ -1384,7 +1386,7 @@ def build_magnetics_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
     processing = vest[0]["diagnostics"]["equilibrium_magnetics"]["processing"]
     wiring = processing["wiring"]
     faults = processing["known_faults"]
-    # Since #2158 wiring overrides and faults name a sensor by its registry id;
+    # Wiring overrides and faults name a sensor by its registry id;
     # the legacy {index, r, z} form the runtime still accepts is resolved too.
     records = vest[0]["diagnostics"]["equilibrium_magnetics"]["sensors"]["records"]
     if [int(r["index"]) for r in records] != list(range(len(records))):

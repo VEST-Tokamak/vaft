@@ -1,7 +1,7 @@
-"""The #1727 plasma-formalism record: the seven conceptual cases, its rules, CGYRO.
+"""The plasma-formalism record: the seven conceptual cases, its rules, CGYRO.
 
-Each case is the classification the Phase A audit (#1725,
-``docs/_guide/Plasma_models.md``) reached for a real backend mode, built as a
+Each case is the classification the plasma-model audit
+(``docs/_guide/Plasma_models.md``) reached for a real backend mode, built as a
 record.  No solver runs.
 """
 
@@ -150,7 +150,7 @@ def test_the_record_is_immutable():
 # CGYRO: the reference integration
 # ---------------------------------------------------------------------------
 
-#: The #1353 record as it was before #1727, for every configuration that varies it.
+#: The record as it was before the formalism fields, for every configuration that varies it.
 LEGACY = {
     (field_model, nonlinear): {
         "distribution_formulation": "delta_f", "spatial_domain": "local", "numerical_representation": "continuum",
@@ -245,6 +245,6 @@ def test_cgyro_runs_record_the_shared_record_beside_the_1353_one():
 
     from vaft.code.gacode.cgyro import runner
 
-    # Since #1735 the record is read from the written input, not the configuration alone.
+    # The record is read from the written input, not the configuration alone.
     source = inspect.getsource(runner)
     assert '"plasma_formalism": plasma_formalism(configuration, parameters=inputs.parameters).as_dict()' in source

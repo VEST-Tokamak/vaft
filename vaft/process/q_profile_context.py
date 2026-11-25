@@ -1,4 +1,4 @@
-"""Equilibrium context for core low-n MHD interpretation (#1798, child of #1797).
+"""Equilibrium context for core low-n MHD interpretation.
 
 Descriptors only. :func:`core_q_context` answers *what the equilibrium looks
 like* where core n=1 physics lives: q landmarks and the shape of the profile,
@@ -8,8 +8,8 @@ pairs, low-shear regions under an explicit threshold, the plasma-boundary
 topology with q95 and q_boundary kept apart, and the pressure context of those
 regions where the profiles exist. It never says that an internal kink,
 infernal mode, fishbone, sawtooth or double tearing is present: that needs a
-stability calculation (#1635 reduced theory, #1429 DCON/RDCON, #1800 branch
-tracking) consuming this context.
+stability calculation (reduced theory, DCON/RDCON, branch tracking)
+consuming this context.
 
 Built on the canonical primitives rather than beside them:
 :func:`vaft.process.equilibrium.rational_surfaces` for every crossing
@@ -59,7 +59,7 @@ DEFAULT_Q_NOISE_ATOL = 0.02
 DEFAULT_Q_NOISE_RTOL = 0.02
 
 #: How far ``q[0]`` may stand from its neighbours before it is an outlier: the
-#: same rule as :data:`vaft.data._derived.AXIS_Q_OUTLIER_RATIO` (#317).
+#: same rule as :data:`vaft.data._derived.AXIS_Q_OUTLIER_RATIO`.
 _AXIS_NEIGHBOURS = slice(1, 5)
 
 
@@ -539,10 +539,10 @@ def core_q_context_from_profiles(
     surfaces of a reversed-shear pair have opposite signs. ``q_axis`` is
     ``|q|`` at the first sample and ``q_min`` the smallest ``|q|``: they are
     equal only for a monotonic profile. A first sample more than
-    ``AXIS_Q_OUTLIER_RATIO`` from its neighbours (the EFIT q0 artifact, #317)
+    ``AXIS_Q_OUTLIER_RATIO`` from its neighbours (the EFIT q0 artifact)
     is reported as ``q_axis`` with ``axis_q_outlier`` set and left out of every
     derived field, never repaired. A ``rho_tor_norm`` that is the
-    ``sqrt(psi_n)`` proxy (#276) is named as the poloidal radius it is. The
+    ``sqrt(psi_n)`` proxy written by older producers is named as the poloidal radius it is. The
     profile turns only where ``|q|`` moves back by more than
     ``max(q_noise_atol, q_noise_rtol |q|)``.
 
@@ -582,7 +582,7 @@ def core_q_context_from_profiles(
     q_abs = np.abs(q_raw)
 
     # 1. The axis sample: kept as stored, left out of every derived field when it
-    #    is the EFIT q0 outlier (#317) -- it would otherwise invent reversed shear.
+    #    is the EFIT q0 outlier -- it would otherwise invent reversed shear.
     i_axis = int(np.flatnonzero(finite)[0])
     neighbours = q_abs[finite][_AXIS_NEIGHBOURS]
     axis_outlier = False

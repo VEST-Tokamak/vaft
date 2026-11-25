@@ -1,4 +1,4 @@
-"""Cold-plasma waves from their equations: O and X modes, the CMA diagram and a profile's cutoffs (#1113).
+"""Cold-plasma waves from their equations: O and X modes, the CMA diagram and a profile's cutoffs.
 
 ``o_mode_cutoff``
     $n_O^2 = P$ against $\\omega/\\omega_{pe}$: the cutoff $P = 0$ at $\\omega_{pe}$;
@@ -371,7 +371,7 @@ def profile_propagation(*, theta=None, labels: bool = True) -> Diagram:
 
 
 # ---------------------------------------------------------------------------
-# #1113 section A: the omega-k, n^2-X and n^2-Y views, perpendicular or oblique
+# the omega-k, n^2-X and n^2-Y views, perpendicular or oblique
 # ---------------------------------------------------------------------------
 
 

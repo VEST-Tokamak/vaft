@@ -100,7 +100,7 @@ class TESConfig:
     # on the inboard (center-stack) face. The legacy deck instead re-fitted all
     # 18 coil groups each iteration toward a double null at (0.30, +-0.55) with
     # an iso-flux point 5 mm off the inboard wall, which forbids a limited
-    # state (issue #1469). It remains available as ``legacy_double_null()``.
+    # state. It remains available as ``legacy_double_null()``.
     fix_shape: int = 0
     flux_linkage: tuple[int, float] = (0, 0.0)
     nxpt: int = 0
@@ -138,7 +138,7 @@ class TESConfig:
     #             and the other coils into one row per half (18 groups). The
     #             PF1 blocks are 0.24 m apart only ~0.08 m from the inboard
     #             wall, and their ripple puts a spurious field null at
-    #             R ~ 0.13 m on the midplane of 39915 @ 325 ms (issue #1469).
+    #             R ~ 0.13 m on the midplane of 39915 @ 325 ms.
     #             Shape control (fix_shape=1) needs these 18 groups: TES caps a
     #             group at 10 rows.
     coil_model: str = "elements"
@@ -153,7 +153,7 @@ class TESConfig:
 
     # --- execution ---
     backend: Optional["ExecutionBackend"] = None  # None -> LocalBackend (vaft.code.execution)
-    #: Compute resources for each launch (#1016). ``None`` keeps the adapter's
+    #: Compute resources for each launch. ``None`` keeps the adapter's
     #: own declaration; a value replaces it, and its ``threads_per_task`` is
     #: set in the launch environment over ``env`` and the inherited one.
     resources: Optional["ResourceRequest"] = None
@@ -194,7 +194,7 @@ class TESConfig:
 
     @classmethod
     def legacy_double_null(cls, **overrides: Any) -> "TESConfig":
-        """Approximately the pre-#1469 deck: double-null shape control, legacy coils.
+        """Approximately the legacy deck: double-null shape control, legacy coils.
 
         ``fix_shape=1`` re-fits the 18 legacy coil groups every iteration so the
         field vanishes at (0.30, +-0.55) and the boundary flux passes through
@@ -204,9 +204,9 @@ class TESConfig:
         is now clipped at the grid box instead of losing its outside vertices,
         and in-grid rows are folded per grid node.
 
-        Before #1469 the deck wrote pf_passive currents 1000x too small, so
-        ``eddy=True`` had no effect. They are physical now, and on 39915 @
-        325 ms this shape-control fit then diverges; the preset is meant for
+        The legacy deck wrote pf_passive currents 1000x too small, so
+        ``eddy=True`` had no effect there. This preset writes them physical,
+        and on 39915 @ 325 ms this shape-control fit then diverges; the preset is meant for
         comparisons with ``eddy=False``.
         """
         legacy = dict(
@@ -254,7 +254,7 @@ class TESResult(RunOutcome):
     ods: Any = None
     scalars: Mapping[str, Any] = field(default_factory=dict)
 
-    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"``.
     runtime_status: str = "completed"
     #: Wall time from launch to exit or stop [s].
     elapsed_s: Optional[float] = None

@@ -137,7 +137,7 @@ def test_the_hugill_regions_are_on_the_right_sides():
 
 
 def test_hugill_draws_the_registered_boundaries_and_no_q_psi_limit_by_default():
-    """#1425: the lines are the hugill projection's registered boundaries; low_q (q_psi) is not on 1/q_cyl."""
+    """The lines are the hugill projection's registered boundaries; low_q (q_psi) is not on 1/q_cyl."""
     chart = vaft.diagram.hugill(elongation=1.6).model
     assert chart.parameters["boundaries"] == ("greenwald_hugill", "murakami_hugill")
     assert "low_q" not in chart.curves and "low_q" not in chart.labels
@@ -175,7 +175,7 @@ def test_the_troyon_low_q_cutoff_is_where_q_cyl_reaches_the_limit():
 
 
 def test_the_troyon_diagram_draws_references_without_a_stable_side():
-    """#1691: Troyon is a stability reference and the experimental levels are records, so no region is called
+    """Troyon is a stability reference and the experimental levels are records, so no region is called
     stable or unstable; the names sit by their lines and the note takes its values from the registry."""
     diagram = vaft.diagram.troyon(q_limit=2.0)
     chart = diagram.model
@@ -189,6 +189,37 @@ def test_the_troyon_diagram_draws_references_without_a_stable_side():
     assert len(refs) == 4                # the projection's experimental levels, dashed
     for key in ("strait_1988_diiid_beta_n_envelope", "sabbagh_2006_nstx_beta_n_record"):
         assert f"{B.get_boundary(key).coefficient:.3g}" in diagram.tikz
+
+
+def test_each_troyon_reference_is_named_beside_its_line_and_sourced_in_the_note():
+    """A bare beta_N number does not say whose record a dashed line is: each tag names the machine,
+    runs along its own line, and the note gives the kind and the source, all from the registry."""
+    diagram = vaft.diagram.troyon()
+    chart, tikz = diagram.model, diagram.tikz
+    for key, machine, kind, source in (
+        ("strait_1988_diiid_beta_n_envelope", "DIII-D", "envelope", "Strait 1988"),
+        ("taylor_1995_diiid_beta_n_record", "DIII-D", "record", "Taylor 1995"),
+        ("garstka_2002_st_beta_n_reference", "START/PEGASUS", "envelope", "Garstka 2002"),
+        ("sabbagh_2006_nstx_beta_n_record", "NSTX", "record", "Sabbagh 2006"),
+    ):
+        level = f"{B.get_boundary(key).coefficient:.3g}"
+        assert f"{{{machine} {level}}}" in tikz, key                     # the tag on the line
+        assert f"{machine} {level} {kind} ({source})" in tikz, key       # the note entry
+    refs = sorted(k for k in chart.curves if k.startswith("ref"))
+    x_max, y_max = chart.x_range[1], chart.y_range[1]
+    for name in refs:
+        (x0, y0), (x1, y1) = chart.curves[name][0], chart.curves[name][-1]
+        slope = (y1 - y0) / (x1 - x0)
+        x, y = chart.labels[name]
+        assert 0 < x < x_max and 0 < y < y_max, name                    # inside the frame
+        # nearer to its own line than to any other reference line
+        distance = {
+            other: abs(chart.curves[other][-1][1] / chart.curves[other][-1][0] * x - y)
+            / np.hypot(chart.curves[other][-1][1] / chart.curves[other][-1][0], 1.0)
+            for other in refs
+        }
+        assert min(distance, key=distance.get) == name, (name, distance)
+        assert slope > 0
 
 
 @pytest.mark.parametrize("fn, kw", [

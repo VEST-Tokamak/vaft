@@ -6,7 +6,7 @@ notebook re-derivation:
 * :func:`vest_summary_to_confinement_table` converts rows of the
   ``core_profiles`` summary preset (:func:`vaft.database.summary`) -- the
   shot-scale path lane D fills from the database;
-* :func:`load_vest_tier_a_confinement` reads lane D's Tier A table (#548): one
+* :func:`load_vest_tier_a_confinement` reads lane D's Tier A table: one
   row per EFIT state key with a measured ohmic power balance, the rows VEST's
   confinement results rest on;
 * :func:`vest_ods_to_confinement_rows` builds rows straight from an ODS with the
@@ -305,8 +305,8 @@ def vest_ods_to_confinement_rows(
     return validate_confinement_table(table)
 
 
-#: Slice-quality selections of the Tier A confinement analysis (#548, decided on
-#: #1490): the largest fractional current change within one confinement time, the
+#: Slice-quality selections of the Tier A confinement analysis (provenance: decided
+#: on the lane D confinement log, #1490): the largest fractional current change within one confinement time, the
 #: largest |dW/dt| / P_OH, and the smallest |I_p|.  ``primary`` is the analysis set;
 #: ``sensitivity`` the strict one that cannot identify three exponents on its own.
 VEST_TIER_A_SELECTIONS = MappingProxyType({
@@ -347,7 +347,7 @@ def load_vest_tier_a_confinement(
     *,
     path=None,
 ) -> pd.DataFrame:
-    """VEST Tier A confinement rows with a measured ohmic power balance (#548).
+    """VEST Tier A confinement rows with a measured ohmic power balance.
 
     Parameters
     ----------

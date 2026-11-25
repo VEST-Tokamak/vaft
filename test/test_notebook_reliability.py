@@ -116,7 +116,7 @@ def _offline_notebooks():
     until now nothing checked its list. A notebook could stop running, or stop
     being offline, and the only thing that noticed was somebody running the tool
     by hand. `verification_and_validation` did exactly that: it sat in the list
-    while dying on its second cell without a database (#284).
+    while dying on its second cell without a database.
     """
     spec = importlib.util.spec_from_file_location(
         "_verify_rendering", NOTEBOOKS / "_verify_rendering.py"
@@ -155,8 +155,8 @@ def headless_matplotlib():
 
 #: Notebooks whose cells assume content the repository no longer carries in the
 #: shape they expect, mapped to the reason.  Remove an entry when its notebook
-#: is repaired.  (The verification notebook left this list with #1835: it reads
-#: the dated Atlas snapshot, not the Pipeline 3 sheets.)
+#: is repaired.  (The verification notebook is not here: it reads the dated
+#: Atlas snapshot, not the Pipeline 3 sheets.)
 _KNOWN_STALE_NOTEBOOKS: dict[str, str] = {}
 
 
@@ -312,6 +312,51 @@ def test_neo_notebook_explains_itself_without_a_run(headless_matplotlib, monkeyp
     assert not guardless, guardless
 
 
+def test_transport_hierarchy_notebook_draws_the_closed_forms_without_a_run(
+    headless_matplotlib, monkeypatch, tmp_path, capsys
+):
+    """Without GACODE the overlay still exists: the two closed forms are pure VAFT.
+
+    NEO and TGLF report what they would show and skip; the classical and
+    Chang-Hinton entries are written to core_transport, survive a save/reload,
+    and the registered recipe draws them -- the figure is written as PNG and PDF.
+    """
+    import vaft
+
+    sample = Path(vaft.data.data_path("kineticEfit/ods_48224_300ms.json"))
+    if not sample.exists():  # pragma: no cover - repository-only asset
+        pytest.skip("the packaged 48224 kinetic sample is a repository-only asset")
+    for name in ("GACODEHOME", "GACODE_ROOT", "GACODE_PLATFORM",
+                 "TURBULENTTRANSPORTHOME", "TURBULENTTRANSPORT_ROOT"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("JULIA_DEPOT_PATH", str(tmp_path / "empty-depot"))
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    monkeypatch.setenv("VAFT_NOTEBOOK_OUTPUT_DIR", str(tmp_path / "figures"))
+
+    book = nbformat.read(
+        NOTEBOOKS / "transport_hierarchy_classical_neoclassical_turbulent.ipynb", as_version=4)
+    namespace = _run_every_cell(book, "hierarchy")
+
+    assert namespace["HAVE_GACODE"] is False
+    assert namespace["HAVE_NEO_RUN"] is False and namespace["HAVE_TGLF_RUN"] is False
+    assert namespace["RUN_DIR"] is None
+    assert namespace["STATE"].resolved
+    reloaded = namespace["RELOADED"]
+    identifiers = [reloaded[f"core_transport.model.{m}.identifier.index"]
+                   for m in range(len(reloaded["core_transport.model"]))]
+    assert identifiers == [-1, 5]
+    for suffix in ("png", "pdf"):
+        assert (tmp_path / "figures" / f"transport_hierarchy_48224_300ms.{suffix}").stat().st_size > 0
+    printed = capsys.readouterr().out
+    assert "Would run NEO" in printed and "Would run TGLF" in printed
+    # Solver containers are read only behind the flag that says a run happened.
+    # (section 6 reads NEO's grid only once the reloaded ODS holds a NEO entry).
+    guardless = [cell.source for cell in book.cells
+                 if cell.cell_type == "code" and "outputs_native" in cell.source
+                 and not any(flag in cell.source for flag in ("HAVE_NEO_RUN", "HAVE_TGLF_RUN", "NEO_ENTRY"))]
+    assert not guardless, guardless
+
+
 def _tglf_notebook():
     return nbformat.read(NOTEBOOKS / "turbulent_transport_with_tglf.ipynb", as_version=4)
 
@@ -375,6 +420,17 @@ def test_tglf_notebook_explains_itself_without_a_run(
     assert set(namespace["LOCALS"]) == set(namespace["RADII"])
     assert len(namespace["parameters"]) > 100
     assert namespace["TI_TE_AT_HALF_RADIUS"] == pytest.approx(0.0866, abs=5e-4)
+
+    # Section 11 reads a committed snapshot, so its population verdict is offline too:
+    # the answer follows T_i (none contained at 0.17, nearly all at T_i = T_e for the
+    # DIII-D-inclusive SAT3 family), and the MAST-U-only family crosses data edges.
+    table = namespace["population_table"]
+    best = "sat3_em_d3d+mastu+nstx_azf-1"
+    assert table("primary", "ratio_0.17")["contained_surfaces"].sum() == 0
+    assert table("primary", "ratio_1").loc[best, "contained_surfaces"] == 180
+    assert table("primary", "ratio_1").loc[best, "surfaces_past_data_edge"] == 0
+    assert table("primary", "ratio_1").loc["sat3_em_mastu_azf-1", "surfaces_past_data_edge"] > 100
+    assert (namespace["POPULATION"]["clip_only_surfaces"] >= 0).all()
 
     printed = capsys.readouterr().out
     assert "GACODEHOME" in printed
@@ -581,7 +637,7 @@ def _is_interactivity_guard(statement: ast.If, ipython_names: frozenset[str]) ->
 
     Treating every ``if`` as a guard would accept a pin under ``if True:`` or
     under an unrelated ``if output_dir:`` -- the pin would still run in Jupyter,
-    which is the whole failure mode (#175/#179/#182).
+    which is the whole failure mode (an Agg pin silencing interactive figures).
     """
     for node in ast.walk(statement.test):
         if isinstance(node, ast.Name) and (
@@ -619,7 +675,7 @@ def test_notebooks_do_not_pin_a_noninteractive_backend_unconditionally():
 
     Notebooks may still fall back to Agg when no kernel is present -- that is
     what the ``get_ipython() is None`` guard expresses -- but a pin at cell top
-    level applies to interactive frontends too (issues #175/#179/#182).
+    level applies to interactive frontends too.
     """
     failures = []
     for path in _notebook_paths():
@@ -696,7 +752,7 @@ def _stdlib_import_failures(cells, label: str = "<notebook>") -> list[str]:
     binding has to be compared against the *order* cells run in: pooling every
     import in the notebook first would accept ``itertools.chain`` in cell 2
     with ``import itertools`` in cell 9, which raises ``NameError`` on a real
-    top-to-bottom run and is exactly the issue-#180 failure.
+    top-to-bottom run and is exactly the failure this guards.
     """
     first_bound: dict[str, int] = {}
     first_used: dict[str, tuple[int, str]] = {}
@@ -734,7 +790,7 @@ def _stdlib_import_failures(cells, label: str = "<notebook>") -> list[str]:
 
 
 def test_notebooks_import_every_stdlib_module_they_reference():
-    """Guards the ``itertools`` class of failure from issue #180."""
+    """Regression guard for #180: a stdlib module used before the cell that imports it."""
     failures = []
     for path in _notebook_paths():
         failures.extend(_stdlib_import_failures(_code_cells(path), path.name))
@@ -743,7 +799,7 @@ def test_notebooks_import_every_stdlib_module_they_reference():
 
 
 def test_stdlib_import_check_is_sensitive_to_cell_order():
-    """Pooling imports notebook-wide would miss the #180 failure entirely.
+    """Pooling imports notebook-wide would miss the use-before-import failure entirely.
 
     A use in an early cell with the import in a later one runs clean only if
     the reader executes out of order; top-to-bottom it is a ``NameError``.
@@ -768,7 +824,7 @@ def test_stdlib_import_check_is_sensitive_to_cell_order():
 
 
 def test_notebook_references_to_packaged_data_resolve():
-    """Guards the wrong-subdirectory class of failure from issue #177."""
+    """Regression guard for #177: a packaged-data path pointing at the wrong subdirectory."""
     import re
 
     pattern = re.compile(r"vaft/data/([\w./-]+)")
@@ -797,7 +853,7 @@ def test_verification_notebook_snapshot_contract():
     import numpy as np
     import pandas as pd
 
-    snapshot = NOTEBOOKS / "data" / "verification_and_validation"
+    snapshot = NOTEBOOKS.parent / "vaft" / "data" / "samples" / "vest_tier_a"
     manifest = json.loads((snapshot / "snapshot_manifest.json").read_text())
     assert manifest["snapshot_version"] == 2 and not manifest["virial_compute_dirty"]
     for relative, expected in manifest["sha256"].items():
@@ -850,7 +906,7 @@ def test_verification_notebook_uses_english_atlas_content():
 def test_the_backend_guard_selects_inline_inside_an_agg_pinned_kernel():
     """The guard must recover a kernel whose environment pins Agg.
 
-    This is the reported failure from issues #175/#179/#182: a kernel running
+    Regression guard for #175/#179/#182: a kernel running
     with `MPLBACKEND=Agg` renders nothing and warns "FigureCanvasAgg is
     non-interactive". Relying on ipykernel to preset MPLBACKEND is not enough --
     older releases do not, which is why the guard asks for inline explicitly.

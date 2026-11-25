@@ -1,4 +1,4 @@
-"""Spectroscopy and ionization concept diagrams, with progressive metadata (#1046).
+"""Spectroscopy and ionization concept diagrams, with progressive metadata.
 
 ``spectroscopy_ionization_stages``
     every ionization stage of an element, the selected one highlighted, with

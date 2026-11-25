@@ -158,18 +158,32 @@ All four fixed in P4, each pinned by `test/test_plot_science_consolidation_p4.py
   a stored time as matching nothing; the matchers use `nanargmin`, so one
   untimed slice no longer hides every real match.  A missing P_Br or P_line
   leaves the synchrotron residual NaN.
-* `vaft.process.equilibrium.closed_flux_region` (the containment rule of
-  `project_flux_function`, which now calls it) masks both 2-D maps.  On the
-  packaged 39915 slice 0 it removes 1,663 cells, all in the exterior regions
-  near the coils (|Z| > 1.1 m) where psi_N turns back below one; none lies
-  next to the outline.
+* The equilibrium 2-D maps (`_mapped_field_values`) now decide containment by
+  the boundary outline with `vaft.process.equilibrium.plasma_cell_weights`
+  (`>= 0.5`), the rule #2253 gave the core-profile maps.  On the packaged
+  39915 slice 0 the flux threshold alone admitted ~1,660 cells in the exterior
+  regions near the coils (|Z| > 1.1 m) where psi_N turns back below one.
 * The volume average uses the stored `rho_tor_norm` when it is authentic and
   the `q`-derived radius of `equilibrium_rho_tor_norm_table` when it is missing
   or the stand-in.
 
+The power balance's upstream `compute_power_balance` and
+`compute_bremsstrahlung_power` drop the same index-as-seconds fallback: an
+untimed equilibrium slice leaves the time axis, an untimed core slice matches
+nothing.
+
 Still unresolved (need a numerical or physics decision, not a code fix): the
 `m = round(n q)` sign for negative q (B4) and the coil sector-angle weighting
 (item 19).
+
+Same defect class, outside the plot layer and left for a follow-up: the
+index-as-seconds fallback in `formula_wrapper` (two more readers),
+`general.find_matching_time_indices`, `process_wrapper.compute_core_profile_psi`
+/ `compute_core_profile_2d` and `efit_quality`; the 250 kHz default of
+`vaft.process.magnetics._sample_rate_from_time` behind the public
+`mirnov_spectrogram` and `toroidal_phase_fit_at_time`.  The psi_N 2-D map
+still tests cell centres against the outline rather than
+`plasma_cell_weights >= 0.5`.
 
 As found:
 

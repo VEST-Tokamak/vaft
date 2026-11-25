@@ -1,4 +1,4 @@
-"""Self-consistent equilibrium / kinetic-profile iteration through CHEASE (#123).
+"""Self-consistent equilibrium / kinetic-profile iteration through CHEASE.
 
 The loop, its states, its detectors and its failure states are tested offline
 with a stand-in for :func:`vaft.code.chease.refine_equilibrium` that writes
@@ -393,7 +393,7 @@ def test_a_hollow_kinetic_pressure_is_refused_before_any_solve(fake, tmp_path):
 
 
 def test_a_multi_target_synthesis_result_is_accepted_as_the_initial_equilibrium(tmp_path):
-    """The #1378 result carries its g-file through the solve it reports; it used
+    """A multi-target synthesis result carries its g-file through the solve it reports; it used
     to die in ``_coerce_geqdsk`` with "not subscriptable", and so did any other
     unrecognised object (cold review 0.8.0 plasma-state-and-chease F3)."""
     from vaft.code.chease_synthesis import SyntheticEquilibriumResult, ZeroDimensionalEquilibriumSpec
@@ -569,7 +569,7 @@ def test_a_weber_family_g_file_is_converted_before_anything_reads_it(tmp_path):
     eq = as_equilibrium(sample_geqdsk())
     index = eq.convention.candidates[0]
     pinned = dataclasses.replace(eq, convention=dataclasses.replace(eq.convention, cocos=index))
-    # What from_equilibrium wrote before #1292 was fixed: psi per weber under a weber CASE label. Rebuilt by
+    # Regression guard for #1292, what from_equilibrium once wrote: psi per weber under a weber CASE label. Rebuilt by
     # hand from the per-radian export, since the exporter itself now always writes per radian.
     weber = from_equilibrium(convert_cocos(pinned, index))
     assert f"COCOS={index}" in weber["CASE"]

@@ -32,7 +32,7 @@ REFERENCE_FIELDS = (207, 209, 241)
 
 #: The bound the three evidenced channels share. Field 171 has none: it is
 #: still in the 44740 and 45531 archives, because the logs class it as outboard
-#: equilibrium probe `Bz C2 05` (issue #825).
+#: equilibrium probe `Bz C2 05`.
 REFERENCE_LAST_SHOT = max(TOROIDAL_MIRNOV_REFERENCE_LAST_SHOT.values())
 
 
@@ -56,7 +56,7 @@ def test_the_channel_still_in_the_archives_is_published_once_as_an_equilibrium_p
     """44740 and 45531 carry field 171, and it is mapped -- as probe 36, not twice.
 
     The equilibrium wiring reads field 171 for every shot, so it is never also
-    a phase reference (issues #724, #825): one acquisition, one ODS entry.
+    a phase reference: one acquisition, one ODS entry.
     """
     from vaft.machine_mapping.magnetics import magnetics_wiring_for_shot
 
@@ -92,7 +92,7 @@ def test_the_gap_resolves_no_mode_number_at_all():
 @pytest.mark.parametrize(
     "shot,angles,step",
     [
-        # 1:30, 5:30, 7:30 -- field 171's disputed 9:30 is not published (#825).
+        # 1:30, 5:30, 7:30 -- field 171's disputed 9:30 is not published.
         (30000, (135.0, 195.0, 315.0), 6),
         (45531, (135.0, 225.0, 315.0), 4),
     ],
@@ -141,7 +141,7 @@ def test_the_returned_channels_are_copies():
 
 
 def test_the_disputed_channel_is_still_marked_as_such():
-    """Field 171 stays until issue #825 is settled, but never silently."""
+    """Field 171 stays marked as disputed, never silently."""
     disputed = [c for c in TOROIDAL_MIRNOV_REFERENCE_CHANNELS if "disputed" in c]
     assert [c["field_code"] for c in disputed] == [171]
     assert "#825" in disputed[0]["disputed"]

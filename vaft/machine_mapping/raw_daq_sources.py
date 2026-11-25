@@ -1,4 +1,4 @@
-"""Which raw DAQ fields each diagnostic registry entry is made from (#1742).
+"""Which raw DAQ fields each diagnostic registry entry is made from.
 
 :func:`raw_sources` answers, for a registry id and a shot, the question the
 mappers answer implicitly when they load: which archive fields, under which
@@ -14,7 +14,7 @@ The join from registry id to resolver is stated once, in the registry record:
 ``source.raw_fields: "<module>:<function>"`` in ``vest.yaml``.
 
 Reported are the ``vest.yaml`` era values. A ``processing_config`` passed to
-one run (a workflow override, #1731) is not reflected: it never changes which
+one run (a workflow override) is not reflected: it never changes which
 field is read, but its ``calibration_mode`` could change how a magnetics
 factor is applied. What a specific product used is in its ``code.parameters``.
 """

@@ -1,4 +1,4 @@
-"""Every canonical plot documents itself under the issue #1505 contract.
+"""Every canonical plot documents itself under the plot docstring contract.
 
 The contract is parsed by :mod:`vaft.plot._docstring`, and its structural half
 -- a summary sentence, an ``Interpretation`` section, a ``Parameters`` section
@@ -37,7 +37,7 @@ from vaft.plot._docstring import (
 
 #: Registered plots whose renderer docstrings are not yet under the contract.
 #: Remove a name when its renderer is migrated; never add one.
-#: The plots that predate the contract (#1505), frozen when it landed.  Never
+#: The plots that predate the contract, frozen when it landed.  Never
 #: edit: PENDING may only drop names from it, so no new plot can join PENDING.
 PENDING_AT_LANDING: frozenset[str] = frozenset({
     "barometry_time_pressure",
@@ -298,7 +298,7 @@ def test_options_explain_rather_than_enumerate_a_vocabulary(spec):
     """Options says what a choice means; the option schema lists the choices.
 
     Spelling out every member of a structural vocabulary makes the docstring a
-    second, silently diverging source of truth for it (issue #1505).
+    second, silently diverging source of truth for it.
     """
     text = plot_documentation(spec.name).options
     if text is None:

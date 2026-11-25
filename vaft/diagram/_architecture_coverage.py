@@ -1,4 +1,4 @@
-"""Which detailed diagram draws each science box of the platform figure, or which gap stands in for one (#1901).
+"""Which detailed diagram draws each science box of the platform figure, or which gap stands in for one.
 
 :data:`COVERAGE` pairs every box of :func:`vaft.diagram.vest_data_platform`
 (read from :mod:`vaft.diagram._platform`, never restated) with the workflow

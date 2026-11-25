@@ -1,4 +1,4 @@
-"""Population V&V of the kinetic-state atlas: input contract and evidence tables (#1835 A/B)."""
+"""Population V&V of the kinetic-state atlas: input contract and evidence tables."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import pytest
 
 from vaft.validation import kinetic_population as kp
 
-SNAPSHOT = Path(__file__).resolve().parents[1] / "notebooks/data/verification_and_validation"
+SNAPSHOT = Path(__file__).resolve().parents[1] / "vaft/data/samples/vest_tier_a"
 
 
 def _tables():

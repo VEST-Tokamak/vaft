@@ -1,4 +1,4 @@
-"""Interpretation metadata of an operational-space projection (#1624).
+"""Interpretation metadata of an operational-space projection.
 
 Axis identities say *what* is plotted; they do not say what the picture is
 for. A $\\nu_*$-$\\rho_*$ scatter is a global kinetic-similarity view used for
@@ -34,7 +34,8 @@ __all__ = [
 ]
 
 #: What kind of space a projection is. ``stability_limit`` is the conventional
-#: limit diagram (Hugill, Troyon); the other three are the #1624 taxonomy.
+#: limit diagram (Hugill, Troyon); the others classify dimensionless-similarity and
+#: regime spaces.
 CATEGORIES = (
     "stability_limit",
     "dimensionless_similarity",

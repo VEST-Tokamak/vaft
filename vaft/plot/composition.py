@@ -1,4 +1,4 @@
-"""Several canonical plots arranged into one figure (issue #1467).
+"""Several canonical plots arranged into one figure.
 
 A *composition* says which canonical plots a figure holds and where: a grid
 of ``rows x cols`` cells, each :class:`FigureCell` naming one plot, its
@@ -8,7 +8,7 @@ cases).  It holds no data and no drawing objects, so the same composition is
 drawn from an ODS, a native IMAS entry or several shots, by Matplotlib or by
 Plotly, and round-trips through :meth:`FigureComposition.to_dict`.
 
-This is a different question from a plot's own ``layout=`` (#260): that
+This is a different question from a plot's own ``layout=``: that
 spreads the series of *one* plot over axes; a composition places *several*
 independent plots.  A cell therefore holds one panel -- a plot that draws a
 grid of its own (an overview, ``layout="subplots"``) is refused by name.

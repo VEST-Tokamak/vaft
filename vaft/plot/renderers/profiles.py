@@ -113,6 +113,13 @@ def render_profile_1d(
         axes.set_title(model.title)
     if model.display is not None and model.display.notation == "scientific":
         axes.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
+    scale = (model.metadata or {}).get("y_scale") or {}
+    if scale.get("scale") == "symlog":
+        # Opt-in by the builder (e.g. the transport hierarchy, whose families differ
+        # by decades and whose sign follows the local gradient): log magnitude above
+        # ``linthresh``, linear and signed beneath it, with the zero line drawn.
+        axes.set_yscale("symlog", linthresh=float(scale["linthresh"]))
+        axes.axhline(0.0, color="0.5", linewidth=0.6, zorder=0)
     if model.x_limits is not None:
         axes.set_xlim(model.x_limits)
     if model.y_limits is not None:
@@ -168,7 +175,7 @@ _SENSOR_POSITIONS = {
     ),
 )
 def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """Toroidal phase per fluctuation band at one time (issue #485)."""
+    """Toroidal phase per fluctuation band at one time."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -184,7 +191,7 @@ def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool
     optional_paths=_SENSOR_POSITIONS["flux_loop"] + ("magnetics.flux_loop.{i}.flux.time", "magnetics.time"),
 )
 def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """Flux-loop flux against sensor position at one time (issue #486).
+    """Flux-loop flux against sensor position at one time.
 
     Interpretation
     --------------
@@ -225,7 +232,7 @@ def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bo
     optional_paths=_SENSOR_POSITIONS["b_field_probe"] + ("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.time"),
 )
 def b_field_probe_spatial_field(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """B-probe poloidal field against sensor position at one time (issue #486).
+    """B-probe poloidal field against sensor position at one time.
 
     Interpretation
     --------------
@@ -456,13 +463,26 @@ def equilibrium_profile_ffprime(
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
+#: What a core profile on ``coordinate="psi_norm"`` reads when it stores no
+#: ``grid.rho_pol_norm``: its ``grid.psi``, normalised by the equilibrium slice
+#: at its time (#2253).
+_CORE_PSI_NORM_PATHS = (
+    "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+    "core_profiles.profiles_1d.{i}.grid.psi",
+    "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.profiles_1d.psi",
+)
+
+
 @_profile_renderer(
     domain="core_profiles", quantity="",
     subject="electron_temperature",
     description="Core electron temperature profile.",
-    ids=("core_profiles",),
+    ids=("core_profiles", "equilibrium"),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.temperature",),
-    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
+    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm", *_CORE_PSI_NORM_PATHS),
 )
 def electron_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -505,9 +525,9 @@ def electron_temperature_profile(
     domain="core_profiles", quantity="",
     subject="electron_density",
     description="Core electron density profile.",
-    ids=("core_profiles",),
+    ids=("core_profiles", "equilibrium"),
     required_paths=("core_profiles.profiles_1d.{i}.electrons.density",),
-    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm",),
+    optional_paths=("core_profiles.profiles_1d.{i}.grid.rho_tor_norm", *_CORE_PSI_NORM_PATHS),
 )
 def electron_density_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
@@ -562,7 +582,7 @@ def ion_temperature_profile(
 
 
 #: What a profile gradient view needs from the equilibrium it is mapped
-#: through (issue #551): the flux map and the axis the midplane radii come from.
+#: through: the flux map and the axis the midplane radii come from.
 _GRADIENT_EQUILIBRIUM_PATHS = (
     "equilibrium.time_slice.{i}.profiles_1d.psi",
     "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",

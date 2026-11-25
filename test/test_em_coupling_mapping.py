@@ -70,7 +70,7 @@ def _active_geometry(ods: ODS, indices: tuple[int, ...]):
 def test_coupling_uses_the_pf_active_geometry_boundary(versioned_coupling):
     historical, current = versioned_coupling
 
-    # The PF6/PF7 rebuild falls in the week-long access after 45967 (#956).
+    # The PF6/PF7 rebuild falls in the week-long access after 45967.
     assert pf_geometry_version_for_shot(45967) == "1906"
     assert pf_geometry_version_for_shot(45968) == "2507"
     assert "PF geometry 1906" in historical["em_coupling.ids_properties.comment"]
@@ -168,7 +168,7 @@ def test_raw_mapping_entry_point_selects_coupling_for_shot(legacy_call):
     assert "PF geometry 2507" in ods["em_coupling.ids_properties.comment"]
 
 
-# --- Wall history (issue #956) ------------------------------------------------
+# --- Wall history ------------------------------------------------
 
 
 @pytest.mark.parametrize(("shot", "loops"), [(43016, 950), (43017, 965)])

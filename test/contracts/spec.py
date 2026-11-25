@@ -48,7 +48,7 @@ CANONICAL_IDS_SPECS = {
             "magnetics.time",
             "magnetics.ip.0.data",
             # Not required: a shot whose diamagnetic loop carried nothing has
-            # the IDS without it (#993).
+            # the IDS without it.
             "magnetics.flux_loop.0.flux.data",
             "magnetics.flux_loop.0.position.0.r",
             "magnetics.flux_loop.0.position.0.z",

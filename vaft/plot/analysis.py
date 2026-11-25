@@ -4,7 +4,8 @@ import numpy as np
 
 from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
 
-# One shared non-mutating accessor for the whole repository (issue #118).
+# One shared non-mutating accessor for the whole repository: reading a
+# missing path returns None instead of creating it in the ODS.
 from vaft.ods_access import path_value as _value
 
 from .selection import classify_regions
@@ -251,7 +252,7 @@ def _plot_poloidal_geometry(ax, geometry, color):
 #         return ods['magnetics.time'], ods['equilibrium.time_slice.:.global_quantities.ip'] / 1e3
     
 #     def get_diamagnetic_flux():
-#         return ods['magnetics.time'], ods['magnetics.diamagnetic_flux.0.data'] * 1e3 # Wb -> mWb, stored sign (#1196)
+#         return ods['magnetics.time'], ods['magnetics.diamagnetic_flux.0.data'] * 1e3 # Wb -> mWb, stored sign (positive = paramagnetic)
     
     
 #     def get_h_alpha():

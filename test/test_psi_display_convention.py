@@ -1,4 +1,4 @@
-"""Issue #478: the plotting layer labels poloidal flux by its stored convention.
+"""The plotting layer labels poloidal flux by its stored convention.
 
 ``vaft.plot.backend.convention.psi_convention`` reads a declared COCOS index
 through the accessor, else probes the data the way ``vaft.data.eqdsk`` does,
@@ -286,7 +286,7 @@ def test_both_renderers_label_the_colorbar_from_the_display(sample):
 
 
 # ---------------------------------------------------------------------------
-# review of #538
+# review findings
 # ---------------------------------------------------------------------------
 
 def test_the_convention_hand_off_is_not_a_public_keyword(sample):

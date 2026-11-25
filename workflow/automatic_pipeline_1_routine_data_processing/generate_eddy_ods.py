@@ -71,7 +71,7 @@ def main() -> int:
         )
     except UnacquiredPFCircuitError as error:
         # A PF circuit the solve needs was never recorded for this shot
-        # (#1568): a property of the data, recorded as the result. Every other
+        # -- a property of the data, recorded as the result. Every other
         # missing input -- a whole diagnostics component unavailable, which
         # can be a configuration fault -- still fails the rule.
         LOGGER.warning("shot %s: eddy has no output: %s", args.shot, error)
@@ -86,7 +86,7 @@ def main() -> int:
         # Ordered after UnacquiredPFCircuitError, which subclasses this error.
         # The solve's inputs are missing from the diagnostics product. When the
         # diagnostics stage recorded their raw signals as absent (a truncated
-        # raw dump, a shot without PF acquisition; #1799), that is the shot's
+        # raw dump, a shot without PF acquisition), that is the shot's
         # result. Otherwise -- no manifest, or a component missing for another
         # reason -- it stays a failure, since it can be a configuration fault.
         reason = (

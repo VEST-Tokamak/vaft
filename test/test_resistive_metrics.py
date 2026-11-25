@@ -184,7 +184,7 @@ def test_unweighted_is_the_ordinary_leading_singular_value():
 
 
 def test_the_control_vector_is_not_conjugated_twice():
-    """#778 found `vh.conj() @ x` computing v^T x. The returned control
+    """Regression guard for #778: `vh.conj() @ x` computed v^T x. The returned control
     vector must be the right singular vector itself."""
     mode = dominant_mode(COUPLING)
     u, s, _ = np.linalg.svd(COUPLING, full_matrices=False)

@@ -1,11 +1,11 @@
-"""The plasma formalism of each GACODE-suite run (#1735, Phase C2 of #1723).
+"""The plasma formalism of each GACODE-suite run.
 
 NEO, TGLF, TGLF-NN and CGYRO share VAFT's GACODE plumbing -- ``input.gacode``, the
 profile projection, the launcher -- but not their physics. Each run is given a
-:class:`vaft.code.formalism.PlasmaFormalism` (#1727), derived from the ``KEY=VALUE``
+:class:`vaft.code.formalism.PlasmaFormalism`, derived from the ``KEY=VALUE``
 input the run was actually written with (upstream defaults where a key is absent),
-never entered by hand. The classification follows the Phase A audit
-(``docs/_guide/Plasma_models.md`` section 4, #1725):
+never entered by hand. The classification follows the plasma-model audit in
+``docs/_guide/Plasma_models.md`` section 4:
 
 * **NEO** solves the steady first-order drift-kinetic equation for every species:
   ``kinetic`` / ``drift_kinetic``, ``neoclassical_transport``, ``steady_state``.
@@ -79,7 +79,7 @@ _CGYRO_DEFAULTS = {"AE_FLAG": 0, "EQUILIBRIUM_MODEL": 2, "GLOBAL_FLAG": 0, "COLL
 #: N_FIELD -> VAFT's CGYRO field-model name (cgyro_check.f90: 1 phi, 2 + A_par, 3 + B_par).
 _CGYRO_FIELDS = {1: "es", 2: "em-aperp", 3: "em-aperp-bpar"}
 #: ``cgyro/src/cgyro_check.f90``. Model 2 is upstream's Miller extended harmonic (MXH);
-#: VAFT has always called it ``miller``, and the #1353 record keeps that name.
+#: VAFT calls it ``miller``, and the gyrokinetic formalism record keeps that name.
 _CGYRO_GEOMETRY = {1: "s_alpha", 2: "miller"}
 _CGYRO_COLLISIONS = {1: "lorentz", 2: "connor", 4: "sugama", 5: "simple_lorentz", 6: "landau",
                      7: "galerkin_sugama"}
@@ -144,6 +144,10 @@ def neo_plasma_formalism(parameters: Optional[Mapping[str, Any]] = None) -> Plas
         "threed_model": _integer(p, _NEO_DEFAULTS, "THREED_MODEL"),
         "species_model": "adiabatic_electrons" if adiabatic else "kinetic_electrons",
     }
+    if sim == 4:
+        # NEO's network is a learned surrogate of its drift-kinetic solution, not an
+        # analytic reduction: the realization keeps the two apart in any grouping (#1738).
+        extensions["realization"] = "learned_surrogate"
     population = ("ions",) if adiabatic else ("all",)
     common = dict(scientific_operation="neoclassical_transport", spatial_domain="local",
                   topology_domain="closed_flux_surface", regime="steady_state", solver="neo",

@@ -1,4 +1,4 @@
-"""Retiring the combined `chease-mhd-stability` source (#94, #527 step 9).
+"""Retiring the combined `chease-mhd-stability` source.
 
 `chease-mhd-stability` held a CHEASE refinement and the linear-MHD results that
 followed from it in one namespace. Both now live in the hierarchy -- the

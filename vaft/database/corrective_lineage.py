@@ -1,4 +1,4 @@
-"""The stages of pipeline 2 and what each needs first (issue #1842).
+"""The stages of pipeline 2 and what each needs first.
 
 One place for the answer to "which stages does the corrective pipeline build,
 and in what dependency order", so the Snakefile (``workflow/automatic_pipeline_2_corrective_data_update``)
@@ -33,7 +33,7 @@ CORRECTIVE_LINEAGE = (
 #: stated assumptions (``<Z_eff> = 2`` composition, ``T_i = T_e``) and the kinetic
 #: EFITs.  ``ti_inferred`` and ``resistive_zeff`` are opt-in: the pressure
 #: partition returns a ``T_i/T_e`` near 2 on VEST, and the resistive ``Z_eff`` is
-#: identifiable on few shots (#1842), so neither is written to ``main`` unasked.
+#: identifiable on few shots, so neither is written to ``main`` unasked.
 DEFAULT_STAGES = (
     "thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit",
 )

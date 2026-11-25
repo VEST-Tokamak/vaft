@@ -357,7 +357,7 @@ class TestToroidalModeRanking:
 
 
 class TestFilterPhaseConsistency:
-    """Issue #626: Ensure zero-phase filtering preserves exact temporal alignment."""
+    """Regression guard for #626: zero-phase filtering preserves exact temporal alignment."""
 
     def test_lowpass_zero_phase_preserves_pulse_peak_timestamp(self):
         t = sxr_time(20000)

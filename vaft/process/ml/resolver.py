@@ -1,4 +1,4 @@
-"""Resolve published ``vaft-nn`` models to verified local artifacts (#669 section 13).
+"""Resolve published ``vaft-nn`` models to verified local artifacts.
 
 ``vaft-nn`` is an external dependency of VAFT's ML layer, configured like the
 external codes: ``$VAFT_NN_HOME`` names a checkout of

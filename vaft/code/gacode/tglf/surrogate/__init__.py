@@ -6,7 +6,7 @@
                                   (decides whether the prediction is made at all)
 
 The surrogate is an implementation of the *same* physics contract the native backend
-runs, not a second scientific input representation (issue #553 section 4).  Its feature
+runs, not a second scientific input representation.  Its feature
 vector is built from :func:`~vaft.code.gacode.tglf.inputs.tglf_parameters` -- the keys
 that would be written into ``input.tglf`` -- so the two backends cannot drift apart
 without the shared contract changing.
@@ -32,6 +32,7 @@ from __future__ import annotations
 from ._types import (
     DEFAULT_DOMAIN_THRESHOLD,
     DOMAIN_MEASURE,
+    UPSTREAM_BOUND_CLIP_SIGMA,
     DomainAudit,
     ModelContractError,
     ModelIdentity,
@@ -46,6 +47,7 @@ from .inference import ensemble_predict, run_surrogate
 from .resolver import (
     KNOWN_DEVICES,
     METADATA_FILES,
+    OPTIONAL_METADATA_FILES,
     MODELS_COMPATIBILITY_ENVS,
     MODELS_HOME_ENV,
     available_models,
@@ -57,8 +59,10 @@ from .resolver import (
 __all__ = [
     "DEFAULT_DOMAIN_THRESHOLD",
     "DOMAIN_MEASURE",
+    "UPSTREAM_BOUND_CLIP_SIGMA",
     "KNOWN_DEVICES",
     "METADATA_FILES",
+    "OPTIONAL_METADATA_FILES",
     "MODELS_COMPATIBILITY_ENVS",
     "MODELS_HOME_ENV",
     "DomainAudit",

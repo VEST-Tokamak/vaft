@@ -1,4 +1,4 @@
-"""The VEST equilibrium magnetic sensor registry (issue #2158).
+"""The VEST equilibrium magnetic sensor registry.
 
 ``vest.yaml`` ``0.diagnostics.equilibrium_magnetics.sensors`` is the only
 runtime definition of the 75 equilibrium magnetic sensors: 64 poloidal-field
@@ -7,7 +7,8 @@ shot's wiring onto it. Every machine-mapping consumer of the sensors (static and
 diagnostics ODS, raw-source records, constraint groups, provenance, the wiring
 check) goes through :func:`resolve_equilibrium_magnetics_sensors`.
 
-Three identities are kept apart (#2148 audit, section 2):
+Three identities are kept apart, because a wiring revision moves one without
+the others:
 
 ``id``
     The physical sensor -- a position. It never changes with wiring.
@@ -391,7 +392,7 @@ def _entry_record(
             raise VestConfigurationError(f"{context}: {record.id} is a {record.kind}, not a {kind}")
         _check_pin(entry, record, context=context, required=False)
         return record
-    # Legacy adapter: the pre-#2158 `{index, r, z}` form, pinned by position.
+    # Legacy adapter: the older `{index, r, z}` form, pinned by position.
     index = int(entry["index"])
     if "r" not in entry or "z" not in entry:
         raise VestConfigurationError(f"{context}: a legacy index entry must pin r and z")

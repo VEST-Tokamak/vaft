@@ -25,7 +25,7 @@ It sits between two neighbours and is neither of them:
 - **Profile reconstruction** turns measurements into a profile through a measurement model and a fit
   (`measurements -> fit -> profile`). Multi-diagnostic fitting of one primitive profile (TS +
   interferometer, TS + ECE, CX + other diagnostics) stays there — see
-  [Equilibrium and kinetic profiles]({{ '/workflows/equilibrium-kinetic-profiles/' | relative_url }}) and #1204.
+  [Equilibrium and kinetic profiles]({{ '/workflows/equilibrium-kinetic-profiles/' | relative_url }}).
   The fit carries its own assumptions — the basis (polynomial, core-polynomial/edge-exponential,
   Gaussian process) and its order, the fitting coordinate ($\rho_{\mathrm{tor},N}$ or $\psi_N$),
   positivity and uncertainty weighting — and the overview draws them entering the reconstructed profiles,
@@ -33,7 +33,7 @@ It sits between two neighbours and is neither of them:
 - **Simulation and consistency workflows** take a completed state into NEO, TGLF, CGYRO, CHEASE and
   predict a response or test consistency. A flux-matched profile may come out of an inverse solve, but it
   is *transport-model-consistent*, not a closure-inferred experimental parameter. The
-  equilibrium–kinetic iteration (#123) belongs there too.
+  equilibrium–kinetic iteration (`vaft.code.chease_kinetic_iteration.build_consistent_state`) belongs there too.
 
 The principle throughout: VAFT may complete an incomplete plasma state through explicit physical
 constraints, but **every inferred or synthetic quantity stays distinguishable from a measurement and
@@ -51,8 +51,8 @@ on `develop`; it introduces no new computational layer and no `Inference` runtim
 | synthetic | completed from an equilibrium and assumptions, with no kinetic data | `core_profiles_from_eq`, `generate_synthetic_kinetic_profiles` |
 | predicted | the output of a transport or stability model | TGLF fluxes; flux-matched profiles |
 
-The diagrams use the same grammar as the [physics-workflow diagrams]({{ '/reference/diagrams/' | relative_url }})
-(#1585), draw only the closures VAFT implements today, and number each closure's representative papers; synthetic completion and force balance are
+The diagrams use the same grammar as the [physics-workflow diagrams]({{ '/reference/diagrams/' | relative_url }}),
+draw only the closures VAFT implements today, and number each closure's representative papers; synthetic completion and force balance are
 described in their sections below.
 
 ![Plasma parameter inference: completing the kinetic profiles]({{ '/assets/diagrams/parameter_inference_overview.svg' | relative_url }})
@@ -80,7 +80,7 @@ $\sum_s n_{i,s} = f\,n_e$ (common ion temperature),
 
 $$p_i = p_{\mathrm{eq}} - e\,n_e T_e, \qquad T_i = \frac{p_i}{e\,f\,n_e} = \frac{p_{\mathrm{eq}}}{e f n_e} - \frac{T_e}{f}.$$
 
-`vaft.process.kinetic_closure.infer_ti_pressure_partition` implements this (#1426). It propagates
+`vaft.process.kinetic_closure.infer_ti_pressure_partition` implements this. It propagates
 the uncertainty linearly — keeping the $n_e$ correlation between $p_e$ and the ion density — and
 **flags points, never fills them**: $p_i \le 0$ and $p_i < \sigma(p_i)$ return `NaN`. It also refuses a
 circular input: a pressure reconstructed with an assumed $T_i/T_e$ (a kinetic EFIT) returns that
@@ -105,7 +105,7 @@ $$g(\rho) = \sqrt{\frac{p_{\mathrm{eq}}(\rho)}{p_{\mathrm{eq}}(0)}}, \qquad
 T_e = T_{e0}\,g, \qquad n_e = \frac{p_{\mathrm{eq}}(0)}{k\,e\,T_{e0}}\,g,$$
 
 with $k = 2$ for pure hydrogen and $T_i = T_e$ ($p_{\mathrm{eq}} = 2 e n_e T_e$).
-`generate_synthetic_kinetic_profiles` (#122) generalizes it as a fidelity ladder:
+`generate_synthetic_kinetic_profiles` (`vaft.process.profile`) generalizes it as a fidelity ladder:
 
 | Level | Closure |
 | --- | --- |
@@ -155,7 +155,7 @@ it as a target. See the [resistive Z_eff diagram]({{ '/reference/diagrams/' | re
 
 ## Atomic-model-constrained Z_eff(ρ)
 
-On `develop` since PR #1659 (Lane L / Lane Z: #1565, #1566, #1569):
+Implemented by
 `vaft.process.impurity.resolve_radial_composition(..., normalization="resistive_closure", projection=...,
 resistive_target=...)`. The chain combines radial structure from atomic physics with a global amplitude
 from the resistive closure:
@@ -170,7 +170,7 @@ T_e(ρ), n_e(ρ), plasma age  +  elemental-ratio prior (C/O)
 
 Atomic physics sets the radial charge-state structure (`ionization="coronal"` or `"transient"` with
 `plasma_age_s`); the resistive closure sets one impurity amplitude, the `projection` callable being the
-resistive projection `P_R` of #1566 and `resistive_target` the observed resistive Z_eff. The result is
+resistive projection `P_R` (it maps Z_eff(ρ) to the single resistive-equivalent value; see below) and `resistive_target` the observed resistive Z_eff. The result is
 closure-inferred, not a unique composition measurement; `populate_radial_impurity_profiles` writes it to
 `core_profiles` with `<Z>(ρ)`, `<Z²>(ρ)` per element.
 
@@ -186,7 +186,8 @@ $V_\theta$ independently; a future inference would combine CXRS rotation, a neoc
 model, pressure gradients and the equilibrium geometry. The source order should be
 measured > closure-inferred > model-predicted > explicit zero-rotation assumption.
 
-Today TGLF and CGYRO receive **$\gamma_E = 0$ as an explicit assumption** (#553). A zero-rotation
+Today TGLF and CGYRO receive **$\gamma_E = 0$ as an explicit assumption**: the GACODE profile carries no rotation, so
+TGLF's `VEXB_SHEAR` and CGYRO's `GAMMA_E` stay zero and the input provenance records that no source chose them. A zero-rotation
 assumption must never be presented as inferred rotation.
 
 ## Inferred quantities depend on inferred quantities
@@ -296,7 +297,7 @@ radial = resolve_radial_composition(te, ne, rho, {"C": 1, "O": 1},
 ods = populate_radial_impurity_profiles(ods, radial)
 ```
 
-`P_R` is the resistive projection `Z_eff(ρ) -> scalar` (#1566; it receives NaN at undefined points and
+`P_R` is the resistive projection `Z_eff(ρ) -> scalar` (it receives NaN at undefined points and
 must ignore them); see [above](#atomic-model-constrained-z_effρ).
 
 ## Related
@@ -304,5 +305,7 @@ must ignore them); see [above](#atomic-model-constrained-z_effρ).
 - [Equilibrium and kinetic profiles]({{ '/workflows/equilibrium-kinetic-profiles/' | relative_url }}) — profile fitting, synthetic profiles, EFIT
 - [Computational layers]({{ '/reference/computational-layers/' | relative_url }}) — Formula / Process / Code
 - [Formula reference]({{ '/reference/formula/' | relative_url }}) and [Scientific diagrams]({{ '/reference/diagrams/' | relative_url }})
-- Issues: #1204 (profile evidence), #122 (synthetic profiles), #123 (equilibrium–kinetic iteration),
-  #1426 (pressure-partition T_i), #1565 / #1566 / #1569 (impurity and Z_eff), #553 (rotation inputs)
+- APIs: `vaft.process.kinetic_closure.infer_ti_pressure_partition` (pressure-partition T_i),
+  `vaft.process.profile.generate_synthetic_kinetic_profiles` (synthetic profiles),
+  `vaft.code.chease_kinetic_iteration.build_consistent_state` (equilibrium–kinetic iteration),
+  `vaft.process.impurity.resolve_radial_composition` (impurity and Z_eff)

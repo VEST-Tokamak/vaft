@@ -34,7 +34,8 @@ Every step is re-runnable; later collector output is picked up by running the
 same sequence again. A size match alone is not accepted for containers: an
 ``rsync --partial`` resume has left a truncated file in place before.
 
-Run::
+Run (with ``VAFT_CAMERA_COLLECT``, ``VAFT_CAMERA_OFFLOAD_HOST`` = ``<user>@<server>`` and, if not
+22, ``VAFT_CAMERA_OFFLOAD_PORT`` exported, or ``--collect``/``--host``/``--port`` given)::
 
     ./offload_camera_collection.py plan
     ./offload_camera_collection.py push --limit 1000
@@ -52,6 +53,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import logging
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -61,9 +63,10 @@ from typing import Iterable, Sequence
 
 LOGGER = logging.getLogger("offload_camera_collection")
 
-DEFAULT_COLLECT = Path("/Volumes/hsyun_ssd/mcf/_collect")
-DEFAULT_HOST = "user1@147.46.36.244"
-DEFAULT_PORT = 2222
+# Site settings come from the environment (or the command line), never from the repository.
+DEFAULT_COLLECT = Path(os.environ["VAFT_CAMERA_COLLECT"]) if os.environ.get("VAFT_CAMERA_COLLECT") else None
+DEFAULT_HOST = os.environ.get("VAFT_CAMERA_OFFLOAD_HOST")  # <user>@<server>
+DEFAULT_PORT = os.environ.get("VAFT_CAMERA_OFFLOAD_PORT", "22")  # parsed by argparse
 DEFAULT_REMOTE_LEGACY = "/srv/vest.filedb/legacy/camera_visible"
 DEFAULT_REMOTE_MCF = "/mnt/backup/vaft/camera_mcf"
 
@@ -493,10 +496,12 @@ def cmd_purge(args: argparse.Namespace, remote: Remote) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--collect", type=Path, default=DEFAULT_COLLECT)
+    parser.add_argument("--collect", type=Path, default=DEFAULT_COLLECT, required=DEFAULT_COLLECT is None,
+                        help="collection directory (default $VAFT_CAMERA_COLLECT)")
     parser.add_argument("--out", help="state directory (default: <collect>/../_collect_logs/offload)")
-    parser.add_argument("--host", default=DEFAULT_HOST)
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser.add_argument("--host", default=DEFAULT_HOST, required=DEFAULT_HOST is None,
+                        help="<user>@<server> (default $VAFT_CAMERA_OFFLOAD_HOST)")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="ssh port (default $VAFT_CAMERA_OFFLOAD_PORT or 22)")
     parser.add_argument("--remote-legacy", default=DEFAULT_REMOTE_LEGACY)
     parser.add_argument("--remote-mcf", default=DEFAULT_REMOTE_MCF)
     sub = parser.add_subparsers(dest="command", required=True)

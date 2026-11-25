@@ -15,7 +15,7 @@ from omas import *
 from vaft.compat import trapz_compat
 
 # The names defined here.  What this module imports (``omas``, NumPy, other
-# VAFT modules) is not re-exported through it (#1382).
+# VAFT modules) is not re-exported through it.
 __all__ = [
     "resolve_reference_major_radius",
     "update_core_profiles_global_quantities_volume_average",
@@ -151,7 +151,7 @@ def update_equilibrium_profiles_1d_radial_coordinates(ods, time_slice=None, plot
         ts['profiles_1d.r_outboard'] = f_out(psi_1d)
 
         # Generate validation plots.  Rendering is delegated to vaft.plot; this
-        # namespace only shapes the data into view models (issue #63).
+        # namespace only shapes the data into view models.
         if plot_opt >= 1:
             _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1d)
 
@@ -219,7 +219,7 @@ def update_equilibrium_boundary(ods, time_slice=None):
         """A no-plasma slice has no geometric axis: store NaN, not the fallback.
 
         The fallback would write the grid centre or a stale axis as if it were
-        one, and every shape history would plot it (#952).  NaN rather than
+        one, and every shape history would plot it.  NaN rather than
         leaving the leaf absent keeps colon reads across slices rectangular
         (``ods['equilibrium.time_slice.:.boundary.geometric_axis.r']``) and
         makes ``float(...)`` of the leaf a NaN instead of a LookupError.
@@ -327,7 +327,7 @@ def update_equilibrium_global_quantities_q_min(ods, time_slice=None):
     q_min is the q of smallest magnitude, stored with its sign: under COCOS 3-6
     and 13-16 q is negative (Sauter Table I, sign(q) = sigma_Ip sigma_B0
     sigma_rhothetaphi), where a plain ``q.min()`` would return the *largest*
-    |q|. This is the same definition the EQDSK and VFIT readers use (#277).
+    |q|. This is the same definition the EQDSK and VFIT readers use.
     ``q_min.rho_tor_norm`` is written alongside when the profile has one.
     """
     # Process all time slices if not specified
@@ -359,7 +359,7 @@ def update_equilibrium_global_quantities_volume(ods, time_slice=None):
         if 'equilibrium.time_slice' in ods and len(ods['equilibrium.time_slice']):
             time_slice = range(len(ods['equilibrium.time_slice']))
         else:
-            print("Warning: No time slices found in ODS. Cannot update stored energy.")
+            logger.warning("No time slices found in ODS. Cannot update the volume.")
             return
     # Convert single integer to list for iteration
     if isinstance(time_slice, (int, np.integer)):
@@ -367,19 +367,19 @@ def update_equilibrium_global_quantities_volume(ods, time_slice=None):
     for idx in time_slice:
         ts = ods['equilibrium.time_slice'][idx]
         if 'profiles_1d.volume' not in ts:
-            print(f"Warning: profiles_1d.volume not found for time slice {idx}")
+            logger.warning("profiles_1d.volume not found for time slice %s", idx)
             continue
         ts['global_quantities.volume'] = ts['profiles_1d.volume'][-1]
 
 def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
     r"""Evaluate the **local** toroidal current density on the 2-D grid.
 
-    Issue #316. This used to map ``profiles_1d.j_tor`` onto (R,Z) with
-    ``psi_to_rz``, the way pressure is mapped. That is wrong, because
+    ``profiles_1d.j_tor`` is deliberately not mapped onto (R,Z) with
+    ``psi_to_rz``, the way pressure is mapped. That would be wrong, because
     ``profiles_1d.j_tor`` is not a flux function: the IMAS DD defines it as the
     flux-surface *average* ``<j_tor/R> / <1/R>``, while the local density varies
     across a surface as ``R`` and ``1/R``. Splatting the average back onto the
-    grid produced a field that is constant on each surface, which the DD's
+    grid would produce a field that is constant on each surface, which the DD's
     ``profiles_2d.j_tor`` -- "Toroidal plasma current density" -- is not.
 
     Nothing needs mapping. ``p'`` and ``ff'`` *are* flux functions and ``R`` is
@@ -395,9 +395,6 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
     defined out to the boundary, and clipping them into the scrape-off layer
     would draw current where there is none. The test is containment in
     ``boundary.outline``, not ``psi_norm <= 1`` -- see :func:`_inside_boundary`.
-
-    The function was inert before issue #290 -- it skipped every slice for want
-    of a 1-D ``j_tor`` -- so supplying that profile is what armed the defect.
 
     Parameters:
         ods (OMAS structure): Input OMAS data structure, updated in place.
@@ -448,7 +445,7 @@ def update_equilibrium_profiles_2d_j_tor(ods, time_slice=None):
 
 
 def update_equilibrium_profiles_2d_b_field(ods, time_slice=None):
-    """Write ``B_R``, ``B_Z`` and ``B_phi`` on the 2-D grid (issue #483).
+    """Write ``B_R``, ``B_Z`` and ``B_phi`` on the 2-D grid.
 
     From the stored psi map and ``F(psi)``: the poloidal components are
     Sauter Eq. 20 on a bicubic spline of psi, and the toroidal one is the
@@ -548,8 +545,7 @@ def _equilibrium_flux_frame(ods, idx):
 
     The storage convention comes from :func:`vaft.process.equilibrium.as_equilibrium`,
     whose ``convention.psi_per_radian`` is settled by Ampere's law round the LCFS
-    and so answers on legacy Wb/rad artifacts that carry no ``profiles_1d.phi``
-    (issue #236).
+    and so answers on legacy Wb/rad artifacts that carry no ``profiles_1d.phi``.
     """
     from vaft.process.equilibrium import as_equilibrium
 
@@ -752,7 +748,7 @@ def update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice=None):
     ``q = dPhi/dPsi`` with both fluxes in weber, so ``Phi`` follows from
     integrating ``q`` against psi and ``rho_tor = sqrt(|Phi| / (pi |B0|))``.
 
-    This replaces the ``sqrt(psi_N)`` proxy that VAFT wrote before issue #192 and
+    This replaces the ``sqrt(psi_N)`` proxy that older VAFT versions wrote and
     that the packaged samples still hold -- bit-identical to ``sqrt(psi_N)`` and
     up to 0.126 away from the real coordinate. ``rho_tor_norm`` is
     ``ProfileRecipe.default_coordinate``, so the proxy is the abscissa of every
@@ -804,7 +800,7 @@ def update_equilibrium_profiles_1d_toroidal_flux(ods, time_slice=None):
 
 
 def update_equilibrium_profiles_1d_j_tor(ods, time_slice=None):
-    r"""Derive the flux-surface-averaged toroidal current density (issue #290).
+    r"""Derive the flux-surface-averaged toroidal current density.
 
     The IMAS Data Dictionary defines ``profiles_1d.j_tor`` as
     ``<j_tor/R> / <1/R>``. Substituting the Grad-Shafranov current
@@ -885,7 +881,7 @@ def _per_radian_cocos(convention) -> int | None:
     the first and learn nothing from the second.
 
     A declared 11-18 index becomes its 1-8 sibling because the frame already
-    divided out the 2*pi (issue #478); a split candidate set means the
+    divided out the 2*pi; a split candidate set means the
     orientation is unidentified, and ``None`` -- the historical per-radian
     default of :func:`~vaft.formula.equilibrium.poloidal_field_factor` -- is
     the honest answer there, as +1 is for ``sigma_Bp``.
@@ -949,8 +945,8 @@ def update_equilibrium_global_quantities_area(ods, time_slice=None):
 def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfaces=None):
     r"""Derive ``beta_pol``, ``beta_tor``, ``beta_normal``, ``li_3`` and ``length_pol``.
 
-    Issue #238. A g-file stores none of these and OMFIT supplied them from its
-    own flux-surface solve, so losing that path left them empty -- four of the
+    A g-file stores none of these (OMFIT supplied them from its own
+    flux-surface solve), so without this they stay empty -- four of the
     database summary's columns among them.
 
     **The definitions are the IMAS DD's**, read from the DD rather than from
@@ -973,8 +969,9 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfac
     ``2 mu0 <p>_V / (mu0 Ip/L_pol)^2``, which on the packaged reference gives
     0.0287 against the DD's 0.0227 -- **26% apart**, with the EFIT form matching
     the stored value to 0.1%. The DD form is what goes in the DD leaf; the other
-    is available to the database summary under its own name, and #318 owns the
-    sensitivity study of the two. Do not "fix" the leaf by matching OMFIT.
+    is available to the database summary under its own name (Open: #318, the
+    convergence and geometry sensitivity study of the two). Do not "fix" the
+    leaf by matching OMFIT.
 
     ``R_0`` comes from :func:`resolve_reference_major_radius`, not straight from
     ``vacuum_toroidal_field.r0``: on the VEST database that leaf is corrupt and
@@ -983,12 +980,14 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfac
     ``B0`` is ``vacuum_toroidal_field.b0``, as the DD says. That does not
     reproduce the reference's ``beta_tor`` (ratio 1.041, and the field that would
     match is 0.1539 T against a stored 0.1509 T); OMFIT's reference field is
-    unidentified and is recorded as such on #238 rather than reverse-engineered.
+    unidentified and is recorded as such (provenance: #238) rather than
+    reverse-engineered.
 
     ``int(B_pol^2 dV)`` needs only the per-surface line integral ``bp_dl``,
     because the volume element cancels one power of ``B_pol``; and the psi
     convention comes from the same resolved frame as the rest of this module,
-    not from a further ``ods_psi_to_wb_per_radian_factor`` call site (#294).
+    not from a further ``ods_psi_to_wb_per_radian_factor`` call site (Open:
+    #294, no single authoritative psi-normalization path yet).
 
     Parameters:
         ods (OMAS structure): Input OMAS data structure, updated in place.
@@ -1066,6 +1065,9 @@ def update_equilibrium_global_quantities_beta_li(ods, time_slice=None, *, surfac
             beta_normal = beta_normal_from_beta_tor(beta_tor, minor_radius, b0, ip)
             if np.isfinite(beta_normal):
                 ts["global_quantities.beta_normal"] = float(beta_normal)
+        elif np.isfinite(beta_tor):
+            # said, not silent: a stored beta_normal is otherwise kept without a trace
+            logger.warning("boundary minor radius unusable for time slice %s; skipping beta_normal.", idx)
 
         line_integrals = _surface_line_integrals(
             idx, frame, None if surfaces is None else surfaces.get(idx)
@@ -1159,7 +1161,19 @@ def _surface_line_integrals(idx, frame, surfaces=None):
 
 
 def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
-    """``R_0`` for the DD global quantities, cross-checked against the TF IDS.
+    """``R_0`` for the DD global quantities; see :func:`reference_major_radius_source`."""
+    return reference_major_radius_source(ods)[0]
+
+
+def reference_major_radius_source(ods, *, log: bool = True) -> tuple[float, str]:
+    """``R_0`` for the DD global quantities and which leaf it came from.
+
+    The second element names the source in words; it starts with ``"tf.r0"``
+    exactly when the equilibrium's own ``r0`` was rejected, which is the branch
+    that changes ``beta_pol`` and ``li_3``. ``log=False`` reports the rejection
+    at DEBUG instead of WARNING, for a caller that only wants to know the source.
+
+    ``R_0`` is cross-checked against the TF IDS.
 
     ``beta_pol`` and ``li_3`` both divide by ``R_0``, which the DD takes from
     ``equilibrium.vacuum_toroidal_field.r0``. On the VEST database that leaf is
@@ -1170,7 +1184,7 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
     grounds that ``b0`` matched ``tf``'s field at R = 0.4. That was true only of
     the *first* time slice. ``b0`` drifts by up to 101% over a shot, and 41672
     stores the correct ``r0 = 0.4`` while its ``b0`` still swings, so both
-    members of the pair are unreliable (issue #325).
+    members of the pair are unreliable.
 
     ``b0 * r0`` remains what is compared against ``tf.b_field_tor_vacuum_r``,
     and deliberately so. ``profiles_1d.f`` at the boundary is the more
@@ -1184,19 +1198,20 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
     reference radius.
 
     Fixing the reader does not fix the database; the pipeline that writes
-    ``vacuum_toroidal_field`` is where that belongs, and issue #325 owns it.
+    ``vacuum_toroidal_field`` is where that belongs.
     """
-    equilibrium_r0 = _scalar_or_nan(ods, "equilibrium.vacuum_toroidal_field.r0")
+    stored = "equilibrium.vacuum_toroidal_field.r0"
+    equilibrium_r0 = _scalar_or_nan(ods, stored)
     tf_r0 = _scalar_or_nan(ods, "tf.r0")
     if not np.isfinite(tf_r0) or tf_r0 <= 0.0:
-        return equilibrium_r0
+        return equilibrium_r0, f"{stored} (no tf.r0 to check it against)"
     if not np.isfinite(equilibrium_r0) or equilibrium_r0 <= 0.0:
-        logger.warning(
+        (logger.warning if log else logger.debug)(
             "equilibrium.vacuum_toroidal_field.r0 is unusable (%s); using tf.r0 = %.4f m.",
             equilibrium_r0,
             tf_r0,
         )
-        return tf_r0
+        return tf_r0, f"tf.r0 (the stored r0 = {equilibrium_r0} is unusable)"
 
     # Magnitudes: tf and the equilibrium disagree about the sign of the
     # toroidal field on VEST (tf is positive, f is negative), which is a COCOS
@@ -1204,7 +1219,7 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
     tf_field_radius = abs(_finite_median(ods, "tf.b_field_tor_vacuum_r.data"))
     b0 = _finite_median(ods, "equilibrium.vacuum_toroidal_field.b0")
     if not np.isfinite(tf_field_radius) or not np.isfinite(b0) or tf_field_radius == 0.0:
-        return equilibrium_r0
+        return equilibrium_r0, f"{stored} (no tf field or b0 to check it against)"
 
     # b0*r0 is deliberately the thing compared, not profiles_1d.f. f is the
     # vacuum B*R whichever reference radius the file names, so it agrees with tf
@@ -1215,9 +1230,9 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
         abs(equilibrium_field_radius - tf_field_radius)
         <= _TF_CONSISTENCY_TOLERANCE * tf_field_radius
     ):
-        return equilibrium_r0
+        return equilibrium_r0, f"{stored} (b0*r0 agrees with tf within {_TF_CONSISTENCY_TOLERANCE:.0%})"
 
-    logger.warning(
+    (logger.warning if log else logger.debug)(
         "equilibrium.vacuum_toroidal_field is inconsistent with tf: b0*r0 = %.5f T.m "
         "(b0 = %.5f T, r0 = %.5f m) against tf's %.5f T.m. Using tf.r0 = %.4f m for R_0.",
         equilibrium_field_radius,
@@ -1226,7 +1241,10 @@ def resolve_reference_major_radius(ods, time_slice_node=None) -> float:
         tf_field_radius,
         tf_r0,
     )
-    return tf_r0
+    return tf_r0, (
+        f"tf.r0 (the stored r0 = {equilibrium_r0:.4f} m was rejected: b0*r0 = "
+        f"{equilibrium_field_radius:.5f} T.m against tf's {tf_field_radius:.5f} T.m)"
+    )
 
 
 #: How far ``b0*r0`` may sit from ``tf``'s ``B*R`` before the equilibrium's ``r0``
@@ -1383,7 +1401,7 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
         if 'equilibrium.time_slice' in ods and len(ods['equilibrium.time_slice']):
             time_slice = range(len(ods['equilibrium.time_slice']))
         else:
-            print("Warning: No time slices found in ODS. Cannot update stored energy.")
+            logger.warning("No time slices found in ODS. Cannot update stored energy.")
             return
     # Convert a single integer to a list for iteration, as the sibling
     # update_equilibrium_global_quantities_volume already did; without it any
@@ -1395,12 +1413,12 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
         ts = ods['equilibrium.time_slice'][idx]
         # check if profiles_1d.pressure and profiles_1d.volume exist
         if 'profiles_1d.pressure' not in ts or 'profiles_1d.volume' not in ts:
-            print(f"Warning: profiles_1d.pressure or profiles_1d.volume not found for time slice {idx}")
+            logger.warning("profiles_1d.pressure or profiles_1d.volume not found for time slice %s", idx)
             continue
         pressure_equil = ts['profiles_1d.pressure']
         volume_equil = ts['profiles_1d.volume']
         # W = 3/2 int p dV: the integral already carries the volume, so the
-        # formula's V is 1 -- one definition for every VAFT energy (#1768)
+        # formula's V is 1 -- one definition for every VAFT energy
         ts['global_quantities.energy_mhd'] = thermal_energy_from_p_V(trapz_compat(pressure_equil, x=volume_equil), 1.0)
 
 
@@ -1421,7 +1439,13 @@ def _volume_average_rho_tor_norm(ods, equil_idx, eq_profiles_1d):
     try:
         own_psi_norm, resolved = equilibrium_rho_tor_norm_table(ods, equil_idx)
     except CoordinateUnavailableError:
-        # Nothing to check against or derive from: the stored leaf, as before.
+        # Nothing to derive from, so the stored leaf is used as before.  A leaf
+        # equal to sqrt(psi_N) may be the stand-in -- or the true radius of a
+        # flat-q plasma, which no check without q can tell apart -- so it is
+        # used with a warning rather than declined.
+        if stored is not None and is_rho_pol_proxy(stored):
+            print(f"Warning: equilibrium.time_slice[{equil_idx}].profiles_1d.rho_tor_norm equals "
+                  "sqrt(psi_N) and the slice has no q to check it against; using it as rho_tor_norm")
         return stored
     if stored is not None and stored.size == own_psi_norm.size and not is_rho_pol_proxy(stored, own_psi_norm):
         return stored
@@ -1839,7 +1863,7 @@ def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
                 eq_ts["constraints"]["diamagnetic_flux"] = ODS()
             eq_ts["constraints"]["diamagnetic_flux"]["reconstructed"] = recon
         except Exception as e:
-            print(f"Warning: Reconstructed diamagnetic flux failed for time_slice {idx}: {e}")
+            logger.warning("Reconstructed diamagnetic flux failed for time slice %s: %s", idx, e)
 
 
 def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1d):

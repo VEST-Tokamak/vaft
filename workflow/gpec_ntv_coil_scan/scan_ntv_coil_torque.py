@@ -1,7 +1,7 @@
-"""Direct GPEC -> PENTRC scan of the signed NTV torque over coil-group phasors (#1887).
+"""Direct GPEC -> PENTRC scan of the signed NTV torque over coil-group phasors.
 
-Each candidate excitation ``c`` (one complex phasor per coil group, the #1178
-convention ``I_k = A cos(n phi_k + delta)``, ``c = A exp(+i delta)``) gets its
+Each candidate excitation ``c`` (one complex phasor per coil group, the
+operating-space convention ``I_k = A cos(n phi_k + delta)``, ``c = A exp(+i delta)``) gets its
 own cell: DCON once per cell (a few seconds; ``euler.bin`` is identical in
 every cell and is hard-linked to the first), GPEC with that cell's
 ``coil.in``, then :func:`vaft.code.gpec.run_pentrc` and the canonical reader.
@@ -19,7 +19,7 @@ defaults (atol_psi = rtol_psi = 1e-4) small and cancelling torques are off by
 several percent and the quadratic model is wrongly rejected; ``--tolerance
 converged`` (1e-6, rtol_xlmda 1e-7) is what qualified it.  Do not lower
 ``atol_xlmda`` below ~1e-10: PENTRC derives its energy tolerance from it and
-the energy LSODE then stalls (#1929).  The log is truncated once the run has
+the energy LSODE then stalls.  The log is truncated once the run has
 ended; it still grows while the run stalls, up to the timeout.
 
 Usage (the upstream DIII-D-like example, ~3-5 min per candidate on a laptop)::
@@ -233,7 +233,7 @@ def run_cell(cell: Path, c, role, args, tpl: Path, angles, shared_euler: list) -
                               config=config)
         record.update(pentrc_status=run.status, pentrc_reason=run.reason, pentrc_seconds=round(time.time() - started, 1))
         log = cell / "pentrc.log"
-        if log.is_file() and log.stat().st_size > LOG_CAP_BYTES:  # a stalled LSODE repeats one warning (#1929)
+        if log.is_file() and log.stat().st_size > LOG_CAP_BYTES:  # a stalled LSODE repeats one warning
             data = log.read_bytes()
             log.write_bytes(data[:20000] + b"\n... truncated %d bytes ...\n" % len(data) + data[-5000:])
         if run.status == "completed":
