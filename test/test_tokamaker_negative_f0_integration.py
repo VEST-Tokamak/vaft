@@ -53,7 +53,8 @@ def test_reversed_toroidal_field_flips_f_and_q_and_nothing_else(tmp_path):
     ods = sample_ods(SHOT)
     canonical_wall(ods)
     pax = tokamaker.reference_axis_pressure(ods, TIME)
-    base = tokamaker.TokaMakerConfig(shot=SHOT, time=TIME, pax=pax)
+    # its own workdir: preparing inputs writes geometry.json there
+    base = tokamaker.TokaMakerConfig(shot=SHOT, time=TIME, workdir=tmp_path / "base", pax=pax)
     f0 = abs(tokamaker.prepare_tokamaker_inputs(ods, base).f0)
 
     forward = _solve(ods, tmp_path / "positive", pax, +f0)
