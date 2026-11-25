@@ -9,7 +9,7 @@ This folder holds the evidence and the policy that the data-distribution work un
 | [`migration_matrix.md`](migration_matrix.md) | Each asset group: where it is, where it goes, who depends on it, which issue moves it, and what must pass first. | C |
 | [`measurements/2026-11-25.json`](measurements/2026-11-25.json) | Dated tree, history, LFS, sample-version, package and GitHub sizes. | D |
 
-Everything here is produced by [`workflow/data_asset_audit/audit_assets.py`](../../../workflow/data_asset_audit/audit_assets.py). The script only runs Git plumbing against a ref and never touches the working tree, so it also works in a sparse checkout. It does not import `vaft`.
+Everything here is produced by [`workflow/data_asset_audit/audit_assets.py`](https://github.com/VEST-Tokamak/vaft/blob/develop/workflow/data_asset_audit/audit_assets.py). The script only runs Git plumbing against a ref and never touches the working tree, so it also works in a sparse checkout. It does not import `vaft`.
 
 ## Rerunning
 
