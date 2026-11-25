@@ -8953,13 +8953,14 @@
     }
    ],
    "callers": [
-    "vaft.process._equilibrium_parametric.derive_boundary_representation"
+    "vaft.process._equilibrium_parametric._outboard_midplane_radius",
+    "vaft.process._equilibrium_parametric._separatrix_balance"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
-   "implementation": "vaft.process._equilibrium_parametric._outboard_midplane_radius",
+   "implementation": "vaft.process._equilibrium_parametric._outboard_crossing",
    "operation": [
     "resampling"
    ],
@@ -8996,7 +8997,8 @@
    "callers": [
     "vaft.process._equilibrium_compact._dense",
     "vaft.process._equilibrium_parametric._arc_length_fourier",
-    "vaft.process._equilibrium_parametric._wall_contact_distance",
+    "vaft.process._equilibrium_parametric._lcfs_anchored_saddles",
+    "vaft.process._equilibrium_parametric._wall_contact",
     "vaft.process._equilibrium_parametric.fit_fourier_surface",
     "vaft.process._equilibrium_parametric.fit_miller_surface"
    ],
@@ -9087,6 +9089,7 @@
    "callers": [
     "vaft.process._equilibrium_compact.fit_solovev",
     "vaft.process._equilibrium_parametric.fit_miller_sequence",
+    "vaft.process._separatrix_balance.separatrix_balance_series",
     "vaft.process.q_profile_context.core_q_context"
    ],
    "classification": "unverified",

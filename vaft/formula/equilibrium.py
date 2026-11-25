@@ -6843,6 +6843,187 @@ def modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_positio
     return -pedestal_height / pedestal_width * _mtanh_derivative(z, core_slope)
 
 
+def _finite_array(name, value):
+    array = np.asarray(value, dtype=float)
+    if not np.all(np.isfinite(array)):
+        raise ValueError(f"{name} must be finite")
+    return array
+
+
+def _scalar_or_array(result):
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def separatrix_radial_separation(r_lower, r_upper):
+    r"""Signed outboard-midplane separation of the lower and upper separatrices (dRsep).
+
+    $$dR_{\rm sep} = R_L - R_U,\qquad
+      \psi(R_L, Z_{\rm OMP}) = \psi_L,\quad \psi(R_U, Z_{\rm OMP}) = \psi_U$$
+
+    Parameters
+    ----------
+    r_lower : float or np.ndarray
+        Outboard radius at which the flux surface through the lower X-point,
+        $\psi_L$, crosses the reference height $Z_{\rm OMP}$ [m].
+    r_upper : float or np.ndarray
+        Outboard radius at which the flux surface through the upper X-point,
+        $\psi_U$, crosses the same reference height [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $dR_{\rm sep}$: negative for a lower-biased (lower single null)
+        configuration, zero for a balanced double null, positive for an
+        upper-biased (upper single null) one [m].
+
+    Raises
+    ------
+    ValueError
+        Either radius is not finite.
+
+    Convention
+    ----------
+    The DIII-D / EFIT sign: the lower separatrix's outboard radius minus the
+    upper one's. In a lower single null the lower X-point bounds the plasma,
+    its separatrix is the inner one, $R_L < R_U$ and $dR_{\rm sep} < 0$.
+    VAFT takes $Z_{\rm OMP}$ at the magnetic-axis height. The IMAS
+    ``boundary_secondary_separatrix.distance_inner_outer`` is a different
+    quantity -- unsigned, inner-to-outer and measured at the height of the
+    inner separatrix's largest R -- and is not this. The distance is
+    geometric, so it is unchanged by any consistent change of sign, scale or
+    offset of $\psi$; the flux difference of
+    ``xpoint_flux_imbalance`` is not.
+
+    Physical interpretation
+    -----------------------
+    How far apart, at the outboard midplane, the two divertor separatrices
+    sit: a measure of upper/lower X-point flux imbalance in length units. The
+    flux tube between them connects only to the primary divertor, so its
+    width relative to the SOL heat-flux width (``vaft.formula.sol.separatrix_imbalance_to_heat_flux_width``)
+    sets whether the secondary divertor sees the near-SOL heat flux at all.
+
+    Validity
+    --------
+    Needs both X-points to exist and both flux levels to be reached on the
+    outboard ray. It is a magnetic-geometry quantity only; it does not
+    determine the power split between divertors by itself.
+
+    References
+    ----------
+    .. [1] T. W. Petrie et al., "Changes in particle pumping due to variation
+           in magnetic balance near double-null in DIII-D", 30th EPS
+           Conference, General Atomics report GA-A24338 (2003): the explicit
+           $dR_{\rm sep} = R_L - R_U$ at the outer midplane.
+    .. [2] T. W. Petrie et al., J. Nucl. Mater. 290--293 (2001) 935--939,
+           doi:10.1016/S0022-3115(00)00492-X.
+    .. [3] D. Brunner, A. Q. Kuang, B. LaBombard and J. L. Terry, Nucl. Fusion
+           58 (2018) 076010, doi:10.1088/1741-4326/aac006.
+    .. [4] EFIT a-file ``DRSEP`` (cm; positive for a top single null):
+           https://efit-ai.gitlab.io/efit/files.html
+    """
+    r_lower = _finite_array("r_lower", r_lower)
+    r_upper = _finite_array("r_upper", r_upper)
+    return _scalar_or_array(r_lower - r_upper)
+
+
+def xpoint_flux_imbalance(psi_lower, psi_upper):
+    r"""Flux difference between the lower and upper X-points.
+
+    $$\Delta\psi_X = \psi_L - \psi_U$$
+
+    Parameters
+    ----------
+    psi_lower : float or np.ndarray
+        Poloidal flux at the lower X-point [Wb/rad].
+    psi_upper : float or np.ndarray
+        Poloidal flux at the upper X-point, in the same convention [Wb/rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta\psi_X$, in the unit and sign convention of the inputs [Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        Either flux is not finite.
+
+    Convention
+    ----------
+    The sign and unit follow the flux convention (COCOS): full-weber
+    conventions carry $2\pi$ times the per-radian value, and a convention with
+    $\psi$ decreasing outward reverses the sign. Only the geometric
+    ``separatrix_radial_separation`` is convention independent; divide by
+    $\partial_R\psi$ at the outboard midplane
+    (``separatrix_separation_from_flux_imbalance``) to obtain it to first order.
+
+    Physical interpretation
+    -----------------------
+    Zero for a balanced double null; its magnitude is the flux carried by the
+    secondary SOL flux tube between the two separatrices.
+
+    References
+    ----------
+    .. [1] T. W. Petrie et al., J. Nucl. Mater. 290--293 (2001) 935--939,
+           doi:10.1016/S0022-3115(00)00492-X.
+    """
+    psi_lower = _finite_array("psi_lower", psi_lower)
+    psi_upper = _finite_array("psi_upper", psi_upper)
+    return _scalar_or_array(psi_lower - psi_upper)
+
+
+def separatrix_separation_from_flux_imbalance(psi_lower, psi_upper, dpsi_dR):
+    r"""First-order dRsep from the X-point flux imbalance and the outboard flux gradient.
+
+    $$dR_{\rm sep} \simeq \frac{\psi_L - \psi_U}{\left.\partial_R\psi\right|_{\rm OMP}}$$
+
+    Parameters
+    ----------
+    psi_lower : float or np.ndarray
+        Poloidal flux at the lower X-point [Wb/rad].
+    psi_upper : float or np.ndarray
+        Poloidal flux at the upper X-point [Wb/rad].
+    dpsi_dR : float or np.ndarray
+        Radial flux gradient on the outboard midplane between the two
+        separatrices, in the same flux convention, non-zero [Wb/(rad m)].
+
+    Returns
+    -------
+    float or np.ndarray
+        Linearised $dR_{\rm sep}$ [m].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input, or a zero gradient.
+
+    Convention
+    ----------
+    With $\mathbf B_p = \nabla\psi\times\nabla\phi$ and per-radian flux,
+    $\partial_R\psi = R B_Z$ at the midplane; a full-weber flux carries
+    $2\pi R B_Z$. Flux and gradient must share one convention, and then the
+    sign of the result is convention independent, matching
+    ``separatrix_radial_separation``.
+
+    Validity
+    --------
+    Small separation: $|dR_{\rm sep}|$ well below the scale over which
+    $\partial_R\psi$ changes. It diverges as the gradient vanishes, so it is
+    not usable near an outboard null; invert $\psi$ along the midplane
+    instead.
+
+    References
+    ----------
+    .. [1] T. W. Petrie et al., J. Nucl. Mater. 290--293 (2001) 935--939,
+           doi:10.1016/S0022-3115(00)00492-X.
+    """
+    imbalance = xpoint_flux_imbalance(psi_lower, psi_upper)
+    gradient = _finite_array("dpsi_dR", dpsi_dR)
+    if np.any(gradient == 0.0):
+        raise ValueError("dpsi_dR must be non-zero")
+    return _scalar_or_array(np.asarray(imbalance, dtype=float) / gradient)
+
+
 #: Derived rather than listed, so a function added here cannot silently
 #: leave the package surface the way seven once did.  The virial names
 #: re-bound above belong to `.virial` and are excluded by construction.

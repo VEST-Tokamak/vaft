@@ -7,6 +7,7 @@ import copy
 import importlib.util
 import json
 import math
+import re
 from pathlib import Path
 
 import numpy as np
@@ -14,7 +15,8 @@ import pytest
 
 import vaft
 from vaft.diagram._op_space import get_projection, list_projections
-from vaft.omas import EQUILIBRIUM_STATE_UNITS, equilibrium_state_rows, equilibrium_state_table
+from vaft.omas import (EQUILIBRIUM_STATE_UNITS, POLOIDAL_FIELD_COLUMNS, equilibrium_state_rows, equilibrium_state_table,
+                       usable_rows)
 
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOKS = ROOT / "notebooks"
@@ -117,6 +119,35 @@ def test_a_psi_map_that_fails_amperes_law_is_not_a_state(vest_ods, vest_rows):
     assert rows[1]["internal_inductance_li3"] > 5 * vest_rows[2]["internal_inductance_li3"]
 
 
+def test_a_slice_without_a_cocos_keeps_its_convention_free_columns(vest_ods, vest_rows, monkeypatch):
+    """No declared COCOS and no q profile (the DIII-D and MAST adapters): the shape and |I_p| stay, the
+    poloidal-field columns are left out (#2285)."""
+    monkeypatch.setattr("vaft.omas.general.ods_cocos", lambda ods: None)
+    ods = copy.deepcopy(vest_ods)
+    del ods["equilibrium.time_slice.1.profiles_1d.q"]
+    (row,) = equilibrium_state_rows(ods, {"machine": "VEST"}, time_indices=[1])
+    assert row["state_status"] == "cocos_unidentified" and row["cocos_source"] is None
+    assert row["cocos_target"] is None and "COCOS" in row["state_reason"]
+    for name in ("plasma_current", "elongation", "triangularity", "minor_radius", "b0", "kink_safety_factor_elliptic"):
+        assert row[name] == pytest.approx(vest_rows[1][name], rel=1e-9), name
+    for name in ("toroidal_beta", "normalized_beta", "normalized_shafranov_shift", "area_elongation"):
+        assert row[name] == pytest.approx(vest_rows[1][name], rel=1e-6), name   # pressure and shape need no COCOS
+    assert all(math.isnan(row[name]) for name in POLOIDAL_FIELD_COLUMNS)
+    assert row["cocos_status"].startswith("unidentified") and row["li_beta_crosscheck"] == "unavailable"
+    assert "COCOS unidentified" in row["state_notes"]
+
+
+def test_usable_rows_keeps_poloidal_field_columns_to_states():
+    import pandas as pd
+
+    table = pd.DataFrame({"state_status": ["valid", "flux_conflict", "cocos_unidentified", "failed"]})
+    assert list(usable_rows(table, ["elongation", "plasma_current"])) == [True, True, True, False]
+    for name in POLOIDAL_FIELD_COLUMNS:
+        assert list(usable_rows(table, ["normalized_beta", name])) == [True, False, False, False]
+        assert list(usable_rows(table, name)) == [True, False, False, False]   # one column, not its characters
+    assert list(usable_rows(table, "elongation")) == [True, True, True, False]
+
+
 def test_a_source_without_an_equilibrium_keeps_one_failed_row():
     from omas import ODS
 
@@ -158,11 +189,31 @@ def test_operation_space_notebook_uses_the_comparison_notebooks_sources():
                     found[node.targets[0].id] = names[node.targets[0].id]
         return found
 
-    comparison, operation = defaults(NOTEBOOKS / "multiple_tokamak_comparison.ipynb"), defaults(NEW_NOTEBOOK)
-    assert all(comparison.get(n, "").startswith("https://") for n in ("d3d_url", "tcv_url", "sparc_url"))
-    for name in ("d3d_url", "mastu_url", "jet_url", "tcv_url", "sparc_url", "iter_url"):
-        assert operation.get(name) == comparison.get(name), name
-    assert "vaft.data.sample(39915" in _code(NEW_NOTEBOOK)
+    comparison_path = NOTEBOOKS / "multiple_tokamak_comparison.ipynb"
+    comparison, operation = defaults(comparison_path), defaults(NEW_NOTEBOOK)
+    # licence-verified devices come from the public loader (#2285), the same set in both
+    for path in (comparison_path, NEW_NOTEBOOK):
+        code = _code(path)
+        assert "load_public_equilibrium(" in code and "PUBLIC_DEVICES = PUBLIC_EQUILIBRIUM_DEVICES" in code
+        # no unpinned upstream URL and no FUSE sample the library already replaces
+        assert "/master/" not in code and "/main/" not in code
+        for retired in ("D3D_eq_ods.json", "ITER_equilibrium_ods.json", "sparc_1593", "65402_t1"):
+            assert retired not in code, (path.name, retired)
+    # JET and MAST-U: the same commit-pinned FUSE samples and hashes in both
+    assert set(comparison) == set(operation) == {"jet_url", "mastu_url"}
+    for name in ("jet_url", "mastu_url"):
+        assert comparison[name] == operation[name] and "/FUSE.jl/" in comparison[name], name
+    hashes = [re.findall(r'"([0-9a-f]{64})"', _code(path)) for path in (comparison_path, NEW_NOTEBOOK)]
+    assert hashes[0] == hashes[1] and len(hashes[0]) == 2
+    # the unverified rows never reach an exported figure: the FUSE branch tags them, and the export
+    # path renders the filtered table and filtered trajectories, never the page's
+    code = _code(NEW_NOTEBOOK)
+    assert 'fmt, licence, verified = "ODS JSON (FUSE.jl)", "not established", False' in code
+    assert '"licence_verified": verified' in code
+    assert 'kept = table[~table["licence_verified"].eq(False)]' in code
+    assert "_render(exported, key, title, EXPORT_FORMAT, calibration, marker, **export_kw)" in code
+    assert 'export_kw["trajectories"] = ' in code
+    assert "EXPORT_FORMAT, calibration, marker, **kw)" not in code
 
 
 def test_operation_space_notebook_discovers_projections_and_restates_no_boundary():
