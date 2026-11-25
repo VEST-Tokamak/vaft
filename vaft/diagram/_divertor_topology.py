@@ -1483,7 +1483,7 @@ def _glyph_signed_line(gx, gy, width, value: Optional[float], uncertainty: Optio
 
 
 def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -> Diagram:
-    r"""How $dR_\mathrm{sep}$ and the topology are computed, with one near-double-null case's values at each step.
+    r"""How $dR_\mathrm{sep}$ and the topology are computed: a concept figure of the rules, drawn from one near-double-null case.
 
     1. the flux map; 2. its critical points (X-points where
     $\det H_\psi < 0$) and the ones relevant to the boundary; 3. where each
@@ -1538,23 +1538,17 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
     span = max(2.0 * abs(d or 0.0), 3.0 * (eps or 0.0), 3.0 * (resolution or 0.0), 1e-3)
     steps = (
         ("flux_map", "1. Flux map", _glyph_flux_map(state, 0.0, glyph_y, 2.2, saddles=False),
-         f"$\\psi(R,Z)$ on the grid with the magnetic axis and the wall\\\\[2pt]"
-         f"here: {state['equilibrium'].r.size} $\\times$ {state['equilibrium'].z.size} grid"),
+         "$\\psi(R,Z)$ on the grid with the magnetic axis and the wall"),
         ("critical_points", "2. Critical points", _glyph_flux_map(state, 0.0, glyph_y, 2.2, saddles=True),
-         "$\\nabla\\psi = 0$; a saddle (X-point) where $\\det H_\\psi < 0$, one per divertor"
-         f"\\\\[2pt]here: {len(rep.x_points)} saddles"),
+         "$\\nabla\\psi = 0$; a saddle (X-point) where $\\det H_\\psi < 0$, one per divertor"),
         ("intersections", "3. Midplane crossings", _glyph_midplane(state, 0.0, glyph_y - 0.1, 3.0, 1.7),
-         "$\\psi(R_L, Z_\\mathrm{axis}) = \\psi_L$, $\\psi(R_U, Z_\\mathrm{axis}) = \\psi_U$\\\\[2pt]"
-         f"here: $R_L$ = {q['r_lower_m']:.4f} m, $R_U$ = {q['r_upper_m']:.4f} m"),
+         "$\\psi(R_L, Z_\\mathrm{axis}) = \\psi_L$, $\\psi(R_U, Z_\\mathrm{axis}) = \\psi_U$"),
         ("result", "4. Signed separation", _glyph_signed_line(0.0, glyph_y, 3.2, d, resolution, span=span),
          "$dR_\\mathrm{sep} = R_L - R_U$ $\\pm\\delta_R$ (bar); None, never 0, without both X-points or "
-         "the axis\\\\[2pt]"
-         f"here: {_mm(d)} $\\pm$ {1e3 * (resolution or float('nan')):.2f} mm"),
+         "the axis"),
         ("selection", "5. Classification", _glyph_signed_line(0.0, glyph_y, 3.2, d, resolution, span=span,
                                                                 tolerance=eps),
-         "$|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN} = 0.005\\,a$: DN; below: LSN; above: USN\\\\[2pt]"
-         f"here: $\\varepsilon_\\mathrm{{DN}}$ = {1e3 * (eps or float('nan')):.1f} mm $\\Rightarrow$ "
-         f"{_topology_text(state)}"),
+         "$|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN} = 0.005\\,a$: DN; below: LSN; above: USN"),
     )
     items: List = []
     boxes = []
@@ -1570,20 +1564,16 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
     outcomes = (
         ("outcome_lsn", "LSN", _glyph_roles(cases["lower_single_null"], 0.0, 0.0, 2.0),
          "\\textit{when} $dR_\\mathrm{sep} < -\\varepsilon_\\mathrm{DN}$: lower X-point primary, upper "
-         "secondary\\\\[2pt]\\textit{gives} a diverted balance, signed $\\pm\\delta_R$ "
-         f"(here {_mm(cases['lower_single_null']['d_r_sep'])})"),
+         "secondary\\\\[2pt]\\textit{gives} a diverted balance, signed $\\pm\\delta_R$"),
         ("outcome_dn", "DN", _glyph_roles(cases["double_null"], 0.0, 0.0, 2.0),
          "\\textit{when} $|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN}$: both X-points primary"
-         "\\\\[2pt]\\textit{gives} a diverted balance, its sign kept, never rounded to 0"
-         f" (here {_mm(cases['double_null']['d_r_sep'])})"),
+         "\\\\[2pt]\\textit{gives} a diverted balance, its sign kept, never rounded to 0"),
         ("outcome_usn", "USN", _glyph_roles(cases["upper_single_null"], 0.0, 0.0, 2.0),
          "\\textit{when} $dR_\\mathrm{sep} > +\\varepsilon_\\mathrm{DN}$: upper X-point primary, lower "
-         "secondary\\\\[2pt]\\textit{gives} a diverted balance, signed $\\pm\\delta_R$ "
-         f"(here {_mm(cases['upper_single_null']['d_r_sep'])})"),
+         "secondary\\\\[2pt]\\textit{gives} a diverted balance, signed $\\pm\\delta_R$"),
         ("outcome_limited", "LIMITED", _glyph_roles(cases["limited"], 0.0, 0.0, 2.0),
          "\\textit{when} the LCFS rests on the wall or limiter and no X-point bounds the plasma"
-         "\\\\[2pt]\\textit{gives} $dR_\\mathrm{sep}$ as geometric only, never a diverted balance "
-         f"(here {_mm(cases['limited']['d_r_sep'])})"),
+         "\\\\[2pt]\\textit{gives} $dR_\\mathrm{sep}$ as geometric only, never a diverted balance"),
     )
     out_height = 6.2
     y = -0.5 * height - 1.6 - 0.5 * out_height

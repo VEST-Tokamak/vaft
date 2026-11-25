@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<!-- vaft.diagram {"call": "vaft.diagram.limited_plasma_topology()", "source_sha256": "f8df60730d98e45df30c5a1e03609677fbaeb512d96d6625d9eb09eb2101973c", "svg_sha256": "9c675a093bc1eea5ede23a4290cd998eff5ed34ee8f9e7a747c09aeafdf7640b"} -->
+<!-- vaft.diagram {"call": "vaft.diagram.limited_plasma_topology()", "source_sha256": "b7158644673ebab337d10d202fd9b64a3523ac329a93e13b6ebdbb1fde6a4d62", "svg_sha256": "0e501a4e2a9e594a03bddb6369a6b0caee7b4c30dc4c6bea1b1251cb58b2dd8c"} -->
 <svg version='1.1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='530.302964pt' height='320.772055pt' viewBox='-72 -72 530.302964 320.772055'>
 <defs>
 <path id='g0' d='M.348692-6.804483V-6.495641H.587796C1.354919-6.495641 1.374844-6.386052 1.374844-6.027397V-.777086C1.374844-.418431 1.354919-.308842 .587796-.308842H.348692V0H3.995019C5.668742 0 7.043587-1.474471 7.043587-3.347447C7.043587-5.240349 5.69863-6.804483 3.995019-6.804483H.348692ZM2.719801-.308842C2.251557-.308842 2.231631-.37858 2.231631-.707347V-6.097136C2.231631-6.425903 2.251557-6.495641 2.719801-6.495641H3.716065C4.333748-6.495641 5.021171-6.276463 5.529265-5.569116C5.957659-4.98132 6.047323-4.124533 6.047323-3.347447C6.047323-2.241594 5.858032-1.643836 5.499377-1.155666C5.300125-.886675 4.732254-.308842 3.726027-.308842H2.719801Z'/>
@@ -330,55 +330,51 @@
 <use x='49.77009' y='206.364485' xlink:href='#g24'/>
 </g>
 <g stroke-width='0.55' fill='#333' stroke='#333'>
-<path d='M348.5461 163.3189L293.81941 177.91261' fill='none'/>
-<g transform='matrix(-.9662 .25764 -.25764 -.9662 293.81943 177.91261)' stroke-dasharray='none' stroke-dashoffset='0.0' stroke-linejoin='miter'>
+<path d='M348.5461 163.3189L238.91269 178.53755' fill='none'/>
+<g transform='matrix(-.99048 .13747 -.13747 -.99048 238.91269 178.53754)' stroke-dasharray='none' stroke-dashoffset='0.0' stroke-linejoin='miter'>
  <path d='M4.06616 0C3.56682 .12268 1.37186 .81784 0 1.57434V-1.57434C1.37186-.81784 3.56682-.12268 4.06616 0Z'/>
  </g>
 </g>
 <g transform='matrix(1.00375 0 0 -1.00375 367.608626 360.985032)' stroke='none' fill='#000'>
-<use x='-15.291655' y='194.409317' xlink:href='#g19'/>
-<use x='-12.524247' y='194.409317' xlink:href='#g18'/>
-<use x='-9.756838' y='194.409317' xlink:href='#g5'/>
-<use x='-1.454613' y='194.409317' xlink:href='#g18'/>
-<use x='1.312796' y='194.409317' xlink:href='#g16'/>
-<use x='5.187169' y='194.409317' xlink:href='#g7'/>
-<use x='9.615021' y='194.409317' xlink:href='#g13'/>
-<use x='16.837946' y='194.409317' xlink:href='#g41'/>
-<use x='22.372763' y='194.409317' xlink:href='#g60'/>
-<use x='30.121511' y='194.409317' xlink:href='#g53'/>
-<use x='36.34818' y='194.409317' xlink:href='#g21'/>
-<use x='42.436463' y='194.409317' xlink:href='#g49'/>
-<use x='47.417802' y='194.409317' xlink:href='#g14'/>
-<use x='53.229368' y='194.409317' xlink:href='#g7'/>
-<use x='57.657219' y='194.409317' xlink:href='#g6'/>
-<use x='66.512911' y='194.409317' xlink:href='#g19'/>
-<use x='69.28032' y='194.409317' xlink:href='#g18'/>
-<use x='72.047728' y='194.409317' xlink:href='#g6'/>
-<use x='77.582545' y='194.409317' xlink:href='#g7'/>
-<use x='82.010397' y='194.409317' xlink:href='#g24'/>
-<use x='-15.471538' y='206.364485' xlink:href='#g7'/>
-<use x='-11.043686' y='206.364485' xlink:href='#g6'/>
-<use x='-5.508869' y='206.364485' xlink:href='#g45'/>
-<use x='3.346823' y='206.364485' xlink:href='#g49'/>
-<use x='8.328162' y='206.364485' xlink:href='#g6'/>
-<use x='17.183853' y='206.364485' xlink:href='#g19'/>
-<use x='19.951262' y='206.364485' xlink:href='#g18'/>
-<use x='22.71867' y='206.364485' xlink:href='#g5'/>
-<use x='31.020896' y='206.364485' xlink:href='#g18'/>
-<use x='33.788304' y='206.364485' xlink:href='#g16'/>
-<use x='37.662678' y='206.364485' xlink:href='#g7'/>
-<use x='42.09053' y='206.364485' xlink:href='#g13'/>
-<use x='49.313455' y='206.364485' xlink:href='#g40'/>
-<use x='54.294794' y='206.364485' xlink:href='#g6'/>
-<use x='59.829611' y='206.364485' xlink:href='#g45'/>
-<use x='68.685303' y='206.364485' xlink:href='#g55'/>
-<use x='75.603815' y='206.364485' xlink:href='#g40'/>
-<use x='80.585154' y='206.364485' xlink:href='#g19'/>
-<use x='83.352562' y='206.364485' xlink:href='#g19'/>
+<use x='-15.471538' y='194.409317' xlink:href='#g19'/>
+<use x='-12.70413' y='194.409317' xlink:href='#g18'/>
+<use x='-9.936721' y='194.409317' xlink:href='#g5'/>
+<use x='-1.634496' y='194.409317' xlink:href='#g18'/>
+<use x='1.132913' y='194.409317' xlink:href='#g16'/>
+<use x='5.007287' y='194.409317' xlink:href='#g7'/>
+<use x='9.435138' y='194.409317' xlink:href='#g13'/>
+<use x='16.658064' y='194.409317' xlink:href='#g41'/>
+<use x='22.192881' y='194.409317' xlink:href='#g60'/>
+<use x='29.941628' y='194.409317' xlink:href='#g53'/>
+<use x='36.168297' y='194.409317' xlink:href='#g21'/>
+<use x='42.256581' y='194.409317' xlink:href='#g49'/>
+<use x='47.23792' y='194.409317' xlink:href='#g14'/>
+<use x='53.049485' y='194.409317' xlink:href='#g7'/>
+<use x='57.477337' y='194.409317' xlink:href='#g6'/>
+<use x='66.333029' y='194.409317' xlink:href='#g19'/>
+<use x='69.100437' y='194.409317' xlink:href='#g18'/>
+<use x='71.867846' y='194.409317' xlink:href='#g6'/>
+<use x='77.402663' y='194.409317' xlink:href='#g7'/>
+<use x='81.830514' y='194.409317' xlink:href='#g24'/>
+<use x='-4.166672' y='206.364485' xlink:href='#g7'/>
+<use x='.26118' y='206.364485' xlink:href='#g6'/>
+<use x='5.795997' y='206.364485' xlink:href='#g45'/>
+<use x='14.651689' y='206.364485' xlink:href='#g49'/>
+<use x='19.633028' y='206.364485' xlink:href='#g6'/>
+<use x='28.48872' y='206.364485' xlink:href='#g16'/>
+<use x='32.363094' y='206.364485' xlink:href='#g4'/>
+<use x='37.89791' y='206.364485' xlink:href='#g7'/>
+<use x='45.646637' y='206.364485' xlink:href='#g19'/>
+<use x='48.414046' y='206.364485' xlink:href='#g18'/>
+<use x='51.181454' y='206.364485' xlink:href='#g5'/>
+<use x='59.483679' y='206.364485' xlink:href='#g18'/>
+<use x='62.251088' y='206.364485' xlink:href='#g16'/>
+<use x='66.125462' y='206.364485' xlink:href='#g7'/>
+<use x='70.553313' y='206.364485' xlink:href='#g13'/>
 </g>
 <g stroke-width='0.55' fill='#333' stroke='#333'>
-<path d='M348.5461 109.54323L279.06598 118.81383' fill='none'/>
-<g transform='matrix(-.99117 .13223 -.13223 -.99117 279.06598 118.81383)' stroke-dasharray='none' stroke-dashoffset='0.0' stroke-linejoin='miter'>
+<path d='M348.5461 109.54323L278.98282 125.32245' fill='none'/>
+<g transform='matrix(-.97517 .22119 -.22119 -.97517 278.98283 125.32245)' stroke-dasharray='none' stroke-dashoffset='0.0' stroke-linejoin='miter'>
  <path d='M4.06616 0C3.56682 .12268 1.37186 .81784 0 1.57434V-1.57434C1.37186-.81784 3.56682-.12268 4.06616 0Z'/>
  </g>
 </g>
