@@ -281,3 +281,15 @@ def test_the_core_shape_exponents_cannot_go_below_one():
     x, y, _ = _h_mode()
     lower, upper = eped_tanh_bounds(x, y)
     assert lower[5] >= 1.0 and lower[6] >= 1.0
+
+
+def test_the_localized_acceptance_refuses_the_edge_distrusting_fit():
+    """Opt-in (#2335): distrusting everything outside x_ped leaves f_sep and
+    x_ped trading off (|rho| ~ 0.998), so the localized test calls it
+    unresolved while the legacy default still accepts it."""
+    x, y, truth = _h_mode(noise=0.02, seed=5)
+    sigma = np.where(x > truth["x_ped"], 1.0, 0.001)
+    weighted = pedestal_top(x, y, quantity="p_total", value_std=sigma)
+    assert weighted.method == "eped_fit" and weighted.status == "unresolved"
+    localized = pedestal_top(x, y, quantity="p_total", value_std=sigma, acceptance="localized")
+    assert localized.method == "fallback" and "correlate" in localized.reason

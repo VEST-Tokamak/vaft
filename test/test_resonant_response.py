@@ -494,3 +494,42 @@ def test_mismatched_lengths_are_refused():
     psi, q = q_profile()
     with pytest.raises(ValueError, match="q values"):
         find_rational_surfaces(psi, q[:-1], 1)
+
+
+# --- the boundary convention (#2335) -------------------------------------------
+
+
+def test_the_default_boundary_is_exactly_the_legacy_inner_edge():
+    """Every window built before #2335 used inner_edge; the default must not move."""
+    stub = PedestalStub(position=0.93, width=0.06)
+    default = resonant_windows(stub)
+    explicit = resonant_windows(stub, boundary="inner_edge")
+    assert default == explicit
+    assert default["core"].high == 0.93 - 0.5 * 0.06
+    assert default["edge"].source == "pedestal_top inner edge (eped_fit)"
+
+
+def test_the_canonical_top_and_centre_conventions_are_selectable():
+    from vaft.process.profile import PedestalTop
+
+    pedestal = PedestalTop(position=0.93, method="eped_fit", quantity="p_total",
+                           coordinate="psi_norm", width=0.03)
+    top = resonant_windows(pedestal, boundary="top")
+    assert top["core"].high == pytest.approx(0.90) == pytest.approx(pedestal.top)
+    assert "canonical top" in top["edge"].source
+    centre = resonant_windows(pedestal, boundary="center")
+    assert centre["edge"].low == pytest.approx(0.93)
+    # A duck-typed pedestal without .top gets the same canonical top.
+    assert resonant_windows(PedestalStub(position=0.93, width=0.03), boundary="top")[
+        "core"].high == pytest.approx(0.90)
+
+
+def test_a_fallback_uses_its_position_under_every_convention():
+    stub = PedestalStub(method="fallback", reason="r", inner_edge=None, position=0.85, width=None)
+    for boundary in ("inner_edge", "top", "center"):
+        assert resonant_windows(stub, boundary=boundary)["core"].high == pytest.approx(0.85)
+
+
+def test_an_unknown_boundary_convention_is_refused():
+    with pytest.raises(ValueError, match="boundary must be one of"):
+        resonant_windows(PedestalStub(), boundary="knee")

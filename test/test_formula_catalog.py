@@ -59,7 +59,9 @@ def test_the_catalog_counts_the_known_public_surface():
         "constants": 0,
         # +gp_fit, the scipy Gaussian process; +a/L, the normalised
         # gradient scale length the tutorial's kinetic state reports: 12.
-        "utils": 12,
+        # +fit_eped_tanh (covariance-keeping EPED fit) and tanh_pedestal_geometry
+        # (Groebner top/foot/full width), #2335: 14.
+        "utils": 14,
         # The virial closures live in their own module: 110 = 77 + 33.
         # +the two IMAS extremity triangularities and the sub-vertex
         # extremum helper they share with vaft.process: 77 + 3 = 80.
