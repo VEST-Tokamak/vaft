@@ -336,13 +336,27 @@ LCFS rests on the wall anywhere away from that saddle. Only the nearest such
 saddle in flux is taken, so a resolved secondary null stays secondary. In that case the wall sets the boundary. Without this rule a
 coarse g-file of a diverted plasma came out limited (#2324). When it applies,
 `topology_evidence["caveat"]` records it, so the numerical caveat stays
-separate from the physical classification. A double null whose two X-point
-fluxes differ by less than the grid resolves is flagged
-`double_null_resolution_limited`.
-A diverted boundary yields upper single-null, lower single-null, or
-double-null topology. A wall-contacting LCFS without an active X-point is
-limited; a clipped region, missing wall, or indeterminate boundary is
-`AMBIGUOUS` with a reason.
+separate from the physical classification.
+
+**Double null is a declared tolerance, not a grid effect.** When a diverted
+boundary has both an upper and a lower X-point, its class comes from the
+signed separation:
+- `|dRsep| <= eps_DN` is a double null;
+- `dRsep < -eps_DN` is a lower single null;
+- `dRsep > +eps_DN` is an upper single null.
+
+`eps_DN = 0.005 a` by default (`DOUBLE_NULL_TOLERANCE_FRACTION`,
+`double_null_tolerance=` per call). That is about 1.5 mm on VEST, the scale of
+the published few-millimetre DN band. Only the X-points inside the band are
+active, so the other one is `secondary` however close its flux. Both
+`eps_DN` and its fraction are recorded in `topology_evidence`.
+
+The grid's dRsep resolution (`d_r_sep.quality["resolution_m"]`) is an
+uncertainty on the number, never a class boundary. When it exceeds `eps_DN`,
+`topology_evidence["topology_unresolved_on_grid"]` is set. With only one
+relevant X-point, the single null follows that X-point's side. The scan
+classifier applies the same rule. Its `NEAR_NULL` stays a tag for a
+*non-diverted* boundary approaching a null.
 
 The branches, their category, and where each starts in the code. **Status** follows the acceptance
 audit of the equilibrium-representation framework (provenance: #1201): *met* means a public API plus a test or documentation demonstrates

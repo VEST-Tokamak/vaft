@@ -3807,6 +3807,15 @@ def _segment_intersections(first: Contour, second: Contour) -> list[tuple[float,
     return out
 
 
+#: Default half-width of the double-null band, as a fraction of the LCFS minor
+#: radius: ``|dRsep| <= 0.005 a`` is a double null, beyond it the sign of dRsep
+#: picks the single null.  About 1.5 mm on VEST and 3 mm at a = 0.6 m, the
+#: scale of the few-millimetre DN band of the DIII-D and C-Mod balance scans.
+#: A modelling choice, overridable per call; the grid's resolution is reported
+#: against it, never used in its place.
+DOUBLE_NULL_TOLERANCE_FRACTION = 5e-3
+
+
 #: The published definition of :attr:`BoundaryRepresentation.d_r_sep`.
 D_R_SEP_DEFINITION = "R_out(psi_X,lower)-R_out(psi_X,upper) at Z=Z_axis"
 
@@ -3903,6 +3912,7 @@ def _separatrix_balance(
 def derive_boundary_representation(
     equilibrium: Any, *, gap_angles: Mapping[str, float] | None = None,
     flux_tolerance: float | None = None, fourier_modes: int = 16,
+    double_null_tolerance: float | None = None,
 ) -> BoundaryRepresentation:
     """Classify the plasma boundary and derive its geometric diagnostics.
 
@@ -3925,6 +3935,10 @@ def derive_boundary_representation(
         every saddle [-].
     fourier_modes : int, optional
         How many harmonics to fit to the boundary contour [-].
+    double_null_tolerance : float, optional
+        Half-width of the double-null band as a fraction of the minor radius,
+        ``eps_DN = double_null_tolerance * a``; defaults to
+        :data:`DOUBLE_NULL_TOLERANCE_FRACTION` [-].
 
     Returns
     -------
@@ -3947,6 +3961,14 @@ def derive_boundary_representation(
     LCFS runs into within :data:`BOUNDARY_FLUX_OFFSET_LIMIT` of the boundary
     flux is also an X-point unless the LCFS rests on the wall away from it,
     since reconstructions trace the boundary slightly inside the separatrix.
+
+    A diverted boundary with both an upper and a lower X-point is classified
+    from its signed separation: ``|dRsep| <= eps_DN`` (default ``0.005 a``) is
+    ``DOUBLE_NULL``, ``dRsep < -eps_DN`` ``LOWER_SINGLE_NULL``, ``dRsep >
+    eps_DN`` ``UPPER_SINGLE_NULL``; only the X-points inside the band are
+    active.  The grid's dRsep resolution is an uncertainty on that number:
+    ``topology_evidence["topology_unresolved_on_grid"]`` says when it exceeds
+    ``eps_DN``.  With only one relevant X-point the single null follows its side.
 
     ``d_r_sep`` is ``R_out(psi_X,lower) - R_out(psi_X,upper)`` at the
     magnetic-axis height (``vaft.formula.separatrix_radial_separation``):
@@ -4077,15 +4099,38 @@ def derive_boundary_representation(
             eq, saddles, active, flux_tolerance, resolution, spacing, minor_radius,
         )
         evidence.update(selection_evidence)
-    if topology == Topology.DOUBLE_NULL and {"upper", "lower"} <= selected.keys():
-        # A double null whose X-point fluxes differ by no more than the window
-        # cannot be told by this grid from a near-double null inside it.
-        scale_flux = abs(eq.psi_boundary - eq.psi_axis)
+    # The diverted class comes from the signed separation, not from which
+    # saddles the grid's flux window admits: |dRsep| <= eps_DN is a double null,
+    # beyond it the sign picks the single null.  The grid's own resolution is
+    # an uncertainty on that number, reported beside the class, never a class
+    # boundary -- otherwise one equilibrium is DN on a coarse grid and LSN on a
+    # fine one.
+    fraction = DOUBLE_NULL_TOLERANCE_FRACTION if double_null_tolerance is None else float(double_null_tolerance)
+    eps_dn = fraction * minor_radius
+    evidence["double_null_tolerance_m"] = float(eps_dn)
+    evidence["double_null_tolerance_fraction_of_a"] = float(fraction)
+    if topology.is_diverted and {"upper", "lower"} <= selected.keys() and eq.magnetic_axis is not None:
+        r_axis_ref, z_ref = eq.magnetic_axis
         upper_x, lower_x = selected["upper"], selected["lower"]
-        separation = abs(upper_x.psi_n - lower_x.psi_n)
-        window = max(_saddle_flux_window(point, flux_tolerance, spacing, scale_flux) for point in (upper_x, lower_x))
-        evidence["double_null_flux_separation_psi_n"] = float(separation)
-        evidence["double_null_resolution_limited"] = bool(separation <= window)
+        r_u = _outboard_midplane_radius(eq, upper_x.psi, r_axis_ref, z_ref)
+        r_l = _outboard_midplane_radius(eq, lower_x.psi, r_axis_ref, z_ref)
+        if r_u is not None and r_l is not None:
+            separation = r_l - r_u
+            flux_rule = topology
+            if abs(separation) <= eps_dn:
+                topology, primaries = Topology.DOUBLE_NULL, (upper_x, lower_x)
+            elif separation < 0:
+                topology, primaries = Topology.LOWER_SINGLE_NULL, (lower_x,)
+            else:
+                topology, primaries = Topology.UPPER_SINGLE_NULL, (upper_x,)
+            if topology is not flux_rule:
+                evidence["flux_window_topology"] = flux_rule.value
+            # Only the separatrices inside eps_DN bound the plasma; the other
+            # selected X-point is secondary however close its flux.
+            secondaries = {(point.r, point.z) for point in (upper_x, lower_x) if point not in primaries}
+            active = [point for point in active if (point.r, point.z) not in secondaries]
+            active = [*active, *(point for point in primaries if (point.r, point.z) not in {(a.r, a.z) for a in active})]
+            active_keys = {(point.r, point.z) for point in active}
     # "secondary" means the inactive X-point whose separatrix bounds the SOL of
     # a diverted plasma; with no diverted boundary there is no primary for it to
     # be secondary to, so the X-points behind a geometric-only separation are
@@ -4115,6 +4160,10 @@ def derive_boundary_representation(
     )
 
     d_r_sep = _separatrix_balance(eq, topology, selected, missing, active_keys, flux_tolerance, spacing, resolution)
+    if d_r_sep.value is not None:
+        # One flag, not a class: the grid's dRsep resolution exceeds the DN band,
+        # so LSN/DN/USN is not resolved on this grid.
+        evidence["topology_unresolved_on_grid"] = bool(d_r_sep.quality.get("resolution_m", 0.0) > eps_dn)
     gaps: list[Gap] = []
     angles = dict(gap_angles or {"outboard": 0.0, "top": np.pi/2, "inboard": np.pi, "bottom": 3*np.pi/2})
     for name, angle in angles.items():
