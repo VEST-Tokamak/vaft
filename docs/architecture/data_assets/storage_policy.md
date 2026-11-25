@@ -43,6 +43,8 @@ The threshold is a starting point. Most fixture files are well under it. The exc
 
 `inventory.yaml` → `samples` checks every SHA-256 each manifest pins: representations, sources, configuration, the 45531 digitizer CSVs and the 48224 k-/g-files and equilibria. All 49 pins that resolve to a file in the tree match. Five pins name something outside the repository: `$EFITHOME/bin/efit`, or a FileDB raw dump.
 
+The other pinning manifests are checked too (`inventory.yaml` → `pinned_manifests`). `39915/mhd_stability/manifest.yaml` (14 pins), `test/data/consolidation/case_manifest.yaml` (33) and the Tier A snapshot (2) match. `vaft/data/unified/vest_diagnostics/manifest.yaml` records SHA-256 values for 11 *source code* files (`vaft/machine_mapping/*.py`, `vest.yaml`) that have changed since the fixture was built. That is provenance drift, not data corruption, and it is #2331's to decide whether the fixture or the record is refreshed.
+
 | Shot | `reference_id` | Source kind | Representations | Directory | Pins matched |
 | --- | --- | --- | --- | ---: | ---: |
 | 39915 | vest-39915-until-efit-v5 | not recorded | omas (wheel variant swapped in), imas | 77.5 MB | 7 (+1 external) |
@@ -59,7 +61,12 @@ All use IMAS DD 3.41.0. 39915's manifest has no `source.kind`. The inventory rec
 
 - **Placement.** The representations (`omas.json.gz`, `imas.nc`) and the source products (`source/*`) move to Release assets (#2328). `manifest.yaml` stays in Git. It is what `available_samples()` lists and what the resolver (#2329) verifies against.
 - **Sources are kept, not dropped.** `generation.canonical_source` is the input from which the representations are regenerated. A Release keeps them together. Being able to regenerate a representation does not make the published one disposable.
-- **Immutability, enforced.** A published asset never changes. Changed bytes require a new `reference_id`. History shows that this was not followed: seven `reference_id`s, four of them current, were kept while their bytes changed (`vest-39915-until-efit-v1` names 15 `imas.nc` versions). So #2328 adds a CI check that rejects a manifest change that alters a SHA-256 without changing `reference_id`. Each current reference is published under its current bytes.
+- **Immutability, enforced.** A published asset never changes. Changed bytes require a new `reference_id`. History shows that this was not followed: ten `reference_id`s, four of them current, name more than one version of a representation. So #2328 adds two CI checks:
+  - **Across history.** A manifest change that alters a SHA-256 must also change `reference_id`.
+  - **Across the tree.** No two manifests in the tree may give one `reference_id` different bytes.
+
+  Each current reference is published under its current bytes.
+- **The wheel projection gets its own identity.** Today `wheel_samples/39915` carries `vest-39915-until-efit-v5`, the same id as the repository sample, but holds different bytes. #2328 gives the projection a distinct id (for example `vest-39915-until-efit-v5-wheel`) that records which reference it was projected from. Then #2329 never confuses the two.
 - **Packaged projection.** `setup.py` copies `wheel_samples/39915/{manifest.yaml, omas.json.gz}` over `samples/39915` in the wheel. `wheel_samples/39915/imas.nc` is repository-only. All three files stay in Git. `test/verify_dist.py` caps the wheel at 26 MiB (0.9.0 wheel: 18.1 MB).
 - **Pinned parts move with their sample.** The 48224 manifest pins `efit_magnetic_server/*` and `equilibria/*` (`samples.shot.pinned_parts`). They move only if and when that sample moves.
 - **Portfolio ownership.** This policy decides *where* bytes live. *Which* references exist, and which lineage they have, stays with #1712/#1718. Moving a sample to a Release must not change its content.
@@ -71,8 +78,8 @@ All use IMAS DD 3.41.0. 39915's manifest has no `source.kind`. The inventory rec
 
 | Kind | Content | Size (packed) |
 | --- | --- | ---: |
-| Superseded sample versions | 17 superseded `reference_id`s, plus earlier bytes of reused ids. Of 91 representation versions recorded in manifests, 89 are still in history. | ~1.46 GB (1,876 MB of representations and sources in history, less 412 MB in the current tree) |
-| Earlier EFIT table generations | 2026-07 packaged table (be3be688b, pre-#695) and the #695 regeneration (4d22d4484). 7 LFS objects, 327 MB. | LFS, outside the pack |
+| Superseded sample versions | 17 superseded `reference_id`s, plus earlier bytes of reused ids. All 120 representation versions recorded in manifests are still in history, some only under retired paths. | ~1.46 GB (1,876 MB of representations and sources in history, less 412 MB in the current tree) |
+| Earlier EFIT table generations | 2026-07 packaged table (be3be688b, pre-#695) and the #695 regeneration (4d22d4484). 7 LFS objects, 317.4 MB, are not in today's tree; `ep129129.ddd` is unchanged since #695 and is part of the baseline. | LFS, outside the pack |
 | Retired layouts | `vaft/data/omas/{39915,41524,41672}.json`, an IMAS HDF5 set under `vaft/data/imas/`, `vaft/data/{39915,39916,39917}.json`, `44740_imas_equilibrium.h5`, `packaging/wheel_samples/39915` | 261 MB |
 | OMFIT-era kinetic reference | `vaft/data/kineticEfit` (48224), kept by #1718 as a historical validation reference | in the tree, 6.9 MB |
 
@@ -85,7 +92,7 @@ The measurement lists every item: `history.historical_sample_references`, `histo
   - retired by a decision recorded on #207, naming the item and the reason.
 
   Retirement is the exception. The default is to archive.
-- **Not superseded until shown.** A retired layout counts as superseded only when its content is shown to be contained in a registered sample. 39916, 39917 (a confinement reference shot) and 44740 have no registered sample, so their files are historical references, not duplicates.
+- **Not superseded until shown.** A retired layout counts as superseded only when its content is shown to be contained in a registered sample. 39916, 39917 (a confinement reference shot) and 44740 have no registered sample, so their files are historical references, not duplicates. `packaging/wheel_samples/39915` holds bytes that `vest-39915-until-efit-v1` recorded, so it is archived with that reference.
 - **EFIT generations.** The pre-#695 table is the subject of #695's finding. Its identity record and comparison are kept in Git (`efit.table_records`: `workflow/efit_tables/reference/legacy-39915-129129.manifest.json`, `compare_bundled_vs_legacy-39915-129129.json`). Both earlier generations are archived with #2330, alongside the baseline but under a distinct archive tag, so nobody can mistake them for the baseline.
 - **LFS server state is unverified.** All 11 historical LFS objects are in this machine's LFS store. Whether the LFS server still has the earlier ones was not checked. #2330 verifies this, and if needed uploads from a local store, before any LFS cleanup.
 
@@ -109,16 +116,27 @@ The baseline is the table set recorded in `vaft/data/efit/efund_table_manifest.j
 
 **The baseline is valid only for its era.** A shot outside `vest-pre-43017-pf1906`, for example one using the 2507 PF geometry, has a different identity. It never resolves to the baseline; it needs a generated table (§5.2, step 2).
 
-The shipped `mhdin.dat` no longer hashes to the recorded input. #649 replaced its `&incheck` block, which EFUND never reads. #965 moved the limiter, which EFUND does not read either. The manifest records both changes. So the table identity and the hash of the shipped namelist are different things, and #2330's identity function must hash only what EFUND reads, plus the machine inputs above.
+Two recorded input hashes no longer match the files as shipped:
+
+- `mhdin.dat` (#649): its `&incheck` block was replaced, and EFUND never reads `&incheck`.
+- `VEST_static_geometry.json.gz` (#965): it now hashes `5a55c173fd60…`, not the recorded `2d3495f7cc39…`, because the limiter moved. This changed only the wall, which EFUND does not read.
+
+The other four machine inputs still match. Both changes are recorded in the manifest. A whole-file identity would therefore never match the baseline again, even though the tables are unaffected. #2330's identity function must hash the *content EFUND reads* from each input (namelist groups other than `&incheck`; coil, vessel and diagnostic geometry, not the wall), and it must reproduce `e28142c7…` from today's files before anything relies on it.
 
 ### 5.2. Distribution
 
 - The baseline set (all six files) is published **once** as a Release asset, with a lockfile entry (#2330). No other configuration is published. Earlier generations are archived separately (§4.2).
 - Resolution order:
-  1. A local table with exactly the requested identity.
-  2. Generate it with EFUND into `generated/efund/<identity>/`.
-  3. Download the baseline, if and only if the request's identity equals `e28142c7…`.
-  4. Otherwise, fail explicitly.
+  - **Baseline identity** (`e28142c7…`): the published bytes win.
+    1. A local copy whose SHA-256 matches `table.files`.
+    2. Otherwise, download the baseline.
+    3. A locally generated table substitutes only under §5.3.
+  - **Any other identity:**
+    1. A local table with exactly that identity.
+    2. Otherwise, generate it with EFUND into `generated/efund/<identity>/`.
+  - Otherwise, fail explicitly.
+
+  This refines #2304 §3.3, which lists generation before download for every identity. Applied to the baseline, that order would let a regenerated table silently replace the published one.
 - Generating a table requires a built `efund` (VAFT's install lives under `EFITHOME`) and a large stack (`ulimit -s` hard; it segfaults otherwise). It takes about 3 minutes (184.6 s for the baseline).
 
 ### 5.3. Substitution contract
@@ -164,10 +182,10 @@ None of these may be treated as disposable before it is decided.
 | --- | --- | --- | --- |
 | `legacy.raw_fixtures` | 193.5 MB tree, 120 MB history | SXR digitizer CSVs (pinned by the 45531 manifest), `41514.h5`, shot JSON, camera PNGs and IMPA `.mat` files: which are references (move with #2328), which are fixtures (stay)? `41514.h5` and the PNGs have no textual consumer; check for paths built at run time first. | #2328 |
 | `notebooks.outputs` | 53.5 MB tree, 279 MB history | Notebooks keep normalized outputs on purpose. Each re-run stores a full new version (`conference_operational_space_atlas.ipynb`: 10 MB per version). Neither #2117 nor #2304 owns this. | new issue, or #2117 |
-| `workflow.results` | 20.4 MB | Dated study outputs (`.xlsx`, `.csv`) next to workflows: results to publish, or fixtures? Some are provenance records. | #2307 follow-up |
+| `workflow.results` | 20.4 MB | Dated study outputs (`.xlsx`, `.csv`) next to workflows: results to publish, or fixtures? Some are provenance records. | unowned (new issue) |
 | `samples.shot.stage_products` | 12.5 MB | Ship with the shot's Release bundle, or stay as fixtures? | #2328 |
 | Release asset format | – | #1718's 2026-10-06 benchmark: xz-compressed OMAS JSON is byte-identical and 2.2–2.9× smaller for 39915/45531, but 1.5× smaller for 41672. The loader reads only `.json.gz` (`vaft/database/_local.py`). Publishing xz would cut download size, but needs a loader change and a decision. | #2328 |
-| Historical references (§4) | ~1.7 GB packed (1.46 GB superseded sample bytes + 0.26 GB retired layouts) + 327 MB LFS | For each item: archive, or retire with a recorded reason. | #2328 (samples), #2330 (tables), #207 (retired layouts) |
+| Historical references (§4) | ~1.7 GB packed (1.46 GB superseded sample bytes + 0.26 GB retired layouts) + 317 MB LFS | For each item: archive, or retire with a recorded reason. | #2328 (samples), #2330 (tables), #207 (retired layouts) |
 | gh-pages backups | 245 MB | `backup/gh-pages-20261021` and tag `archive/gh-pages-develop` hold the old site history. Keep, archive elsewhere, or delete? | #2117 |
 
 ## 9. Reconciled conflicts
