@@ -104,3 +104,25 @@ def get_oft_env(nthreads: int = 2):
             )
         return instance
     return oft.OFT_env(nthreads=nthreads)
+
+
+def setup_model(mygs, pts, lc, reg, *, cond_dict=None, coil_dict=None, order: int = 2, F0: float = 0.0) -> None:
+    """Mesh, regions and FE space in one call, for the OFT version installed.
+
+    OFT ``main`` after v26.9 (upstream #350, 2026-11-09; in no release yet)
+    added ``TokaMaker.setup_model`` and deprecated the ``setup_mesh`` /
+    ``setup_regions`` / ``setup`` sequence (it warns and will remove it).
+    Releases up to v26.9 only have the sequence.  Either way
+    ``mygs.settings`` must already hold the run settings: ``setup_model``
+    applies them during the FE setup, as ``setup`` did.  ``setup_regions`` is
+    called on the old path only when region dictionaries are given, which is
+    what the fixed-boundary bridge relied on.
+    """
+    if hasattr(mygs, "setup_model"):
+        mygs.setup_model(r=pts, lc=lc, reg=reg, cond_dict=cond_dict, coil_dict=coil_dict, order=order, F0=F0)
+        return
+    mygs.setup_mesh(pts, lc, reg)
+    if cond_dict is not None or coil_dict is not None:
+        mygs.setup_regions(cond_dict=cond_dict if cond_dict is not None else {},
+                           coil_dict=coil_dict if coil_dict is not None else {})
+    mygs.setup(order=order, F0=F0)

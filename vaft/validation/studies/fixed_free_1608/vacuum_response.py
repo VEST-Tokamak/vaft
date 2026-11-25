@@ -6,6 +6,7 @@ from OpenFUSIONToolkit import OFT_env
 from OpenFUSIONToolkit.TokaMaker import TokaMaker
 from OpenFUSIONToolkit.TokaMaker.meshing import load_gs_mesh
 from OpenFUSIONToolkit.TokaMaker.util import eval_green
+from vaft.code.tokamaker._oft import setup_model
 from vaft.formula.green import green_psi_exact
 
 
@@ -16,9 +17,7 @@ def main():
     solver = TokaMaker(OFT_env(nthreads=2))
     pts, cells, reg, coils, cond = load_gs_mesh(args.mesh)
     try:
-        solver.setup_mesh(pts, cells, reg)
-        solver.setup_regions(cond_dict=cond, coil_dict=coils)
-        solver.setup(order=2, F0=.04)
+        setup_model(solver, pts, cells, reg, cond_dict=cond, coil_dict=coils, order=2, F0=.04)
         solver.set_coil_currents({'PF1': 1.})
         vacuum = solver.vac_solve()
         if hasattr(vacuum, 'get_field_eval'):

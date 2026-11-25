@@ -23,7 +23,7 @@ from typing import Any
 
 import numpy as np
 
-from ._oft import get_oft_env, import_oft
+from ._oft import get_oft_env, import_oft, setup_model
 from .config import TokaMakerConfig, TokaMakerInputs, TokaMakerResult
 from .mesh import build_tokamaker_mesh
 from .outputs import _parse_gfile, collect_tokamaker_outputs
@@ -58,9 +58,11 @@ def _configure_tokamaker(oft, mygs, inputs, config: TokaMakerConfig) -> dict[str
     """Load the mesh into ``mygs`` and run the common setup sequence.
 
     Returns a snapshot of the conductor-region entries ``{name: {reg_id, eta,
-    ...}}`` taken BEFORE ``setup_regions`` — which mutates the passed
+    ...}}`` taken BEFORE the model setup — whose region step mutates the passed
     ``cond_dict`` (vacuum entries are moved out) — so callers can integrate
-    per-region eddy currents later.
+    per-region eddy currents later.  The settings are assigned before the
+    model is set up, because ``setup_model`` (and the legacy ``setup``) applies
+    them during the FE setup.
     """
     pts, lc, reg, coil_dict, cond_dict = oft.meshing.load_gs_mesh(str(inputs.mesh_file))
     cond_regions = {
@@ -68,8 +70,6 @@ def _configure_tokamaker(oft, mygs, inputs, config: TokaMakerConfig) -> dict[str
         for name, entry in cond_dict.items()
         if isinstance(entry, dict) and "eta" in entry
     }
-    mygs.setup_mesh(pts, lc, reg)
-    mygs.setup_regions(cond_dict=cond_dict, coil_dict=coil_dict)
     if config.quiet:
         mygs.settings.pm = False
     if config.maxits is not None:
@@ -93,8 +93,8 @@ def _configure_tokamaker(oft, mygs, inputs, config: TokaMakerConfig) -> dict[str
                 path = Path(short)
                 c_path = mygs._oft_env.path2c(str(path))
             _write_limiter_points(path, points)
-            mygs.settings.limiter_file = c_path
-    mygs.setup(order=config.order, F0=inputs.f0)
+            mygs.settings.limiter_file = _limiter_file_setting(mygs.settings, path, c_path)
+    setup_model(mygs, pts, lc, reg, cond_dict=cond_dict, coil_dict=coil_dict, order=config.order, F0=inputs.f0)
     return cond_regions
 
 
@@ -135,6 +135,19 @@ def neck_limiter_points(limiter: Any, config: TokaMakerConfig) -> np.ndarray:
         points.append(segment[keep])
     points = np.concatenate(points) if points else np.zeros((0, 2))
     return np.unique(np.round(points, 9), axis=0)
+
+
+def _limiter_file_setting(settings: Any, path: Path, c_path: Any) -> Any:
+    """The value ``settings.limiter_file`` takes in this OFT version.
+
+    Up to OFT v1.0.0-beta7 ``mygs.settings`` was the raw ctypes settings
+    struct, so the field held the ``c_char_p`` from ``OFT_env.path2c``.  From
+    v26.6 it is a ``tokamaker_settings`` object whose ``get_c_struct`` calls
+    ``path2c`` itself, so it must hold the plain path string (a ``c_char_p``
+    there fails with "object of type 'c_char_p' has no len()").  ``path2c`` is
+    still called by the caller first, for its OFT_PATH_SLEN length check.
+    """
+    return str(path) if hasattr(settings, "get_c_struct") else c_path
 
 
 def _write_limiter_points(path: Path, points: np.ndarray) -> None:

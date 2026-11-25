@@ -350,3 +350,56 @@ def test_vessel_distribution_carries_the_summed_loop_currents(monkeypatch):
     # the distribution follows the loops: negative where the negative loops sit
     lower = nodes[:, 1] < -0.1
     assert dist[lower].mean() > 0 and dist[(nodes[:, 1] > -0.1) & (nodes[:, 1] < 0.0)].mean() < 0
+
+
+def test_limiter_file_setting_matches_the_oft_settings_api(tmp_path):
+    """OFT >= v26.6 converts ``limiter_file`` itself; older OFT takes the ``c_char_p``."""
+    import ctypes
+
+    from vaft.code.tokamaker.runner import _limiter_file_setting
+
+    path = tmp_path / "limiter_points.dat"
+    c_path = ctypes.c_char_p(str(path).encode())
+
+    class SettingsObject:  # OFT >= v26.6: tokamaker_settings, converted in get_c_struct
+        limiter_file = None
+
+        def get_c_struct(self, oft_env):  # pragma: no cover - only its presence matters
+            raise NotImplementedError
+
+    class SettingsStruct(ctypes.Structure):  # OFT <= v1.0.0-beta7: the raw ctypes struct
+        _fields_ = [("limiter_file", ctypes.c_char_p)]
+
+    assert _limiter_file_setting(SettingsObject(), path, c_path) == str(path)
+    assert _limiter_file_setting(SettingsStruct(), path, c_path) is c_path
+
+
+def test_setup_model_helper_uses_the_new_api_and_falls_back():
+    """OFT main after v26.9 (#350): one ``setup_model`` call; releases up to v26.9: the legacy sequence."""
+    from vaft.code.tokamaker._oft import setup_model
+
+    calls = []
+
+    class NewApi:
+        def setup_model(self, **kwargs):
+            calls.append(("setup_model", kwargs))
+
+    class OldApi:
+        def setup_mesh(self, pts, lc, reg):
+            calls.append(("setup_mesh",))
+
+        def setup_regions(self, cond_dict=None, coil_dict=None):
+            calls.append(("setup_regions", cond_dict, coil_dict))
+
+        def setup(self, order=2, F0=0.0):
+            calls.append(("setup", order, F0))
+
+    setup_model(NewApi(), "pts", "lc", "reg", coil_dict={"PF1": {}}, order=3, F0=0.5)
+    assert calls == [("setup_model", {"r": "pts", "lc": "lc", "reg": "reg", "cond_dict": None,
+                                      "coil_dict": {"PF1": {}}, "order": 3, "F0": 0.5})]
+    calls.clear()
+    setup_model(OldApi(), "pts", "lc", "reg", coil_dict={"PF1": {}}, order=3, F0=0.5)
+    assert calls == [("setup_mesh",), ("setup_regions", {}, {"PF1": {}}), ("setup", 3, 0.5)]
+    calls.clear()
+    setup_model(OldApi(), "pts", "lc", "reg", order=2, F0=1.0)  # fixed-boundary bridge: no regions
+    assert calls == [("setup_mesh",), ("setup", 2, 1.0)]
