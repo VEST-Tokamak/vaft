@@ -1704,9 +1704,9 @@ samples:
     sha256: f9e9b597ba3b7467cbaba4a999c1e01c6f0376eceda1a5761d863477e9e90f4d
     status: match
   - field: generation.em_coupling.asset
-    path: VEST_em_coupling_pf_versions.npz
+    path: vaft/data/geometry/VEST_em_coupling_pf_versions.npz
     sha256: 1c391442762fb1c9563eb5fc62fef35ee4e002c7cda8afc06968539a5e2a6f05
-    status: not in tree
+    status: match
   - field: generation.efit_constraints.executable
     path: $EFITHOME/bin/efit
     sha256: b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d
@@ -1724,8 +1724,8 @@ samples:
     sha256: c093482a7bb98b3e2bd46ae92fca4981bfd14315e4c59a08aa297b3572031dc9
     status: match
   pin_status:
-    match: 7
-    not in tree: 2
+    match: 8
+    not in tree: 1
   directory_files: 8
   directory_bytes: 105326653
   consumers:
@@ -1807,9 +1807,9 @@ samples:
     sha256: d1a5baf40ed5a588292287acfabd0b6976a421201a1ec93f93a60f7f9e1040ee
     status: match
   - field: generation.em_coupling.asset
-    path: VEST_em_coupling_pf_versions.npz
+    path: vaft/data/geometry/VEST_em_coupling_pf_versions.npz
     sha256: 1c391442762fb1c9563eb5fc62fef35ee4e002c7cda8afc06968539a5e2a6f05
-    status: not in tree
+    status: match
   - field: generation.efit_constraints.executable
     path: $EFITHOME/bin/efit
     sha256: b1d0bb21c9496503233e8b5ee7ede0c217b497e65a7f59f20f8f6e1f662f0c4d
@@ -1827,8 +1827,8 @@ samples:
     sha256: 7728b5e8e48bb6f156aa28a899fee7b0fd8a2d5fae775adbd085a4af608ad57f
     status: match
   pin_status:
-    match: 7
-    not in tree: 2
+    match: 8
+    not in tree: 1
   directory_files: 8
   directory_bytes: 114932972
   consumers:
@@ -1906,9 +1906,9 @@ samples:
     sha256: 083f70a90ceacbd0be6cb46187280f40a2a4d1c9ed057762b25f31b8b8b31a70
     status: match
   - field: generation.em_coupling.asset
-    path: VEST_em_coupling_pf_versions.npz
+    path: vaft/data/geometry/VEST_em_coupling_pf_versions.npz
     sha256: 1c391442762fb1c9563eb5fc62fef35ee4e002c7cda8afc06968539a5e2a6f05
-    status: not in tree
+    status: match
   - field: pipeline.configuration
     path: vaft/data/samples/42962/source/pipeline-config.yaml
     sha256: 3983699599e7a13eb8d5e8cd89e4316b41d606e61ea30bf5527ecead25a38b27
@@ -1926,8 +1926,7 @@ samples:
     sha256: 88aafa2ccd9a7cfc2269f17294ec49ab1173332fde6c61f4a2cf7eaf95452d17
     status: match
   pin_status:
-    match: 8
-    not in tree: 1
+    match: 9
   directory_files: 8
   directory_bytes: 124715058
   consumers:

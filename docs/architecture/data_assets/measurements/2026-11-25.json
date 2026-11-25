@@ -1,25 +1,29 @@
 {
-  "schema_version": 1,
-  "measured_at": "2026-11-25T05:02:25+00:00",
+  "schema_version": 2,
+  "measured_at": "2026-11-25T05:20:46+00:00",
   "method": {
-    "tree": "git ls-tree -r -l <ref>; blob sizes as stored in Git (LFS files count as pointers)",
-    "history": "git rev-list --objects over every refs/remotes/origin/* branch and tag (what a full clone downloads), then git cat-file --batch-check objectsize / objectsize:disk",
-    "lfs": "pointer files (< 1 KiB blobs starting with the LFS spec line); object size from the pointer",
+    "tree": "git ls-tree -r -l <ref>; blob sizes as stored in Git (LFS files count as pointers); packed_bytes = local objectsize:disk of the tree's blobs",
+    "history": "git rev-list --objects over every refs/remotes/origin/* branch and tag (what a full clone downloads), then git cat-file --batch-check objectsize / objectsize:disk. Blobs reachable from no code branch are attributed by ref to the gh-pages groups.",
+    "lfs": "pointer files (< 1 KiB blobs starting with the LFS spec line); object size from the pointer; presence checked in the local .git/lfs/objects",
+    "historical_sample_references": "every vaft/data/samples/<shot>/manifest.yaml blob in history; bytes_in_history = a representation blob in history hashes to the recorded sha256",
     "packages": "PyPI JSON API for the latest release",
     "github": "gh api repos/<repo> .size (KiB, GitHub's own accounting)",
     "local_pack": "git count-objects -v size-pack"
   },
   "limitations": [
-    "consumers are a text search for path fragments and API names; run-time built paths are missed",
+    "consumers are a text search for path fragments and API names; run-time built paths are missed and broad patterns over-count",
     "a blob stored under several paths is attributed to the first path rev-list reports",
     "packed (on-disk) bytes depend on the local repository's packing",
-    "wheel membership is evaluated from pyproject package-data globs plus the setup.py 39915 substitution, not by building a wheel"
+    "wheel membership is evaluated from pyproject.toml plus the setup.py 39915 swap, not by building a wheel; the sdist is not modelled",
+    "in a partial clone, absent blobs are counted as missing, not measured"
   ],
   "trees": {
     "origin/develop": {
       "commit": "f878d31aec11f60ec3be58e2a99ef81aade63b30",
       "files": 3497,
       "bytes": 940791647,
+      "packed_bytes": 628848542,
+      "missing_blobs": 0,
       "by_group": {
         "samples.shot.representations": {
           "files": 11,
@@ -50,8 +54,8 @@
           "bytes": 20786701
         },
         "workflow.results": {
-          "files": 26,
-          "bytes": 20431850
+          "files": 24,
+          "bytes": 20387307
         },
         "efit.gfile_fixtures": {
           "files": 6,
@@ -62,8 +66,8 @@
           "bytes": 13549729
         },
         "samples.shot.stage_products": {
-          "files": 23,
-          "bytes": 13198292
+          "files": 15,
+          "bytes": 12458293
         },
         "notebooks.data": {
           "files": 19,
@@ -89,6 +93,10 @@
           "files": 5,
           "bytes": 3356764
         },
+        "samples.shot.pinned_parts": {
+          "files": 8,
+          "bytes": 739999
+        },
         "efit.inputs": {
           "files": 11,
           "bytes": 297895
@@ -96,6 +104,10 @@
         "samples.shot.manifests": {
           "files": 7,
           "bytes": 87700
+        },
+        "efit.table_records": {
+          "files": 2,
+          "bytes": 44543
         },
         "efit.green_tables_lfs": {
           "files": 4,
@@ -130,6 +142,8 @@
       "commit": "548d12d2ea15524c3eaf19b7b9348480f830bb31",
       "files": 3314,
       "bytes": 906932471,
+      "packed_bytes": 602759537,
+      "missing_blobs": 0,
       "by_group": {
         "samples.shot.representations": {
           "files": 11,
@@ -160,8 +174,8 @@
           "bytes": 20786701
         },
         "workflow.results": {
-          "files": 27,
-          "bytes": 20554595
+          "files": 25,
+          "bytes": 20510052
         },
         "efit.gfile_fixtures": {
           "files": 6,
@@ -191,7 +205,7 @@
           "files": 5,
           "bytes": 3356764
         },
-        "samples.shot.stage_products": {
+        "samples.shot.pinned_parts": {
           "files": 8,
           "bytes": 739999
         },
@@ -202,6 +216,10 @@
         "samples.shot.manifests": {
           "files": 7,
           "bytes": 87713
+        },
+        "efit.table_records": {
+          "files": 2,
+          "bytes": 44543
         },
         "efit.green_tables_lfs": {
           "files": 4,
@@ -235,122 +253,168 @@
   },
   "history": {
     "scope": "clone (origin branches + tags)",
-    "refs": 29,
+    "refs": 30,
+    "gh_pages_refs": [
+      "refs/remotes/origin/backup/gh-pages-20261021",
+      "refs/remotes/origin/gh-pages",
+      "refs/tags/archive/gh-pages-develop"
+    ],
     "total": {
-      "blobs": 75769,
-      "raw": 14581510269,
-      "packed": 3011020539
+      "blobs": 75781,
+      "raw": 14582316365,
+      "packed": 3011292514,
+      "missing": 0
     },
     "by_group": {
       "samples.shot.sources": {
         "blobs": 43,
         "raw": 1003475629,
-        "packed": 976579640
+        "packed": 976579640,
+        "missing": 0
       },
       "samples.shot.representations": {
         "blobs": 88,
         "raw": 1919503233,
-        "packed": 899213296
+        "packed": 899213296,
+        "missing": 0
       },
       "notebooks.outputs": {
         "blobs": 849,
         "raw": 1006002752,
-        "packed": 278571838
+        "packed": 278571838,
+        "missing": 0
       },
-      "history.retired_sample_layouts": {
+      "history.retired_layouts": {
         "blobs": 46,
         "raw": 939477196,
-        "packed": 261386666
+        "packed": 261386666,
+        "missing": 0
       },
-      "history.gh_pages": {
-        "blobs": 49200,
-        "raw": 7963920132,
-        "packed": 250874774
+      "history.gh_pages_backups": {
+        "blobs": 53336,
+        "raw": 8136584423,
+        "packed": 244533019,
+        "missing": 0
       },
       "legacy.raw_fixtures": {
         "blobs": 90,
         "raw": 218331593,
-        "packed": 120431900
+        "packed": 120431900,
+        "missing": 0
       },
       "samples.wheel_projection": {
         "blobs": 28,
         "raw": 189195270,
-        "packed": 62312739
-      },
-      "unassigned": {
-        "blobs": 23011,
-        "raw": 989171931,
-        "packed": 39503145
+        "packed": 62312739,
+        "missing": 0
       },
       "docs.media": {
-        "blobs": 1422,
-        "raw": 166811559,
-        "packed": 36730825
+        "blobs": 1835,
+        "raw": 204032092,
+        "packed": 39993965,
+        "missing": 0
+      },
+      "unassigned": {
+        "blobs": 18137,
+        "raw": 702042230,
+        "packed": 37793875,
+        "missing": 0
       },
       "workflow.results": {
-        "blobs": 44,
-        "raw": 22155617,
-        "packed": 15210305
-      },
-      "samples.shot.stage_products": {
-        "blobs": 29,
-        "raw": 13937757,
-        "packed": 13607893
+        "blobs": 42,
+        "raw": 22111074,
+        "packed": 15201868,
+        "missing": 0
       },
       "notebooks.data": {
         "blobs": 41,
         "raw": 12830640,
-        "packed": 12475629
+        "packed": 12475629,
+        "missing": 0
+      },
+      "samples.shot.stage_products": {
+        "blobs": 15,
+        "raw": 12458293,
+        "packed": 12437585,
+        "missing": 0
       },
       "efit.generated_tables_plain": {
         "blobs": 6,
         "raw": 15618579,
-        "packed": 10617827
+        "packed": 10617827,
+        "missing": 0
       },
       "data.geometry_config": {
-        "blobs": 395,
-        "raw": 49646411,
-        "packed": 9486775
+        "blobs": 396,
+        "raw": 49678105,
+        "packed": 9498452,
+        "missing": 0
       },
       "data.small_fixtures": {
         "blobs": 15,
         "raw": 9386091,
-        "packed": 6641772
+        "packed": 6641772,
+        "missing": 0
       },
       "samples.kinetic_efit": {
         "blobs": 10,
         "raw": 19573154,
-        "packed": 6025518
+        "packed": 6025518,
+        "missing": 0
       },
       "efit.gfile_fixtures": {
         "blobs": 6,
         "raw": 14691749,
-        "packed": 5726628
+        "packed": 5726628,
+        "missing": 0
+      },
+      "history.gh_pages_current": {
+        "blobs": 336,
+        "raw": 78019279,
+        "packed": 5048183,
+        "missing": 0
       },
       "test.fixtures": {
         "blobs": 306,
         "raw": 17892016,
-        "packed": 2751537
+        "packed": 2751537,
+        "missing": 0
       },
       "samples.tables": {
         "blobs": 23,
         "raw": 8401424,
-        "packed": 2721005
+        "packed": 2721005,
+        "missing": 0
+      },
+      "samples.shot.pinned_parts": {
+        "blobs": 14,
+        "raw": 1479464,
+        "packed": 1170308,
+        "missing": 0
       },
       "samples.shot.manifests": {
         "blobs": 79,
         "raw": 660660,
-        "packed": 91259
+        "packed": 91259,
+        "missing": 0
       },
       "efit.inputs": {
         "blobs": 27,
         "raw": 825423,
-        "packed": 58235
+        "packed": 58235,
+        "missing": 0
+      },
+      "efit.table_records": {
+        "blobs": 2,
+        "raw": 44543,
+        "packed": 8437,
+        "missing": 0
       },
       "efit.green_tables_lfs": {
         "blobs": 11,
         "raw": 1453,
-        "packed": 1333
+        "packed": 1333,
+        "missing": 0
       }
     },
     "largest_blobs": [
@@ -553,6 +617,832 @@
         "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
         "raw_bytes": 35984160,
         "packed_bytes": 35179533
+      }
+    ],
+    "lfs_history": [
+      {
+        "path": "vaft/data/efit/ec129129.ddd",
+        "object_sha256": "f7b07a58c21f86a7aed18fab24e1ceaf44df5bd6f8f436edbe1c6b91ed8002f7",
+        "bytes": 19305664,
+        "first_commit": "4d22d4484 2026-09-14",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ec129129.ddd",
+        "object_sha256": "b2570c761691bebca47df641ad47f3010edded06d00ac089453717aeed002c8d",
+        "bytes": 19305664,
+        "first_commit": "be3be688b 2026-07-08",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ec129129.ddd",
+        "object_sha256": "a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+        "bytes": 20636944,
+        "first_commit": "e2f73cea8 2026-09-15",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ep129129.ddd",
+        "object_sha256": "bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+        "bytes": 9984616,
+        "first_commit": "4d22d4484 2026-09-14",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ep129129.ddd",
+        "object_sha256": "03fe274694893f0328eb64aa441546030b3f9dea9ad44c026f238a826d67f934",
+        "bytes": 9984616,
+        "first_commit": "be3be688b 2026-07-08",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rfcoil.ddd",
+        "object_sha256": "4e17f5deeedc76c96b8b655fdd659cf0a2b2ada7907a1792845d69cb1d5b6a6f",
+        "bytes": 9616,
+        "first_commit": "4d22d4484 2026-09-14",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rfcoil.ddd",
+        "object_sha256": "9f9a42b6bbe7dc57322613a0d77f0f670d9e8031407eec7dc4f156cf16e571f3",
+        "bytes": 9616,
+        "first_commit": "be3be688b 2026-07-08",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rfcoil.ddd",
+        "object_sha256": "d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+        "bytes": 15616,
+        "first_commit": "e2f73cea8 2026-09-15",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rv129129.ddd",
+        "object_sha256": "047b7700d45530330759738d7cf257e0a8191be054705e622d714fe065996e2a",
+        "bytes": 134383248,
+        "first_commit": "4d22d4484 2026-09-14",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rv129129.ddd",
+        "object_sha256": "6884c517cfbefc4f2c2948a67621d832e2544aa15941865470ca726b147a870f",
+        "bytes": 134383248,
+        "first_commit": "be3be688b 2026-07-08",
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rv129129.ddd",
+        "object_sha256": "c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+        "bytes": 134459248,
+        "first_commit": "e2f73cea8 2026-09-15",
+        "object_in_local_store": true
+      }
+    ],
+    "historical_sample_references": [
+      {
+        "reference_id": "vest-39915-until-efit-v1",
+        "shot": 39915,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "0ef549bbb7d398891ec126b0adc0ee17e17c11b6429228d97107a8f308b96e19",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "25e1a1939460d9d0259af74609a872edb8219f7805671ffe2ced2ed144d8f17c",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "2a53a5d5d0cf73e4f942036944f2caae878caaefa81bcf73d2358bbe8dd4769f",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "32d758604aacbf7ae8c6f3fbbc92e3391cfc1be62b35811741174001fb158d93",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "40fce1355dbe92ca666722352be6377a29fcddc1e4b3f9e81187fbab9815624a",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "6ed950b7eeea6814a2e9704226cce9eaa3acf0bb69322f343016a23d85f23722",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "73126eee8c473b64005a03bb3d0b81b03951c6ea0f8c7aafc7275a9f129bcf2b",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "83ada36ee937897aedcf6692885f1be03559dc3ddc131d94d0c23b5657f2631e",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "8847ed91234512780dcd4b0547b8a1a0356426b1d1259a3c0285ddba84ea9dd0",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "9323fa6ee796ff2d5d64f1e1ef2a472485fc6fbf00d64d9acfaea2933becaab9",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "9bef1c8ba542cd67681230a2830b1fd053a675b17e06336bf64967d628cb442e",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "b1355cb30eece2676fc8312a033b104006c1a0277c25dc55456e6cabc87395b0",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "d56d89ca858f15280beba682beac992b603a9e47de22ec88b9008e7ac3d589ba",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e166c909ebf4e197c007b1e0749118e5d456a4e9b2d7806d15a720eee120c2b6",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "ececd7dc93cc15e6d6b3b2f3c25290f7552db933b38e0afe26df0d1ac518cdc5",
+            "bytes_in_history": false
+          },
+          {
+            "name": "omas",
+            "sha256": "12bdd23a9c88bd4a571954a7403275a47119d7e43e6f2c950a355417a3c1946d",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "236bc1d7ed167690b4eefe7bd291872bc07e9e0aaa87cdc28141f83b8fdc25d2",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "36a8bf476870168e6a1c7ae7320bf2cc5ebef76fcc5049eb495883b107f12137",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "45075b8ec6f1b68a432e371259b80f0a15e0ef0cffd211a33c161a71b59cf1f8",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "4e6f688f74165bfa8b8e834a81fa9dcfc46efc2223dae29df633c5618b3b96e8",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "5e49ed0abb129e9d51398496567b5be8362ecea02b8cf981f6d21c67b1fba1b3",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "63d28c2645ac507fe43f9ae6e5ad3d2583c7cacd743f5b926d76f46cbd379580",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "76b06487879c5b1429898e7fbd4c7149056b9bec20aeb7fc29aff6a123b8d80e",
+            "bytes_in_history": false
+          },
+          {
+            "name": "omas",
+            "sha256": "97ff93634261c8d19c9e9344334f689cba7ef86a1f8ee737c830eaa44477fb8e",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "9b87d963a8314804c1e68cfb7acf80cbecf592db7c930ca1b15b95b190fb0984",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "b206d9013c4cc1ac00fdc662b56ecdcb6e2677fe9e5ca7291b8e547d841c282f",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "d60d8e9fa4a73998cbd6dfb8548b71908f9805f70b54c70d87e6f546399decc0",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "e4a7a46699ca0f9b90e1b3cb46a0ccb064ff62be98667ecbdabe9bb882e3798f",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "f7a1db496dbc38056cd3f86649f2ebf931b2acea0d4702819632e416bba1a09d",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "fea89357f30743d0eeceb794f443b3495c1a39e7fcf0aea67b5bdc588617eda0",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v2",
+        "shot": 39915,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "d403f3c88e1e8fc4a19b9173e1862cc749119b7ad51a37b2d52ad7758566d171",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "257452d5e7cc94d7682b7a069d60180e3a94bc5580e41cb90ca13384159d24e5",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v3",
+        "shot": 39915,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "b1c813ebb05e1550bd423d800cce401b007ea76ab031c34856b32ea3c9cf2d87",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "625e8c0ddb6ae1b9125961721e629f000411af4bdddc975e5cb879042c8f3add",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v4",
+        "shot": 39915,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "4c54a687c94366c602ae3b94d27d22d8f603285defada3955d4c1c874bcd8518",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "afed7ccb9e95f6e5f94957b9960da0afac9a0f1174e6d6f144c0f5815f35f83a",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v5",
+        "shot": 39915,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "cd6c7e076d2f8d9c49fa3b3add1542d7770b39402dbaa31f91dfc878cabb4397",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e38388036d1c74598782a50c606cc1e23339e479712e3326ad362f15b49bf226",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "78b7502b170615534cd42a3659d4fe6a88cabe32da09f1b91927f46448c63ecf",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-40600-camera-fluctuation-v1",
+        "shot": 40600,
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "31443eec4238fda52b817c74ff73dfcbb586d5664da805aa78d761cee3bb9d17",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-40600-camera-fluctuation-v2",
+        "shot": 40600,
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-legacy-full-imas-v1",
+        "shot": 41524,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "b5d382ab2e2efcb3e739ab6212f8852c60c6c0ff6b5b24f195aba0db6a4db8b0",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v2",
+        "shot": 41524,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "2772efa9fa93e793def67d6c3a1fc369fe06c8c808078d749c4aabcdc1ff8716",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "27a17ef7115a72d9ceceefef8efd7729303d38f2fb1f2dd187fdefad4fb7414e",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "84dfb42c54db55435a04ac7e2bea99d22f48af50725e0d65bee13c0e24a5fd50",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "b990c6d0a63f5b31407271c481b41e17f12f6022184de0fb097671e127fcea0b",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "c10d7f619675e78a96b0afa744dd5c6ac66f7235c4745f616750bb4aebaef063",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "c31844f08576e6b0677fef0333845974145579d2c1f7a0f373989e63698c2ddb",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "d75813f77c639aba45fdbb6e57ff0e31dddac6fbb5399ebaece499fbd7d8bd39",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e28678c827f1ac66ca170e13d7f11bef0f0332b83de36fcd61676d88a74db034",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v3",
+        "shot": 41524,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "5d1f03d47410d1e1f45e21b8cb01cbdcfa180079ec2103d2bb263a976a49125a",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "9c00c1828044980d2ff7f6dfcb8ed9163e3984ba77fbb7396cf5706ffb1ebbee",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v4",
+        "shot": 41524,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "c8917664b404478927ec3759084afe4082fc510a32de8360c7f63f64ed07fa0b",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "b3a51a0e391b1373c6d2253c4057fe655c9bf2882aaa03b09be0072365fc86dc",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v5",
+        "shot": 41524,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "84e4a239ef573060a0ecf2f335ffe0b90ee8ca4634852b11a1d8b312f90e3cb9",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "1ca7152401d1ddf2008b8f34e837e9de893aa9495b3200dfcafa0b1c6864f656",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v6",
+        "shot": 41524,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "9a27fba43962fe828a61386109cbabe749ca8718f1102303882cff1f5a5bf744",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "b4c93f7e7bd1975678221d05020744206ac9ebd09a3ea8f192200c3e0a22ae5b",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e2b5d430452d98351c9a067f3d064dedd1a994ef770b4332761ecb36db778b6d",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "2b214c556fce090aceceeb21360f9891a9d285fea761787e3c90b342681af8b8",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "96c1673bd176d0a318502254b3f618149882b1cddab85b6542251ba014b8b28d",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "d560035e42292cf120ee30845da8c332f94da87fbed4c80bd8dd4d7e44af8e33",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-legacy-full-imas-v1",
+        "shot": 41672,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "f2be4c51e559ed4c2262cc8f58c036ba55ec7ff8fe109711187d0a05f2b283c9",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v2",
+        "shot": 41672,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "023823602d54e78799eb86dd7a4ade65e11d08332608a2b7bcc3317ef8393ccf",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "52965f9615a1c966f890f003ce171d169bddcf34b104b0cdc0ab00b59aafed1b",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "984411746ba95c8ef0c6c853707a24caed9bf13cf24be72e209271990cd35089",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "98bac116ed191d9a003252c9dcf2c4081d926a4083cd64b04df639198f24b96c",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "ace51302537d20d8b82d163752d58c49e1c86fe3ad316ddafe2ce7efed930b56",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e6ca10064752e2779ca98fb8bdb5dd06496f97a5f338f40219a2d4032b8b88be",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e6d87edcc7d8f7908b2ff1e4bf0314162e3161eb5e8ac23a51d474747d53502f",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "f51827f717605e1ae865f3539bac250aeecc358660d8ce56ac8f9e0a6f2b7095",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v3",
+        "shot": 41672,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "43d04f7c2fd8fe7e73978f70c8373920440e6868834628fe48e9b76226e077fb",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "b802248cb7216842bd2e50052716646b399f5a5ddc5d11f810db65dde7c45246",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v4",
+        "shot": 41672,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "4d95b51e20f31e3ed5be92cbb111983f3db1229ba8a97d16562d60b76a0be393",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "25a675c83668164b4fc9a028975923495b55ac026482223f522708d6c98715cd",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v5",
+        "shot": 41672,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "3093cdbd5258d88796ebfa7ddcdca0a47b1f36d11a3b06f19f1f04f7ce545f75",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "d3693cc2a27514c20ae1f9a9e25d943b8bdcb194d66a8425e23e1e3412e0528b",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v6",
+        "shot": 41672,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "7027c0ab0113ec129e0d4ea5aa4af7ce2e48c00c0fe6825396134bc817e43f91",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "8dc04c61f9aaa66721e6a94f689ebeb4e6615d66dfc8013994eef926632a3cef",
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "bf2108ac2d8b20a725980c5215200cb479233f264f2fd3f3bf99900b85f83c6b",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "3728e3b65ed3118e2b8746670ece4350d7253e036e491f3fc687240cbc19ce90",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "5345407c7b28d2f12a8cd24af87b18ed2df254274448f7b596128b14d5537db2",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "c37a7d0a69031d85a1116d477adf2e5c399fa305b49e710eaf32262266c2b8ce",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-42962-pipeline-full-imas-v1",
+        "shot": 42962,
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "8965b80024a5847765bebc83eef17b572777ba87ca32887477dd9ac99983c077",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "533de4695403c73952e4fc41c58860aaf0485e96fc6414adc975cc3de15450f9",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-45531-fluctuation-v1",
+        "shot": 45531,
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "07709cd3fa75b451dd3adcb8b74bcc2b694651ac7e5ebf4de708e21517d05f3e",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-45531-fluctuation-v2",
+        "shot": 45531,
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-48224-kinetic-300ms-v1",
+        "shot": 48224,
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "6178be57065853b4e7fedbdd79101b4ee28e82782252aaf3b5439e2bcc938ac7",
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-48224-kinetic-300ms-v2",
+        "shot": 48224,
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "6178be57065853b4e7fedbdd79101b4ee28e82782252aaf3b5439e2bcc938ac7",
+            "bytes_in_history": true
+          }
+        ]
+      }
+    ],
+    "retired_paths": [
+      {
+        "path": "packaging/wheel_samples/39915/imas.nc",
+        "blobs": 7,
+        "raw": 68401123,
+        "packed": 399181
+      },
+      {
+        "path": "packaging/wheel_samples/39915/manifest.yaml",
+        "blobs": 8,
+        "raw": 39229,
+        "packed": 2057
+      },
+      {
+        "path": "packaging/wheel_samples/39915/omas.json.gz",
+        "blobs": 7,
+        "raw": 60227761,
+        "packed": 39001741
+      },
+      {
+        "path": "vaft/data/39915.json",
+        "blobs": 1,
+        "raw": 56898013,
+        "packed": 18091172
+      },
+      {
+        "path": "vaft/data/39916.json",
+        "blobs": 1,
+        "raw": 62863713,
+        "packed": 20148646
+      },
+      {
+        "path": "vaft/data/39917.json",
+        "blobs": 1,
+        "raw": 56897399,
+        "packed": 18084315
+      },
+      {
+        "path": "vaft/data/44740_imas_equilibrium.h5",
+        "blobs": 1,
+        "raw": 70646424,
+        "packed": 22965548
+      },
+      {
+        "path": "vaft/data/imas/barometry.h5",
+        "blobs": 1,
+        "raw": 60609,
+        "packed": 17850
+      },
+      {
+        "path": "vaft/data/imas/coils_non_axisymmetric.h5",
+        "blobs": 1,
+        "raw": 30448,
+        "packed": 1010
+      },
+      {
+        "path": "vaft/data/imas/core_profiles.h5",
+        "blobs": 1,
+        "raw": 167442,
+        "packed": 12116
+      },
+      {
+        "path": "vaft/data/imas/dataset_description.h5",
+        "blobs": 1,
+        "raw": 10780,
+        "packed": 407
+      },
+      {
+        "path": "vaft/data/imas/equilibrium.h5",
+        "blobs": 1,
+        "raw": 16059812,
+        "packed": 15326151
+      },
+      {
+        "path": "vaft/data/imas/magnetics.h5",
+        "blobs": 1,
+        "raw": 1112489,
+        "packed": 996213
+      },
+      {
+        "path": "vaft/data/imas/master.h5",
+        "blobs": 1,
+        "raw": 4364,
+        "packed": 743
+      },
+      {
+        "path": "vaft/data/imas/pf_active.h5",
+        "blobs": 1,
+        "raw": 138924,
+        "packed": 80302
+      },
+      {
+        "path": "vaft/data/imas/pf_passive.h5",
+        "blobs": 1,
+        "raw": 15483626,
+        "packed": 15363540
+      },
+      {
+        "path": "vaft/data/imas/spectrometer_uv.h5",
+        "blobs": 1,
+        "raw": 170572,
+        "packed": 138571
+      },
+      {
+        "path": "vaft/data/imas/tf.h5",
+        "blobs": 1,
+        "raw": 57241,
+        "packed": 35243
+      },
+      {
+        "path": "vaft/data/imas/thomson_scattering.h5",
+        "blobs": 1,
+        "raw": 47566,
+        "packed": 3151
+      },
+      {
+        "path": "vaft/data/imas/vest_imas_3.40.1.nc",
+        "blobs": 1,
+        "raw": 32649657,
+        "packed": 31640105
+      },
+      {
+        "path": "vaft/data/imas/wall.h5",
+        "blobs": 1,
+        "raw": 39180,
+        "packed": 1146
+      },
+      {
+        "path": "vaft/data/omas/39915.json",
+        "blobs": 2,
+        "raw": 173208352,
+        "packed": 19228462
+      },
+      {
+        "path": "vaft/data/omas/41524.json",
+        "blobs": 2,
+        "raw": 169438500,
+        "packed": 30933615
+      },
+      {
+        "path": "vaft/data/omas/41672.json",
+        "blobs": 2,
+        "raw": 154823972,
+        "packed": 28915381
       }
     ]
   },
