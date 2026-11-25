@@ -751,6 +751,7 @@ _PSI_LIKE_LEAVES = (
     "global_quantities.psi_boundary",
     "boundary.psi",
     "boundary_separatrix.psi",
+    "boundary_secondary_separatrix.psi",
     "profiles_1d.psi",
     "profiles_1d.dpsi_drho_tor",
 )

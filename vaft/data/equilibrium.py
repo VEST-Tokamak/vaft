@@ -714,6 +714,57 @@ class BoundaryRepresentation:
         return {point.branch: point for point in self.x_points if point.role is not None and point.branch is not None}
 
 
+
+#: Per-slice states of a :class:`SeparatrixBalanceSeries`.
+SEPARATRIX_BALANCE_STATES = ("valid", "limited", "unavailable", "ambiguous", "no_plasma", "failed")
+
+
+@dataclass(frozen=True)
+class SeparatrixBalanceSeries:
+    """Signed dRsep and divertor topology for every slice of an equilibrium history.
+
+    ``d_r_sep`` holds a number only where it is a diverted magnetic-balance
+    sample (``state == "valid"``) and NaN everywhere else; nothing is ever
+    filled with zero.  ``state`` says why a slice has no value:
+    ``"limited"`` is a confirmed limited boundary (a plot may mark it as a
+    category, never as a number), ``"unavailable"`` a diverted boundary
+    without a resolvable secondary separatrix, ``"ambiguous"`` an unsettled
+    classification, ``"no_plasma"`` a vacuum or terminated slice and
+    ``"failed"`` an analysis that raised.  ``native_d_r_sep`` is the source
+    code's own value (EFIT ``DRSEP``) converted to metres, NaN where the code
+    reported a sentinel or a non-signed configuration; it is kept beside the
+    derived value, never merged into it.
+    """
+
+    time: np.ndarray
+    d_r_sep: np.ndarray
+    state: tuple[str, ...]
+    topology: tuple[str | None, ...]
+    reason: tuple[str | None, ...]
+    resolution: np.ndarray
+    geometric_d_r_sep: np.ndarray
+    native_d_r_sep: np.ndarray
+    native_configuration: tuple[str | None, ...]
+    unit: str = "m"
+    definition: str = "R_out(psi_X,lower)-R_out(psi_X,upper) at Z=Z_axis"
+
+    def __post_init__(self) -> None:
+        size = np.asarray(self.time).size
+        for name in ("d_r_sep", "resolution", "geometric_d_r_sep", "native_d_r_sep"):
+            if np.asarray(getattr(self, name)).size != size:
+                raise ValueError(f"{name} must have one entry per time slice")
+        for name in ("state", "topology", "reason", "native_configuration"):
+            if len(getattr(self, name)) != size:
+                raise ValueError(f"{name} must have one entry per time slice")
+        unknown = set(self.state) - set(SEPARATRIX_BALANCE_STATES)
+        if unknown:
+            raise ValueError(f"unknown state(s) {sorted(unknown)}; expected {SEPARATRIX_BALANCE_STATES}")
+
+    @property
+    def native_residual(self) -> np.ndarray:
+        """Derived minus native dRsep where both are valid, NaN elsewhere [m]."""
+        return np.asarray(self.d_r_sep, dtype=float) - np.asarray(self.native_d_r_sep, dtype=float)
+
 __all__ = [
     "BoundaryRepresentation", "Contour", "DerivationProvenance", "DerivedValue",
     "EquilibriumConvention", "EquilibriumData", "Gap", "GlobalEquilibriumDescriptors",
@@ -722,4 +773,5 @@ __all__ = [
     "ValidationReport", "XPoint", "CurrentMomentRepresentation", "GradShafranovResidualModes", "FourierFitResult",
     "GuazzottoFreidbergEquilibrium", "FourierSequenceResult", "FourierSurface", "MXHChebyshevRepresentation",
     "SolovevFit", "SOLOVEV_BASIS_SIZES", "SOLOVEV_CONSTRAINT_KINDS",
+    "SeparatrixBalanceSeries", "SEPARATRIX_BALANCE_STATES",
 ]

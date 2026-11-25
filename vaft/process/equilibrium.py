@@ -120,6 +120,9 @@ _MOMENT_EXPORTS = (
 
 _COIL_FIT_EXPORTS = ("CoilFitResult", "fit_free_boundary_coils")
 
+#: The divertor-balance history, implemented in ``._separatrix_balance``.
+_SEPARATRIX_BALANCE_EXPORTS = ("native_efit_d_r_sep", "separatrix_balance_series")
+
 __all__ = [
     "FLUX_SURFACE_QUANTITIES",
     "MIN_ANNULUS_CELLS",
@@ -185,6 +188,7 @@ __all__ = [
     *_GF_EXPORTS,
     *_MOMENT_EXPORTS,
     *_COIL_FIT_EXPORTS,
+    *_SEPARATRIX_BALANCE_EXPORTS,
 ]
 
 
@@ -6894,3 +6898,8 @@ try:  # pragma: no branch - direct source-file imports have no package context
     from ._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401
 except ImportError:
     from vaft.process._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401
+
+try:  # pragma: no branch - direct source-file imports have no package context
+    from ._separatrix_balance import native_efit_d_r_sep, separatrix_balance_series  # noqa: E402,F401
+except ImportError:
+    from vaft.process._separatrix_balance import native_efit_d_r_sep, separatrix_balance_series  # noqa: E402,F401
