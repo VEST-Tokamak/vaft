@@ -108,6 +108,12 @@ class TESConfig:
     xpz: Sequence[float] = ()
     active: Sequence[int] = ()
     snowflake: Sequence[int] = ()
+    # (flag, target [m]) written to the deck's DRSEP line.  TES reads it but no
+    # solver routine uses the target (TESm read_input.cpp DRSEPF/DRSEPT), so it
+    # constrains nothing.  The DRSEP TES *reports* (RESULT in m, a-file in cm)
+    # is lower minus upper, negative for a lower single null: the EFIT sign and
+    # VAFT's d_r_sep sign since #2325, though TES measures it on Z = 0 rather
+    # than at the magnetic-axis height.
     drsep: tuple[int, float] = (0, 0.0)
     dsep: tuple[int, float] = (0, 0.0)
     isor: Sequence[float] = ()

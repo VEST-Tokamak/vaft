@@ -253,7 +253,9 @@ zero for a balanced double null and positive for an upper single null, the
 meaning of the EFIT a-file `DRSEP` and of the published magnetic-balance scans.
 **Sign change (#2324/#2325):** earlier versions published upper-minus-lower, so
 every stored signed value from them is reversed. Absolute jumps, such as the
-free-boundary scan's `d_r_sep_jump_m`, are unaffected. The formula is
+free-boundary scan's `d_r_sep_jump_m`, are unaffected. How to tell old values
+from new ones, and how to migrate them, is in
+[dRsep sign migration](#drsep-sign-migration-2325). The formula is
 `vaft.formula.separatrix_radial_separation`. Its first-order flux form and
 the normalisation by `lambda_q` are `separatrix_separation_from_flux_imbalance`
 and `separatrix_imbalance_to_heat_flux_width`. That ratio compares the
@@ -374,6 +376,58 @@ residual, Miller and Fourier fits, $a/L_T$ in four conventions, rational surface
 island with a field-line check, a 3-D embedding and a camera projection, and checks source, time,
 COCOS and flux unit at each step. The GPEC response step is missing because no GPEC output is
 packaged.
+
+## dRsep sign migration (#2325)
+
+**What changed.** VAFT v0.9.0 and earlier published `d_r_sep` as upper minus
+lower. From PR #2326 on `develop` (first released after v0.9.0) it is lower minus
+upper, the DIII-D/EFIT sign. The X-point selection and the availability rule
+changed in the same PR. A limited or ambiguous boundary is no longer an
+available balance sample, and interior saddles are never used. So an old value
+can differ from a new one by more than its sign.
+
+**Telling old from new.** Every carrier of the value now states its convention:
+
+| Carrier | Old (upper − lower) | New (lower − upper) |
+| --- | --- | --- |
+| `BoundaryRepresentation.d_r_sep.definition` | `R_out(psi_X,upper)-R_out(psi_X,lower) at Z=Z_axis` | `R_out(psi_X,lower)-R_out(psi_X,upper) at Z=Z_axis` |
+| `TopologyReport.to_dict()` / `case_manifest.json` `topology` | no `d_r_sep_convention` key | `d_r_sep_convention: "lower_minus_upper"` |
+| Free-boundary scan manifests | `schema_version: 1` | `schema_version: 2` |
+| EFIT a-file `DRSEP` | always the EFIT sign (cm, 40 cm sentinel) | unchanged; never a VAFT value |
+| TES `DRSEP` (RESULT in m, a-file in cm) | always lower − upper, on `Z = 0` | unchanged |
+
+A bare number with none of these markers has no recoverable convention. Treat
+it as unknown and regenerate it. Do not guess its sign from a date.
+
+**What was stored.** This audit was done on 2026-11-25. It checked `~/runs` on
+the development Mac, vestserver and the tdst cluster, plus the repository's
+notebooks.
+
+| Consumer | Old signed value persisted? | Action |
+| --- | --- | --- |
+| `BoundaryRepresentation.d_r_sep` | No; derived on demand | Sign follows the code; nothing to migrate |
+| `TopologyReport.d_r_sep` → `case_manifest.json` | Only in free-boundary scan workdirs; none exist on any audited machine | Resume re-classifies (below) |
+| `FreeBoundaryScan` jump flags (`d_r_sep_jump_m`, `d_r_sep_m` threshold) | Absolute values | None |
+| `TESConfig.drsep` | Input `(0, 0.0)`; TES never uses the target | None; TES output already uses the EFIT sign |
+| EFIT a-files / `vaft.data.aeqdsk` `drsep` | Native EFIT value, parsed but not mapped into an ODS | Kept separately, never re-signed |
+| IMAS/OMAS equilibrium products, HSDS, FileDB | No; no VAFT writer emitted a `d_r_sep` field (checked at the pre-#2326 baseline f878d31ae) | Phase D adds a mapping with its own definition |
+| Notebook outputs (`edge_and_boundary_representation`) | The old definition string | Re-executed |
+
+**Regenerating.**
+
+* *Free-boundary scans.* Run the same scan with `run(resume=True)`. A case
+  manifest without `d_r_sep_convention` is re-classified from its own g-file,
+  without re-solving, and rewritten at schema version 2. If that
+  re-classification fails, the stored report is kept. Its old value moves to
+  `d_r_sep_upper_minus_lower` and `d_r_sep` becomes `None`. An old-sign value is
+  never placed next to new ones in the jump check.
+* *Your own stored values.* Recompute them with
+  `derive_boundary_representation` from the source equilibrium. If the source is
+  gone and the old number must be used, negate it explicitly in your own code,
+  record that you did, and keep it out of comparisons with values from limited
+  or ambiguous slices. VAFT never does this for you.
+
+No production data was modified by #2325, and none needs to be.
 
 ## Public equilibria from other machines
 

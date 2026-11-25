@@ -117,7 +117,7 @@ def test_dry_run_writes_pending_manifests(tmp_path):
 
     assert all(case.status is fb.CaseStatus.PENDING for case in result.cases)
     payload = json.loads(result.manifest.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == 1
+    assert payload["schema_version"] == fb.SCAN_SCHEMA_VERSION == 2
     assert payload["solver"] == "tokamaker"
     assert [c["status"] for c in payload["cases"]] == ["pending"] * 3
     case_payload = json.loads(result.cases[0].manifest.read_text(encoding="utf-8"))
@@ -337,6 +337,75 @@ def test_resume_reclassification_failure_keeps_the_stored_topology(tmp_path, mon
         assert case.topology["active_tolerance"] == pytest.approx(1.0e-2)
         payload = json.loads(case.manifest.read_text(encoding="utf-8"))
         assert payload["topology"]["active_tolerance"] == pytest.approx(1.0e-2)
+
+
+def _make_manifests_pre_2325(result, d_r_sep=0.03):
+    """Rewrite case manifests as a schema-1 scan wrote them: upper minus lower."""
+    for case in result.cases:
+        payload = json.loads(case.manifest.read_text(encoding="utf-8"))
+        payload["schema_version"] = 1
+        payload["topology"].pop("d_r_sep_convention")
+        payload["topology"]["d_r_sep"] = d_r_sep
+        case.manifest.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_resume_reclassifies_a_pre_2325_manifest_instead_of_resigning_it(tmp_path, monkeypatch):
+    from vaft.code.tokamaker.topology import D_R_SEP_CONVENTION, ScanTopology, TopologyReport
+
+    def _lsn(*a, **k):
+        return TopologyReport(
+            topology=ScanTopology.LOWER_SINGLE_NULL, d_r_sep=-0.01,
+            active_tolerance=k["active_tolerance"], near_null_band=k["near_null_band"],
+            contact_tolerance=k.get("contact_tolerance"),
+        )
+
+    make_fake_oft(monkeypatch)
+    monkeypatch.setattr(fb, "classify_boundary", _lsn)
+    _make_manifests_pre_2325(_scan(tmp_path).run())
+
+    calls, _ = make_fake_oft(monkeypatch)
+    monkeypatch.setattr(fb, "classify_boundary", _lsn)
+    result = _scan(tmp_path).run(resume=True)          # same tolerances as before
+
+    assert "solve" not in [entry[0] for entry in calls]
+    for case in result.cases:
+        # the stored +0.03 is replaced by a fresh classification, not negated
+        assert case.topology["d_r_sep"] == pytest.approx(-0.01)
+        assert case.topology["d_r_sep_convention"] == D_R_SEP_CONVENTION
+        assert not case.discontinuity.get("flagged")
+        payload = json.loads(case.manifest.read_text(encoding="utf-8"))
+        assert payload["schema_version"] == fb.SCAN_SCHEMA_VERSION
+        assert payload["topology"]["d_r_sep_convention"] == D_R_SEP_CONVENTION
+
+
+def test_a_pre_2325_d_r_sep_that_cannot_be_reclassified_is_set_aside(tmp_path, monkeypatch):
+    from vaft.code.tokamaker.topology import ScanTopology, TopologyReport
+
+    make_fake_oft(monkeypatch)
+    monkeypatch.setattr(
+        fb, "classify_boundary",
+        lambda *a, **k: TopologyReport(
+            topology=ScanTopology.LOWER_SINGLE_NULL, d_r_sep=-0.01,
+            active_tolerance=k["active_tolerance"], near_null_band=k["near_null_band"],
+            contact_tolerance=k.get("contact_tolerance"),
+        ),
+    )
+    _make_manifests_pre_2325(_scan(tmp_path).run())
+
+    make_fake_oft(monkeypatch)
+    monkeypatch.setattr(
+        fb, "classify_boundary",
+        lambda *a, **k: TopologyReport(topology=ScanTopology.UNKNOWN, reason="transient"),
+    )
+    result = _scan(tmp_path).run(resume=True)
+    for case in result.cases:
+        assert case.topology["topology"] == "lower_single_null"     # stored report kept
+        assert case.topology["d_r_sep"] is None                     # but not its old sign
+        assert case.topology["d_r_sep_upper_minus_lower"] == pytest.approx(0.03)
+        assert "d_r_sep_jump_m" not in case.discontinuity
+        payload = json.loads(case.manifest.read_text(encoding="utf-8"))
+        assert payload["topology"]["d_r_sep_upper_minus_lower"] == pytest.approx(0.03)
+        assert "d_r_sep_convention" not in payload["topology"]   # retried next resume
 
 
 def test_resume_reloads_succeeded_cases_without_solving(tmp_path, monkeypatch):

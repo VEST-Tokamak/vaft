@@ -44,6 +44,14 @@ import numpy as np
 
 _log = logging.getLogger(__name__)
 
+#: Sign convention of :attr:`TopologyReport.d_r_sep`, written into every
+#: serialized report.  ``R_out(psi_X,lower) - R_out(psi_X,upper)`` at the
+#: magnetic-axis height: negative for a lower single null, positive for an
+#: upper single null (DIII-D/EFIT ``DRSEP``).  Reports written before #2325
+#: carry no such key and hold the opposite sign (upper minus lower); they are
+#: re-classified, never re-signed (see ``FreeBoundaryScan`` resume).
+D_R_SEP_CONVENTION = "lower_minus_upper"
+
 
 class ScanTopology(str, Enum):
     LIMITED = "limited"
@@ -73,7 +81,10 @@ class TopologyReport:
 
     topology: ScanTopology
     x_points: tuple[Mapping[str, float], ...] = ()   # {r, z, psi_n, active}
-    d_r_sep: Optional[float] = None                  # [m]; R_lower - R_upper: - = lower-biased (LSN), + = upper-biased (USN)
+    # [m]; R_out(psi_X,lower) - R_out(psi_X,upper) at Z_axis: - = LSN, + = USN.
+    # Copied from the canonical representation only when it is *available*
+    # (a diverted topology); None otherwise, never 0.  See D_R_SEP_CONVENTION.
+    d_r_sep: Optional[float] = None
     null_margin: Optional[float] = None              # min |psi_n - 1| over vacuum-side X-points (psi_n >= 1 - tol)
     limiter_contact: Optional[LimiterContact] = None
     active_tolerance: float = 0.0
@@ -97,6 +108,7 @@ class TopologyReport:
             "topology": self.topology.value,
             "x_points": [dict(xp) for xp in self.x_points],
             "d_r_sep": self.d_r_sep,
+            "d_r_sep_convention": D_R_SEP_CONVENTION,
             "null_margin": self.null_margin,
             "limiter_contact": contact,
             "active_tolerance": self.active_tolerance,
@@ -294,6 +306,7 @@ def classify_boundary(
 
 
 __all__ = [
+    "D_R_SEP_CONVENTION",
     "ScanTopology",
     "LimiterContact",
     "TopologyReport",
