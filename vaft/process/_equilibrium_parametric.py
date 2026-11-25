@@ -3867,8 +3867,11 @@ def _separatrix_balance(
         peak = int(np.argmax(np.where(confined, eq.lcfs.r, -np.inf)))
         z_peak, r_peak = float(eq.lcfs.z[peak]), float(eq.lcfs.r[peak])
         crossing = _outboard_crossing(eq, outer.psi, r_axis, z_peak)
-        if crossing is not None:
-            quality["imas_distance_inner_outer_m"] = float(crossing["r"] - r_peak)
+        # The DD quantity is unsigned; the polygon vertex and the spline root
+        # can disagree by a sub-cell amount, so a negative result is that
+        # numerical mismatch, not an inverted geometry.
+        if crossing is not None and crossing["r"] >= r_peak - (spacing or 0.0):
+            quality["imas_distance_inner_outer_m"] = float(max(crossing["r"] - r_peak, 0.0))
             quality["imas_distance_reference_z_m"] = z_peak
     if topology.is_diverted:
         quality["applicability"] = "diverted_balance"

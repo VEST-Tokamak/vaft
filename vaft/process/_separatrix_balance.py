@@ -121,9 +121,11 @@ def separatrix_balance_series(
         each adaptable by :func:`as_equilibrium` [-].
     time_indices : sequence of int, optional
         The slices to analyse, in order; every slice by default [-].
-    representations : sequence of BoundaryRepresentation, optional
-        Already-derived representations, one per entry of *time_indices*, to
-        reuse instead of deriving them again [-].
+    representations : sequence or mapping of BoundaryRepresentation, optional
+        Already-derived representations to reuse instead of deriving them
+        again: a sequence aligned with *time_indices*, or a mapping from slice
+        index (as :func:`vaft.omas.update.update_equilibrium_boundary_topology`
+        returns), in which slices absent from the mapping are derived [-].
 
     Returns
     -------
@@ -161,16 +163,23 @@ def separatrix_balance_series(
     slices = root["time_slice"]
     count = len(slices)
     indices = list(range(count)) if time_indices is None else [int(i) for i in time_indices]
-    if representations is not None and len(representations) != len(indices):
-        raise ValueError("representations must have one entry per analysed slice")
+    if representations is not None and not hasattr(representations, "keys"):
+        if len(representations) != len(indices):
+            raise ValueError("a representations sequence must have one entry per analysed slice")
+        representations = dict(zip(indices, representations))
 
     times, values, geometric, resolution, native = [], [], [], [], []
     states, topologies, reasons, configurations = [], [], [], []
-    for position, index in enumerate(indices):
+    for index in indices:
         node = slices[index]
         time = _scalar(node, "time")
         if not np.isfinite(time):
-            time = _scalar(root, f"time.{index}") if _read(root, "time") is not None else float("nan")
+            # path_value does not index into an array leaf, so read it whole.
+            history = _read(root, "time")
+            try:
+                time = float(np.asarray(history, dtype=float).reshape(-1)[index])
+            except (TypeError, ValueError, IndexError):
+                time = float("nan")
         times.append(time)
         parameters = f"code.parameters.time_slice.{index}.aeqdsk"
         drsep = _scalar(root, f"{parameters}.drsep")
@@ -186,7 +195,7 @@ def separatrix_balance_series(
         else:
             try:
                 representation = (
-                    representations[position] if representations is not None
+                    representations[index] if representations is not None and index in representations
                     else derive_boundary_representation(as_equilibrium(source, time_index=index))
                 )
             except Exception as exc:  # noqa: BLE001 -- one bad slice must not end the series

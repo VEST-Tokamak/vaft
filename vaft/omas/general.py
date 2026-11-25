@@ -815,6 +815,12 @@ _COCOS_TRANSFORMED_LEAVES = frozenset(
     )
 )
 _ERROR_SUFFIXES = ("_error_upper", "_error_lower")
+#: Transformed leaves whose OMAS ``cocos_signals`` entry is ``'?'`` (unknown)
+#: although the DD gives them a definite flux meaning.  Without this the
+#: factor lookup raises; skipping them would leave the leaf 2*pi off.
+_COCOS_SIGNAL_OVERRIDES = {
+    "equilibrium.time_slice.:.boundary_secondary_separatrix.psi": "PSI",
+}
 
 
 def _transform_cocos_leaves(ods, source_cocos, target_cocos):
@@ -843,7 +849,7 @@ def _transform_cocos_leaves(ods, source_cocos, target_cocos):
                     break
             if generic not in _COCOS_TRANSFORMED_LEAVES:
                 continue
-            factor = factors[cocos_signals[generic]]
+            factor = factors[_COCOS_SIGNAL_OVERRIDES.get(generic, cocos_signals.get(generic))]
             if magnitude:
                 factor = abs(factor)
             if factor == 1:

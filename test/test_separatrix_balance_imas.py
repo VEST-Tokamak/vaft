@@ -194,3 +194,52 @@ def test_the_series_record_validates_its_shape():
     with pytest.raises(ValueError):
         SeparatrixBalanceSeries(np.zeros(1), np.zeros(1), ("bogus",), (None,), (None,),
                                 np.zeros(1), np.zeros(1), np.zeros(1), (None,))
+
+
+def test_cocos_normalisation_scales_the_secondary_flux(lsn_ods):
+    """OMAS labels this leaf's COCOS signal '?', which used to raise; it is a
+    flux and must scale with psi (cold review of #2325 phase D)."""
+    from vaft.omas.general import _transform_cocos_leaves
+
+    ods = lsn_ods[0].copy()
+    ts = ods["equilibrium.time_slice.0"]
+    secondary = float(ts["boundary_secondary_separatrix.psi"])
+    separatrix = float(ts["boundary_separatrix.psi"])
+    _transform_cocos_leaves(ods, 11, 1)
+    ratio = float(ts["boundary_separatrix.psi"]) / separatrix
+    assert abs(ratio) == pytest.approx(1.0 / (2.0 * np.pi))
+    assert float(ts["boundary_secondary_separatrix.psi"]) == pytest.approx(ratio * secondary)
+
+
+def test_time_falls_back_to_the_ids_time_vector(lsn_ods):
+    ods = lsn_ods[0].copy()
+    time = float(ods["equilibrium.time_slice.0.time"])
+    del ods["equilibrium.time_slice.0.time"]
+    ods["equilibrium.time"] = np.array([time])
+    assert separatrix_balance_series(ods).time[0] == pytest.approx(time)
+
+
+def test_update_results_feed_the_series_by_slice_index():
+    from vaft.omas.update import update_equilibrium_boundary_topology
+
+    lsn, psi_l, psi_u = _equilibrium(0.08)
+    ods = _ods_from(lsn, lsn)
+    ods["equilibrium.time_slice.0.global_quantities.ip"] = 0.0  # slice 0 is skipped
+    representations = update_equilibrium_boundary_topology(ods)
+    assert set(representations) == {1}
+    series = separatrix_balance_series(ods, representations=representations)
+    assert series.state == ("no_plasma", "valid")
+    assert series.d_r_sep[1] == pytest.approx(_exact(psi_l, psi_u), abs=2e-4)
+
+
+def test_usn_distance_is_positive_and_dn_has_no_secondary():
+    usn, _, _ = _equilibrium(0.08, flip=True)
+    ts = _ods_from(usn)["equilibrium.time_slice.0"]
+    assert float(ts["boundary_secondary_separatrix.distance_inner_outer"]) > 0
+    assert float(ts["boundary_secondary_separatrix.x_point.0.z"]) < 0
+
+    dn, _, _ = _equilibrium(0.0)
+    ts = _ods_from(dn)["equilibrium.time_slice.0"]
+    assert int(ts["boundary.type"]) == 1
+    assert len(ts["boundary.x_point"]) == 2
+    assert "boundary_secondary_separatrix.psi" not in ts
