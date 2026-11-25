@@ -3070,6 +3070,7 @@
     }
    ],
    "callers": [
+    "vaft.diagram._divertor_topology._anatomy",
     "vaft.diagram._divertor_topology.divertor_topology_classification",
     "vaft.diagram._divertor_topology.secondary_separatrix_balance",
     "vaft.diagram._divertor_topology.separatrix_balance_calculation",

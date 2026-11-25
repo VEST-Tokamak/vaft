@@ -80,7 +80,8 @@ and q topology: ``current_profile_shapes``, ``q_profile_landmarks``,
 ``q_profile_topologies`` and ``rational_surface_topology``; divertor topology and upper/lower
 separatrix balance: ``divertor_topology_classification``, ``secondary_separatrix_balance``,
 ``sol_magnetic_connectivity``, ``separatrix_balance_transport_scale`` and
-``separatrix_balance_calculation``; current diffusion and
+``separatrix_balance_calculation``, with one topology at a time in
+``limited_plasma_topology``, ``lower_single_null_topology`` and ``double_null_topology``; current diffusion and
 current drive: ``current_diffusion`` and ``current_drive_profiles``; one measured
 sample in four representations: ``electron_density_semantics``, the packaged VEST
 48224 kinetic slice -- a data figure composed here, its numbers taken through
@@ -274,6 +275,9 @@ __all__ = [
     "sol_magnetic_connectivity",
     "separatrix_balance_transport_scale",
     "separatrix_balance_calculation",
+    "limited_plasma_topology",
+    "lower_single_null_topology",
+    "double_null_topology",
     "knowledge_basis",
     "computational_realization",
     "physical_abstraction",
@@ -529,6 +533,9 @@ _LOCATIONS = {
     "sol_magnetic_connectivity": "._divertor_topology",
     "separatrix_balance_transport_scale": "._divertor_topology",
     "separatrix_balance_calculation": "._divertor_topology",
+    "limited_plasma_topology": "._divertor_topology",
+    "lower_single_null_topology": "._divertor_topology",
+    "double_null_topology": "._divertor_topology",
     "knowledge_basis": "._integrated_modeling",
     "computational_realization": "._integrated_modeling",
     "physical_abstraction": "._integrated_modeling",

@@ -225,7 +225,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # divertor topology and signed upper/lower separatrix balance (#2325)
     **{f"{name}.svg": (name, {}) for name in (
         "divertor_topology_classification", "secondary_separatrix_balance", "sol_magnetic_connectivity",
-        "separatrix_balance_transport_scale", "separatrix_balance_calculation")},
+        "separatrix_balance_transport_scale", "separatrix_balance_calculation", "limited_plasma_topology",
+        "lower_single_null_topology", "double_null_topology")},
     # integrated modeling: three independent axes, their space and typed model coupling
     "knowledge_basis.svg": ("knowledge_basis", {}),
     "computational_realization.svg": ("computational_realization", {}),

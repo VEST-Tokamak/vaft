@@ -22,7 +22,8 @@ from vaft.formula.sol import secondary_separatrix_exponential_factor, separatrix
 
 ROOT = Path(__file__).resolve().parents[1]
 BUILDERS = ("divertor_topology_classification", "secondary_separatrix_balance", "sol_magnetic_connectivity",
-            "separatrix_balance_transport_scale", "separatrix_balance_calculation")
+            "separatrix_balance_transport_scale", "separatrix_balance_calculation", "limited_plasma_topology",
+            "lower_single_null_topology", "double_null_topology")
 
 
 def _exact_saddle_fluxes(skew):
@@ -226,6 +227,69 @@ def test_connection_class_needs_an_inner_and_an_outer_target_for_one_divertor():
     assert "other" in dt._CLASS_TEXT
 
 
+def _fill_roles(d, key=None):
+    return {i.role.split(":")[1] for i in d.scene.items if isinstance(i, Polyline) and i.role.startswith("region:")
+            and (key is None or i.role.endswith(f":{key}"))}
+
+
+def test_the_connectivity_regions_are_shaded_and_named(diagrams):
+    d = diagrams["sol_magnetic_connectivity"]
+    assert _fill_roles(d, "lower_biased") == {"common_sol", "primary_sol_lower", "core", "private_lower",
+                                               "private_upper"}
+    assert _fill_roles(d, "balanced") == {"common_sol", "core", "private_lower", "private_upper"}
+    assert _fill_roles(d, "upper_biased") == {"common_sol", "primary_sol_upper", "core", "private_lower",
+                                               "private_upper"}
+    pointers = {i.role for i in d.scene.items if isinstance(i, Label) and i.role.startswith("pointer:")}
+    assert "pointer:primary_sol:lower_biased" in pointers and "pointer:primary_sol:balanced" not in pointers
+
+
+def test_a_primary_sol_fill_holds_only_primary_sol_flux():
+    """Every vertex of the shaded primary SOL lies between the two X-point fluxes, outside the core."""
+    state = dt.balance_state(0.15)
+    psi_l, psi_u = _exact_saddle_fluxes(0.15)
+    fills = [i for i in dt.region_fills(state, lambda p: np.asarray(p, float)) if i.role == "region:primary_sol_lower"]
+    assert fills
+    points = np.array([p for f in fills for p in f.points])
+    psi = dt.family_flux(points[:, 0], points[:, 1], 0.15)
+    inside = dt._wall_path(state["wall"]).contains_points(points, radius=-1e-3)
+    assert np.all(psi[inside] <= psi_u + 2e-3)
+
+
+@pytest.mark.parametrize("name, topology, fills", [
+    ("limited_plasma_topology", "limited", {"limiter_sol", "core"}),
+    ("lower_single_null_topology", "lower_single_null",
+     {"common_sol", "primary_sol_lower", "core", "private_lower", "private_upper"}),
+    ("double_null_topology", "double_null", {"common_sol", "core", "private_lower", "private_upper"}),
+])
+def test_single_topology_diagrams(name, topology, fills, diagrams):
+    d = diagrams[name]
+    assert d.model["topology"] == topology
+    assert _fill_roles(d) == fills
+    assert len([i for i in d.scene.items if isinstance(i, Label) and i.role.startswith("pointer:")]) >= 7
+    if topology == "limited":
+        assert d.model["applicability"] == "geometric_only" and not d.model["strike_points"]
+
+
+@pytest.mark.parametrize("name, skew, names", [
+    ("lower_single_null_topology", 0.12, {"lower inner", "lower outer"}),
+    ("double_null_topology", 0.0, {"lower inner", "lower outer", "upper inner", "upper outer"}),
+])
+def test_strike_points_are_where_the_primary_separatrix_meets_the_targets(name, skew, names, diagrams):
+    strikes = diagrams[name].model["strike_points"]
+    assert set(strikes) == names
+    psi_l, psi_u = _exact_saddle_fluxes(skew)
+    for key, (r, z) in strikes.items():
+        assert dt.family_flux(r, z, skew) == pytest.approx(min(psi_l, psi_u), abs=2e-4)
+        assert abs(z) >= 0.45 and np.sign(z) == (-1 if key.startswith("lower") else 1)
+        x_r = 1.0
+        assert (r < x_r) == key.endswith("inner")
+    if name == "double_null_topology":
+        # on the floor and roof: R = 1 +- sqrt(psi_X - Z^2 + Z^4/a^2), the same four times
+        expected = np.sqrt(psi_l - 0.36 + 0.6**4 / dt.FAMILY_A**2)
+        for key, (r, z) in strikes.items():
+            assert abs(r - 1.0) == pytest.approx(expected, abs=2e-4)
+
+
 def test_a_seed_outside_the_wall_is_refused():
     with pytest.raises(ValueError, match="outside the wall"):
         dt.trace_field_line(dt.balance_state(0.0), (1.49, 0.0))
@@ -241,9 +305,17 @@ def test_the_transport_scale_uses_the_formulas_and_says_balance_is_not_power_bal
         assert chi == pytest.approx(float(separatrix_imbalance_to_heat_flux_width(v, m["lambda_q"])))
         assert f == pytest.approx(float(secondary_separatrix_exponential_factor(v, m["lambda_q"])))
         assert f == pytest.approx(np.exp(-abs(v) / m["lambda_q"]))
-    (note,) = [i for i in d.scene.items if isinstance(i, Label) and i.role == "note"]
-    assert "not thermal or power" in note.text and "Illustrative" in note.text
-    assert "not the fraction of power" in note.text
+    # the explanation is the builder's docstring, not text on the figure
+    doc = vaft.diagram.separatrix_balance_transport_scale.__doc__
+    assert "not thermal or power balance" in doc and "not a transport prediction" in doc
+    assert "not the fraction of power" in doc and "divides between" in doc
+    # the equations are the formulas' own catalog entries, not restatements
+    from vaft.diagram._equations import formula_equation
+
+    (box,) = [i for i in d.scene.items if isinstance(i, Label) and i.role == "equations"]
+    assert formula_equation(separatrix_imbalance_to_heat_flux_width) in box.text
+    assert formula_equation(secondary_separatrix_exponential_factor) in box.text
+
 
 
 # -- the procedure ---------------------------------------------------------------------------
@@ -266,6 +338,26 @@ def test_the_procedure_reports_the_near_double_null_values(diagrams):
 
 
 @pytest.mark.parametrize("name", BUILDERS)
+def test_no_grey_note_text(name, diagrams):
+    """Explanations live in black legends, labels and boxes, not in a grey footnote."""
+    assert not [i for i in diagrams[name].scene.items if isinstance(i, Label) and i.style.split(",")[0] == "note"]
+    assert not [i for i in diagrams[name].scene.items if isinstance(i, Label) and "text=black!60" in i.style]
+
+
+def test_every_procedure_box_carries_a_picture(diagrams):
+    d = diagrams["separatrix_balance_calculation"]
+    roles = {i.role for i in d.scene.items}
+    for step in ("flux_map", "critical_points", "selection", "intersections", "result", "available",
+                 "resolution_limited", "geometric_only", "unavailable"):
+        assert f"glyph:{step}" in roles
+    # the critical-point glyph marks exactly the saddles the process found
+    saddles = [i for i in d.scene.items if isinstance(i, Marker) and i.kind == "x" and i.role == "glyph:critical_points"]
+    assert len(saddles) == len(dt.balance_state(0.01)["representation"].x_points)
+    assert d.model["outcome_examples"]["resolution_limited"][0] == "double_null"
+    assert d.model["outcome_examples"]["geometric_only"] == ("limited", "geometric_only")
+
+
+@pytest.mark.parametrize("name", BUILDERS)
 def test_labels_false_drops_the_annotations(name):
     bare = getattr(vaft.diagram, name)(labels=False)
     texts = [i for i in bare.scene.items if isinstance(i, Label) and i.text
@@ -276,7 +368,8 @@ def test_labels_false_drops_the_annotations(name):
 
 
 @pytest.mark.parametrize("name", ["divertor_topology_classification", "secondary_separatrix_balance",
-                                  "sol_magnetic_connectivity"])
+                                  "sol_magnetic_connectivity", "separatrix_balance_calculation",
+                                  "limited_plasma_topology", "lower_single_null_topology", "double_null_topology"])
 def test_rendering_is_stable_under_last_bit_noise_in_psi(name, monkeypatch, diagrams):
     base = diagrams[name].tikz
     original = dt.analytic_balance_equilibrium
