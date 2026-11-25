@@ -5,14 +5,25 @@ dRsep, gaps, and strike points for one equilibrium, but
 its topology enum has no *near-null* state, classifies "limited" only when no
 X-point exists anywhere, and hinges on a single ``flux_tolerance``. Free-
 boundary scans need to walk ``limited -> near-null -> diverted``
-robustly, so this module derives the classification directly from the found
-X-points' ``psi_n`` with two explicit thresholds, adds limiter-contact
-detection for non-diverted states, and returns a JSON-safe report suitable
-for per-case scan manifests. ``derive_boundary_representation`` itself is not modified.
+robustly, so this module adds scan bookkeeping on top of the canonical
+classification: a near-null band, a limiter-contact record and its own
+contact tolerance for non-diverted states, and a JSON-safe report suitable
+for per-case scan manifests.
+
+Which X-points are active is *not* re-decided here.  The canonical
+representation is called with ``flux_tolerance=active_tolerance`` and its
+``active`` flags are used as they are, so the scan and
+``derive_boundary_representation`` can never disagree about whether a null
+bounds the plasma (#2325).  Before that, the scan re-flagged X-points from
+``|psi_n - 1|`` alone, which marked saddles active that the canonical
+confined-region test had rejected and dropped ones it had accepted.
 
 Classification rules (``axis_z`` = magnetic-axis height, fallback 0):
 
-- an X-point is **active** when ``|psi_n - 1| <= active_tolerance``;
+- an X-point is **active** when the canonical representation says so; with
+  both an upper and a lower X-point that is decided by the signed dRsep
+  against ``eps_DN = double_null_tolerance * a`` (``|dRsep| <= eps_DN`` is a
+  double null), not by flux proximity;
 - active nulls above and below ``axis_z``  -> ``DOUBLE_NULL``;
 - active nulls on one side only            -> ``UPPER/LOWER_SINGLE_NULL``;
 - no active null but one within ``near_null_band`` -> ``NEAR_NULL``;
@@ -65,7 +76,7 @@ class TopologyReport:
 
     topology: ScanTopology
     x_points: tuple[Mapping[str, float], ...] = ()   # {r, z, psi_n, active}
-    d_r_sep: Optional[float] = None                  # [m]; sign: + = upper outboard of lower
+    d_r_sep: Optional[float] = None                  # [m]; R_lower - R_upper: - = lower-biased (LSN), + = upper-biased (USN)
     null_margin: Optional[float] = None              # min |psi_n - 1| over vacuum-side X-points (psi_n >= 1 - tol)
     limiter_contact: Optional[LimiterContact] = None
     active_tolerance: float = 0.0
@@ -142,6 +153,7 @@ def classify_boundary(
     contact_tolerance: Optional[float] = None,
     time_index: int = 0,
     gap_angles: Mapping[str, float] | None = None,
+    double_null_tolerance: float | None = None,
 ) -> TopologyReport:
     """Classify one equilibrium's boundary topology for scan bookkeeping.
 
@@ -157,6 +169,10 @@ def classify_boundary(
     wall to within its own trace, while a 129-point gEQDSK spanning the VEST
     chambers has 2 cm Z cells, and 3 of those would call a plasma 6 cm off the
     wall limited.
+
+    ``double_null_tolerance`` is the canonical double-null band as a fraction
+    of the minor radius (default 0.005); ``NEAR_NULL`` is unrelated to it and
+    stays the scan's tag for a *non-diverted* boundary approaching a null.
     """
     from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
 
@@ -166,6 +182,7 @@ def classify_boundary(
             equilibrium,
             flux_tolerance=active_tolerance,
             gap_angles=gap_angles,
+            double_null_tolerance=double_null_tolerance,
         )
     except Exception as exc:
         _log.warning("Boundary classification failed: %s", exc)
@@ -179,7 +196,8 @@ def classify_boundary(
     x_points = tuple(
         {
             "r": float(xp.r), "z": float(xp.z), "psi_n": float(xp.psi_n),
-            "active": bool(abs(xp.psi_n - 1.0) <= active_tolerance),
+            "active": bool(xp.active),
+            "role": xp.role,
         }
         for xp in representation.x_points
     )
