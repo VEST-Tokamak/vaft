@@ -250,3 +250,107 @@ def test_ion_fit_legacy_extrapolation_still_available():
 def test_the_edge_cut_keeps_its_old_names():
     """PHYSICAL_PSIN_MAX was named for the coordinate the fits used to be in."""
     assert PHYSICAL_PSIN_MAX == TE_POSITIVE_PSIN_MAX == PHYSICAL_EDGE_MAX == 0.98
+
+
+# --------------------------------------------------------------------------- #
+# Order reduction only where the order changes the model; status recorded
+# (#2335 Part B)
+# --------------------------------------------------------------------------- #
+
+@pytest.mark.parametrize("method", ["gp", "linear", "eped_tanh"])
+def test_order_free_methods_are_fitted_once(method):
+    calls = []
+
+    def fit_call(order):
+        calls.append(order)
+        return (None, None, lambda x: -np.ones_like(np.asarray(x, float)), None)
+
+    outcome = {}
+    *_, used = _fit_profile_until_physical(fit_call, 3, lambda fn: "bad", "x", 300.0,
+                                           method=method, outcome=outcome)
+    assert calls == [3]                 # no repeated identical fits
+    assert used == 3                    # reported at the order asked for, not min_order
+    assert outcome["status"] == "legacy_nonphysical"
+
+
+def test_order_dependent_methods_still_reduce_and_say_so():
+    calls = []
+
+    def fit_call(order):
+        calls.append(order)
+        sign = 1.0 if order <= 2 else -1.0
+        return (None, None, lambda x: sign * np.ones_like(np.asarray(x, float)), None)
+
+    outcome = {}
+    *_, used = _fit_profile_until_physical(
+        fit_call, 4, lambda fn: None if fn(np.array([0.5]))[0] > 0 else "neg", "x", 300.0,
+        method="polynomial", outcome=outcome)
+    assert calls == [4, 3, 2] and used == 2
+    assert outcome["status"] == "fallback"
+
+
+def test_rejected_fit_is_not_reported_as_accepted():
+    from vaft.process.profile import profile_fit_report_thomson_scattering
+
+    ods = _ts_ods(PSIN_299, TE_299, NE_299)
+    options = dict(Te_order=3, Ne_order=3, coordinate="psi_norm",
+                   fitting_function_te="polynomial", fitting_function_ne="free_exponential")
+    guarded = profile_fit_report_thomson_scattering(ods, 299.0, PSIN_299, **options)
+    unguarded = profile_fit_report_thomson_scattering(ods, 299.0, PSIN_299, enforce_physical=False, **options)
+    statuses = {guarded["t_e"].status, guarded["n_e"].status}
+    assert statuses <= {"accepted", "fallback"} and "fallback" in statuses
+    assert guarded["t_e"].accepted and guarded["n_e"].accepted
+    # the pathology the guard exists for: kept when asked, but not called accepted
+    bad = [r for r in unguarded.values() if r.status == "nonphysical"]
+    assert bad and not any(r.accepted for r in bad)
+
+
+def test_legacy_nonphysical_gp_keeps_its_requested_order():
+    """A GP the guard rejects used to be refitted identically at orders 2 and 1 and labelled 1."""
+    from vaft.process.profile import profile_fit_report_thomson_scattering
+
+    psin = np.array([0.0, 0.05, 0.1, 0.15, 0.2])
+    ne = np.array([1e19, 1e19, 1e19, 1e19, 1e19])
+    ods = _ts_ods(psin, TE_299, ne, rel_err=0.001)
+    report = profile_fit_report_thomson_scattering(
+        ods, 299.0, psin, Te_order=3, Ne_order=3, coordinate="psi_norm",
+        fitting_function_te="polynomial", fitting_function_ne="gp")["n_e"]
+    if report.status == "legacy_nonphysical":
+        assert report.order_used == 3 and not report.accepted
+    else:
+        assert report.status == "accepted" and report.order_used == 3
+    assert any("does not depend on the order" in note for note in report.notes)
+
+
+def test_charge_exchange_records_support_extrapolation_and_clipping():
+    from vaft.process.profile import profile_fit_report_charge_exchange
+
+    psin = np.array([0.227, 0.31, 0.42, 0.55, 0.66, 0.74, 0.83, 0.898])
+    ti = np.array([20.9, 18.0, 15.5, 13.0, 11.0, 9.5, 8.4, 7.6])
+    ods = _cx_ods(psin, ti)
+    held = profile_fit_report_charge_exchange(ods, 298.0, psin, coordinate="psi_norm")["t_i"]
+    free = profile_fit_report_charge_exchange(ods, 298.0, psin, coordinate="psi_norm",
+                                              clamp_to_measured_span=False)["t_i"]
+    for report in (held, free):
+        assert report.status == "unchecked" and not report.accepted
+        assert report.domains["fitting"] == pytest.approx((psin.min(), psin.max()))
+        assert report.domains["evaluation"] == (0.0, 1.0)
+        lo, hi = report.domains["extrapolated"][0][0], report.domains["extrapolated"][-1][1]
+        assert lo == 0.0 and hi == 1.0
+    assert "held" in held.domains["extrapolation"]
+    assert "extrapolated" in free.domains["extrapolation"]
+    assert held.sigma_treatment[0] == "measured"
+
+
+def test_charge_exchange_records_where_ti_is_clipped_at_zero():
+    from vaft.process.profile import profile_fit_report_charge_exchange
+
+    psin = np.array([0.3, 0.4, 0.5, 0.6, 0.7])
+    ti = np.array([30.0, 22.0, 12.0, 4.0, 0.5])
+    ods = _cx_ods(psin, ti)
+    report = profile_fit_report_charge_exchange(
+        ods, 298.0, psin, coordinate="psi_norm", Ti_order=2,
+        fitting_function_ti="free_polynomial", clamp_to_measured_span=False)["t_i"]
+    clipped = report.domains["clipped_nonnegative"]
+    assert clipped and clipped[-1][1] == 1.0          # the linear trend goes negative past 0.75
+    assert np.all(report.curve >= 0.0)

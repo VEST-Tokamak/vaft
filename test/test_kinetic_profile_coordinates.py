@@ -544,3 +544,75 @@ def test_unavailable_rho_tor_n_records_publish_the_same_definition(shot_ods):
     for record in (no_q, bad_q, flat_psi, sign_q, no_psi):
         assert record.value is None and record.reason
         assert record.definition == derived.definition
+
+
+# --- opt-in edge/SOL mapping (#2335 Part B) ------------------------------------------
+
+
+def test_the_default_mapping_is_the_legacy_closed_flux_one(shot_ods):
+    ods, geq = shot_ods
+    default = P.equilibrium_mapping_charge_exchange(ods, geq)
+    explicit = P.equilibrium_mapping_charge_exchange(ods, geq, edge_mapping="closed_flux")
+    assert default.region is None and default.edge_mapping == "closed_flux"
+    for name in ("psi_norm", "rho_pol_norm", "rho_tor_norm"):
+        np.testing.assert_array_equal(getattr(default, name), getattr(explicit, name))
+
+
+def test_preserved_sol_channels_keep_their_coordinates_and_identity(shot_ods):
+    ods, geq = shot_ods
+    legacy = P.equilibrium_mapping_charge_exchange(ods, geq)
+    edge = P.equilibrium_mapping_charge_exchange(ods, geq, edge_mapping="preserve")
+    sol = edge.region == "sol"
+    # 48224 @ 300 ms: seven CES chords look through the outboard SOL
+    assert sol.sum() == 7 and np.all(np.isnan(legacy.psi_norm[sol]))
+    # actual flux, never pinned to the LCFS
+    assert np.all(edge.psi_norm[sol] > 1.0)
+    assert np.unique(np.round(edge.psi_norm[sol], 6)).size == sol.sum()
+    np.testing.assert_allclose(edge.rho_pol_norm[sol], np.sqrt(edge.psi_norm[sol]))
+    # rho_tor_norm is not extrapolated beyond the closed-flux table
+    assert np.all(np.isnan(edge.rho_tor_norm[sol]))
+    # the measurement survives: (R, Z) and channel index
+    r = np.array([float(np.ravel(v)[0]) for v in ods["charge_exchange.channel.:.position.r.data"]])
+    np.testing.assert_array_equal(edge.r, r)
+    np.testing.assert_array_equal(edge.channel, np.arange(edge.n_channels))
+    # closed-flux channels are exactly where the legacy mapping put them
+    closed = edge.region == "closed_flux"
+    np.testing.assert_array_equal(edge.closed_flux, closed)
+    inside = closed & (edge.psi_norm >= 0.0)
+    np.testing.assert_array_equal(edge.psi_norm[inside], legacy.psi_norm[inside])
+    np.testing.assert_array_equal(edge.rho_tor_norm[inside], legacy.rho_tor_norm[inside])
+
+
+def test_no_toroidal_coordinate_is_extrapolated_into_the_sol(shot_ods):
+    ods, geq = shot_ods
+    r = np.linspace(0.1, 0.95, 300)
+    z = np.zeros_like(r)
+    edge = P.equilibrium_mapping_points(geq, r, z, edge_mapping="preserve")
+    outside = np.isfinite(edge.psi_norm) & (edge.psi_norm > 1.0)
+    assert outside.any()
+    assert set(edge.region[outside]) == {"sol"}
+    assert np.all(np.isnan(edge.rho_tor_norm[outside]))
+    # the legacy hold would have put every one of them at rho_tor_norm = 1
+    finite = np.isfinite(edge.rho_tor_norm)
+    assert np.all(edge.rho_tor_norm[finite] <= 1.0 + 1e-12)
+
+
+def test_sol_ion_channels_are_measured_but_not_fitted(shot_ods):
+    ods, geq = shot_ods
+    edge = P.equilibrium_mapping_charge_exchange(ods, geq, edge_mapping="preserve")
+    legacy = P.equilibrium_mapping_charge_exchange(ods, geq)
+    reports = P.profile_fit_report_charge_exchange(ods, TIME_MS, edge, time_tolerance_ms=3.0,
+                                                   coordinate="psi_norm")
+    old = P.profile_fit_report_charge_exchange(ods, TIME_MS, legacy, time_tolerance_ms=3.0,
+                                               coordinate="psi_norm")
+    ti = reports["t_i"]
+    sol = np.asarray(ti.region) == "sol"
+    assert not ti.used[sol].any()
+    assert all("SOL" in ti.rejected_reason[i] for i in np.flatnonzero(sol))
+    assert np.all(np.isnan(ti.fitted[sol]))       # no "prediction" from the clipped edge
+    assert ti.domains["measurement"][1] > 1.0     # measured beyond the LCFS ...
+    assert ti.domains["fitting"][1] <= 1.0        # ... fitted only inside it
+    assert ti.domains["measured_outside_closed_flux"] == 7
+    # the fit itself is the legacy one: same channels, same curve
+    np.testing.assert_array_equal(ti.used, old["t_i"].used)
+    np.testing.assert_array_equal(ti.curve, old["t_i"].curve)

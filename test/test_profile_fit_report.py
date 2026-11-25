@@ -354,3 +354,46 @@ def test_linear_charge_exchange_fit_keeps_holding_the_end_values():
     assert np.all(np.isfinite(ti_rho)) and np.all(np.isfinite(v_rho))
     assert np.all(np.isfinite(ti_fit(np.array([0.0, 1.0]))))
     assert np.all(np.isfinite(v_fit(np.array([0.0, 1.0]))))
+
+
+# --- evidence records (#2335 Part B) ------------------------------------------------
+
+
+def test_default_report_records_its_evidence():
+    reports = _report(_thomson(), _positions(X))
+    te, ne = reports["t_e"], reports["n_e"]
+    assert te.status == ne.status == "accepted" and te.accepted
+    assert te.region is None                                  # legacy mapping: no labels
+    assert set(te.sigma_treatment) == {"measured"}
+    assert any("T_e(1) = 0 exactly" in a for a in te.assumptions)
+    assert any("coefficient_scale = 1e18" in a for a in ne.assumptions)
+    assert te.domains["fitting"] == pytest.approx((0.05, 0.95))
+    assert te.domains["evaluation"] == (0.0, 1.0)
+    assert te.domains["extrapolated"][0][0] == 0.0 and te.domains["extrapolated"][-1][1] == 1.0
+
+
+def test_explicit_legacy_options_reproduce_the_default_fit_exactly():
+    ods = _thomson()
+    default = _report(ods, _positions(X))
+    explicit = _report(ods, _positions(X), channel_validity="joint", ne_separatrix="legacy")
+    for name in ("t_e", "n_e"):
+        for field in ("curve", "fitted", "normalized_residual", "used", "sigma_used"):
+            np.testing.assert_array_equal(getattr(default[name], field), getattr(explicit[name], field))
+        assert default[name].rejected_reason == explicit[name].rejected_reason
+
+
+def test_a_sol_channel_is_reported_as_measured_outside_the_fitting_domain():
+    ods = _thomson()
+    x = X.copy()
+    x[-1] = 1.08                                              # channel 9 looks through the SOL
+    region = np.where(x > 1.0, "sol", "closed_flux")
+    edge = MappedPositions(x, np.sqrt(x), None, "synthetic", "synthetic", region=region,
+                           edge_mapping="preserve")
+    closed = _positions(np.where(x > 1.0, np.nan, x))         # what the legacy mapping hands over
+    new, old = _report(ods, edge), _report(ods, closed)
+    te = new["t_e"]
+    assert not te.used[9] and te.rejected_reason[9].startswith("in the SOL")
+    assert np.isnan(te.fitted[9]) and te.region[9] == "sol"
+    assert te.domains["measurement"][1] == pytest.approx(1.08)
+    assert te.domains["fitting"][1] == pytest.approx(0.85)
+    np.testing.assert_array_equal(te.curve, old["t_e"].curve)
