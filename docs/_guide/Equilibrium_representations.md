@@ -400,6 +400,16 @@ changed in the same PR. A limited or ambiguous boundary is no longer an
 available balance sample, and interior saddles are never used. So an old value
 can differ from a new one by more than its sign.
 
+The topology class can change too. When a diverted boundary has both an upper
+and a lower X-point, DN, LSN and USN are now decided by the signed dRsep against
+$\epsilon_{\rm DN} = 0.005\,a$ ($|dR_{\rm sep}| \le \epsilon_{\rm DN}$ is a double
+null), not by the grid's flux window. So a stored `double_null` may come back as
+`lower_single_null` or `upper_single_null`, and the other way round. When the two
+rules disagree, the canonical representation records the flux-window class in
+`topology_evidence["flux_window_topology"]`. That evidence lives on
+`BoundaryRepresentation` (and on `TopologyReport.representation` in memory). It
+is not written into `case_manifest.json`.
+
 **Telling old from new.** Every carrier of the value now states its convention:
 
 | Carrier | Old (upper − lower) | New (lower − upper) |
@@ -421,6 +431,7 @@ notebooks.
 | --- | --- | --- |
 | `BoundaryRepresentation.d_r_sep` | No; derived on demand | Sign follows the code; nothing to migrate |
 | `TopologyReport.d_r_sep` → `case_manifest.json` | Only in free-boundary scan workdirs; none exist on any audited machine | Resume re-classifies (below) |
+| `case_manifest.json` `topology` class (`double_null` / `lower_single_null` / `upper_single_null`) | Persisted in scan workdirs (none on any audited machine) | May change class under the $\epsilon_{\rm DN}$ rule as well as sign; resume re-classifies pre-#2325 reports, and the flux-window class is in the representation's `topology_evidence["flux_window_topology"]` |
 | `FreeBoundaryScan` jump flags (`d_r_sep_jump_m`, `d_r_sep_m` threshold) | Absolute values | None |
 | `TESConfig.drsep` | Input `(0, 0.0)`; TES never uses the target | None; TES output already uses the EFIT sign |
 | EFIT a-files / `vaft.data.aeqdsk` `drsep` | Native EFIT value (cm). `AEQDSK.to_omas` stores it in EFIT ODS products at `equilibrium.code.parameters.time_slice.{i}.aeqdsk.drsep` | Kept separately, never re-signed; it was always the EFIT sign |
