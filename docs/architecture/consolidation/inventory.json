@@ -9127,6 +9127,7 @@
    "callers": [
     "vaft.process._equilibrium_compact.fit_solovev",
     "vaft.process._equilibrium_parametric.fit_miller_sequence",
+    "vaft.process._separatrix_balance.separatrix_balance_series",
     "vaft.process.q_profile_context.core_q_context"
    ],
    "classification": "unverified",

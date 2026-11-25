@@ -79,6 +79,12 @@ ALLOWED: dict[str, tuple[tuple[str, str, str], ...]] = {
          "proves the native walk decodes the per-slice cache like an ODS, on an "
          "in-memory toplevel that is never written to a product"),
     ),
+    "vaft/process/_separatrix_balance.py": (
+        ("equilibrium.code.parameters.time_slice.", "read",
+         "the dRsep history reads the a-file cache for EFIT's native `drsep` and "
+         "`limloc`, to compare them beside the derived value; after an Access Layer "
+         "round trip the cache is gone and the native column is NaN, never guessed (#2325)"),
+    ),
     "vaft/validation/equilibrium_regime.py": (
         ("equilibrium.code.parameters.time_slice.", "read",
          "the regime classifier reads the a-file cache for `limloc`, which is the "

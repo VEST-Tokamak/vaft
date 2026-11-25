@@ -20,6 +20,7 @@ __all__ = [
     "resolve_reference_major_radius",
     "update_core_profiles_global_quantities_volume_average",
     "update_equilibrium_boundary",
+    "update_equilibrium_boundary_topology",
     "update_equilibrium_constraints_diamagnetic_flux",
     "update_equilibrium_coordinates",
     "update_equilibrium_derived_profiles",
@@ -36,6 +37,7 @@ __all__ = [
     "update_equilibrium_profiles_2d_j_tor",
     "update_equilibrium_profiles_2d_sfl_coordinates",
     "update_equilibrium_stored_energy",
+    "write_boundary_topology",
 ]
 
 # update_diagnostics_file(ods, filename)
@@ -303,6 +305,112 @@ def update_equilibrium_boundary(ods, time_slice=None):
             ts['boundary.triangularity'] = 0.5 * (tri_low + tri_up)
         if np.isfinite(elong):
             ts['boundary.elongation'] = elong
+
+#: The boundary-topology leaves :func:`write_boundary_topology` owns.  They are
+#: cleared before every write so reprocessing a slice into a limited, ambiguous
+#: or failed state leaves no stale X-point or secondary separatrix behind.
+_TOPOLOGY_LEAVES = (
+    "boundary.type", "boundary.x_point",
+    "boundary_separatrix.type", "boundary_separatrix.psi", "boundary_separatrix.x_point",
+    "boundary_secondary_separatrix.psi", "boundary_secondary_separatrix.x_point",
+    "boundary_secondary_separatrix.distance_inner_outer",
+)
+
+
+def _clear_topology(ts) -> None:
+    for leaf in _TOPOLOGY_LEAVES:
+        try:
+            if leaf in ts:
+                del ts[leaf]
+        except Exception:  # noqa: BLE001 -- a leaf OMAS cannot test is not ours to delete
+            pass
+
+
+def write_boundary_topology(ts, representation, *, psi_scale: float = 1.0) -> None:
+    """Write one slice's divertor topology into the IMAS (DD 3.x) boundary leaves.
+
+    ``boundary.type`` and ``boundary_separatrix.type`` take the DD's
+    0 (limiter) / 1 (diverted) only when the topology is determinate; an
+    ambiguous boundary leaves them unset rather than guessed.  ``x_point`` of
+    both boundaries holds the active (primary) X-points only.  The secondary
+    separatrix is written for a diverted boundary with a selected secondary
+    X-point: its flux, X-point and the DD's ``distance_inner_outer`` --
+    unsigned, at the height of the inner separatrix's largest R, so a
+    different number from the signed dRsep, which has no DD leaf and is
+    re-derived from the flux map by
+    :func:`vaft.process.equilibrium.separatrix_balance_series`.
+
+    ``psi_scale`` converts the representation's flux to the ODS's: 2*pi when
+    the record is per radian and the ODS stores weber (the DD convention).
+    Every topology leaf is cleared first, so the call is idempotent.
+    """
+    from vaft.data.equilibrium import Topology
+
+    _clear_topology(ts)
+    topology = representation.topology
+    if topology.is_determinate:
+        kind = 1 if topology.is_diverted else 0
+        ts["boundary.type"] = kind
+        ts["boundary_separatrix.type"] = kind
+    active = [point for point in representation.x_points if point.active]
+    for index, point in enumerate(active):
+        for root in ("boundary", "boundary_separatrix"):
+            ts[f"{root}.x_point.{index}.r"] = float(point.r)
+            ts[f"{root}.x_point.{index}.z"] = float(point.z)
+    if active:
+        ts["boundary_separatrix.psi"] = float(psi_scale * active[0].psi)
+    if topology is Topology.LIMITED or not topology.is_diverted:
+        return
+    secondary = [point for point in representation.x_points if point.role == "secondary"]
+    if not secondary:
+        return
+    point = secondary[0]
+    ts["boundary_secondary_separatrix.psi"] = float(psi_scale * point.psi)
+    ts["boundary_secondary_separatrix.x_point.0.r"] = float(point.r)
+    ts["boundary_secondary_separatrix.x_point.0.z"] = float(point.z)
+    distance = representation.d_r_sep.quality.get("imas_distance_inner_outer_m")
+    if distance is not None and np.isfinite(distance):
+        ts["boundary_secondary_separatrix.distance_inner_outer"] = float(distance)
+
+
+def update_equilibrium_boundary_topology(ods, time_slice=None):
+    """Classify every slice's boundary and write its divertor topology leaves.
+
+    The magnetic-topology companion of :func:`update_equilibrium_boundary`,
+    which stays geometry-only and cheap: this one runs the full
+    :func:`vaft.process.equilibrium.derive_boundary_representation` per slice
+    (stationary points, X-point selection, separatrix crossings) and writes
+    the result through :func:`write_boundary_topology`.  A vacuum or
+    terminated slice, or one whose analysis fails, gets its topology leaves
+    cleared and nothing else -- it is not limited.  The ODS flux is read and
+    written in its own convention, so no unit conversion is involved.
+
+    Returns the representations by slice index, so a caller can hand them to
+    :func:`vaft.process.equilibrium.separatrix_balance_series` without
+    deriving them again.
+    """
+    from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+    indices = _equilibrium_time_slices(ods, time_slice)
+    representations = {}
+    for idx in indices:
+        ts = ods["equilibrium"]["time_slice"][idx]
+        psi_axis = _scalar_or_nan(ts, "global_quantities.psi_axis")
+        psi_boundary = _scalar_or_nan(ts, "global_quantities.psi_boundary")
+        ip = _scalar_or_nan(ts, "global_quantities.ip")
+        if (np.isfinite(psi_axis) and psi_axis == psi_boundary) or (np.isfinite(ip) and ip == 0.0):
+            _clear_topology(ts)
+            continue
+        try:
+            representation = derive_boundary_representation(as_equilibrium(ods, time_index=idx))
+        except Exception as exc:  # noqa: BLE001 -- one bad slice must not end the update
+            logger.warning("Boundary topology not written for time slice %s: %s", idx, exc)
+            _clear_topology(ts)
+            continue
+        write_boundary_topology(ts, representation)
+        representations[idx] = representation
+    return representations
+
 
 def update_equilibrium_coordinates(ods, time_slice=None, plot_opt=0):
     """

@@ -1361,6 +1361,20 @@ _SURFACE_QUANTITIES = (
 )
 
 
+def _boundary_representation(item: GEQDSK) -> Any:
+    """The canonical boundary analysis of one g-file, or ``None`` when it fails."""
+    try:
+        from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+        return derive_boundary_representation(as_equilibrium(item))
+    except Exception as exc:  # noqa: BLE001 -- the rest of the conversion stands
+        warnings.warn(
+            f"boundary.x_point not written, nor the separatrix topology leaves: the X-point search failed ({exc})",
+            stacklevel=3,
+        )
+        return None
+
+
 def _boundary_x_points(item: GEQDSK) -> tuple[tuple[float, float], ...]:
     """The X-points that bound the plasma, for ``boundary.x_point``.
 
@@ -1375,12 +1389,8 @@ def _boundary_x_points(item: GEQDSK) -> tuple[tuple[float, float], ...]:
     packaged 48224 ODS it holds a NaN entry and a point about 1 cm from the
     magnetic axis, which is not a saddle of that map.
     """
-    try:
-        from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
-
-        representation = derive_boundary_representation(as_equilibrium(item))
-    except Exception as exc:  # noqa: BLE001 -- the rest of the conversion stands
-        warnings.warn(f"boundary.x_point not written: the X-point search failed ({exc})", stacklevel=3)
+    representation = _boundary_representation(item)
+    if representation is None:
         return ()
     return tuple((float(point.r), float(point.z)) for point in representation.x_points if point.active)
 
@@ -1577,9 +1587,14 @@ def to_omas(
         eqt["boundary.outline.r"] = np.asarray(data.get("RBBBS", []), dtype=float)
         eqt["boundary.outline.z"] = np.asarray(data.get("ZBBBS", []), dtype=float)
         if allow_derived_data:
-            for index, (r_x, z_x) in enumerate(_boundary_x_points(item)):
-                eqt[f"boundary.x_point.{index}.r"] = r_x
-                eqt[f"boundary.x_point.{index}.z"] = z_x
+            # One boundary analysis feeds every topology leaf: boundary.x_point
+            # keeps its active-only meaning, and the separatrix and secondary
+            # separatrix leaves come from the same selection (#2325).
+            representation = _boundary_representation(item)
+            if representation is not None:
+                from vaft.omas.update import write_boundary_topology
+
+                write_boundary_topology(eqt, representation, psi_scale=to_weber)
 
     if allow_derived_data:
         # Tracing every flux surface is the expensive part of this conversion,
