@@ -330,7 +330,7 @@ def test_the_procedure_reports_the_near_double_null_values(diagrams):
     # the process's first-order estimate, against the exact separation (psi = (R-1)^2 on the midplane)
     assert m["linearized"] == pytest.approx(_exact_d_r_sep(0.01), rel=0.02)
     roles = {i.role for i in d.scene.items}
-    assert {"flux_map", "critical_points", "selection", "intersections", "result", "available", "resolution_limited",
+    assert {"flux_map", "critical_points", "selection", "intersections", "result", "available",
             "geometric_only", "unavailable"} <= roles
 
 
@@ -348,12 +348,12 @@ def test_every_procedure_box_carries_a_picture(diagrams):
     d = diagrams["separatrix_balance_calculation"]
     roles = {i.role for i in d.scene.items}
     for step in ("flux_map", "critical_points", "selection", "intersections", "result", "available",
-                 "resolution_limited", "geometric_only", "unavailable"):
+                 "geometric_only", "unavailable"):
         assert f"glyph:{step}" in roles
     # the critical-point glyph marks exactly the saddles the process found
     saddles = [i for i in d.scene.items if isinstance(i, Marker) and i.kind == "x" and i.role == "glyph:critical_points"]
     assert len(saddles) == len(dt.balance_state(0.01)["representation"].x_points)
-    assert d.model["outcome_examples"]["resolution_limited"][0] == "double_null"
+    assert not [i for i in d.scene.items if i.role.startswith("resolution_limited")]
     assert d.model["outcome_examples"]["geometric_only"] == ("limited", "geometric_only")
 
 
@@ -393,13 +393,26 @@ def test_the_limited_caption_never_claims_a_diverted_balance(diagrams):
         assert "diverted balance" in caption.text
 
 
-def test_a_double_null_the_grid_cannot_resolve_says_so():
-    state = dt.balance_state(0.001)
-    assert state["topology"] == "double_null" and state["d_r_sep"] < 0
-    assert dt._topology_text(state) == "DN within resolution"
+def test_the_double_null_band_is_eps_dn_not_the_grid():
+    """DN when |dR_sep| <= eps_DN = 0.005 a, whatever the grid resolves; LSN/USN outside the band."""
+    eps = dt.balance_state(0.0)["representation"].topology_evidence["double_null_tolerance_m"]
+    assert eps == pytest.approx(0.005 * 0.325, rel=0.02)  # minor radius of the family's LCFS
+    inside = dt.balance_state(0.001)  # -0.3 mm
+    assert inside["topology"] == "double_null" and inside["d_r_sep"] < 0  # the sign is kept
+    assert all(p.active for p in inside["representation"].x_points)
+    near = dt.balance_state(0.01)  # -3.0 mm
+    assert abs(near["d_r_sep"]) > eps and near["topology"] == "lower_single_null"
+    assert dt._x_points(near)["upper"].role == "secondary"
+    for state in (inside, near):
+        assert "unresolved" not in dt._topology_text(state)  # delta_R (0.3 mm) < eps (1.6 mm)
     d = vaft.diagram.secondary_separatrix_balance(bias=0.001)
     (caption,) = [i for i in d.scene.items if i.role == "caption:lower_biased"]
-    assert "within resolution" in caption.text and "balanced" not in caption.text
+    assert caption.text == "process: DN"
+    (text,) = [i for i in d.scene.items if isinstance(i, Label) and i.role == "d_r_sep:lower_biased"]
+    assert "\\le \\varepsilon_\\mathrm{DN}" in text.text
+    c = vaft.diagram.separatrix_balance_calculation()
+    assert c.model["double_null_tolerance"] == pytest.approx(eps, rel=0.01)
+    assert c.model["topology"] == "lower_single_null" and not c.model["unresolved_on_grid"]
 
 
 def test_a_large_bias_keeps_every_marker_on_its_axes():

@@ -569,10 +569,10 @@ def _pointer(text: str, at_cm, label_cm, *, anchor: str, role: str) -> List:
 
 
 def _topology_text(state) -> str:
-    """The process's topology in short; a double null the grid cannot resolve says so."""
+    """The process's topology in short; a class the grid cannot resolve says so."""
     text = _TOPOLOGY_TEXT.get(state["topology"], state["topology"])
-    if state["representation"].topology_evidence.get("double_null_resolution_limited"):
-        text += " within resolution"
+    if state["representation"].topology_evidence.get("topology_unresolved_on_grid"):
+        text += " (unresolved on this grid)"
     return text
 
 
@@ -614,8 +614,16 @@ def divertor_topology_classification(*, labels: bool = True) -> Diagram:
     inactive X-point (grey cross) on the other side. The LIMITED panel has
     an inboard limiter tip: its LCFS rests on the tip, both saddles are
     external nulls, and its $dR_\mathrm{sep}$ is geometric only -- not a
-    diverted magnetic-balance sample. Near-DN is a single null whose
-    secondary separatrix lies a few millimetres outside the primary one.
+    diverted magnetic-balance sample.
+
+    The diverted classes come from the signed $dR_\mathrm{sep}$ against
+    $\varepsilon_\mathrm{DN} = 0.005\,a$ (printed under each panel):
+    $|dR_\mathrm{sep}| \le \varepsilon_\mathrm{DN}$ is DN with both X-points
+    active; beyond it the plasma is LSN ($dR_\mathrm{sep} < 0$) or USN
+    ($> 0$) and the other X-point is secondary, however close. Near-DN is
+    such a single null: here $-3.0$ mm against $\varepsilon_\mathrm{DN} =
+    1.6$ mm, so LSN, with the secondary separatrix a few millimetres outside
+    the primary one. Two X-points alone do not make a double null.
     """
     labels = _check_labels(labels)
     scale, pitch = 4.0, 4.6
@@ -635,6 +643,9 @@ def divertor_topology_classification(*, labels: bool = True) -> Diagram:
             items.append(Label((centre, top), title, "label", anchor="south", role=f"title:{key}"))
             process = _topology_text(state)
             lines = [f"process: {process}", f"$dR_\\mathrm{{sep}}$ = {_mm(state['d_r_sep'])}"]
+            eps = state["representation"].topology_evidence.get("double_null_tolerance_m")
+            if eps and state["representation"].topology.is_diverted:
+                lines.append(f"$\\varepsilon_\\mathrm{{DN}}$ = {1e3 * eps:.1f} mm")
             applicability = state["quality"].get("applicability")
             if applicability:
                 lines.append(applicability.replace("_", " "))
@@ -822,10 +833,16 @@ def _midplane_profile(state, x0: float, y0: float, labels: bool) -> List:
     if abs(d) > 1e-6:
         items.append(Arrow((xy(r_u, lo)[0], y_arrow), (xy(r_l, lo)[0], y_arrow), "connector", role="d_r_sep"))
     if labels:
-        resolution = q.get("resolution_m")
+        eps = state["representation"].topology_evidence.get("double_null_tolerance_m")
         text = f"$dR_\\mathrm{{sep}}$ = {_mm(state['d_r_sep'])}"
-        if resolution is not None and abs(d) <= resolution:
-            text += f"\\\\ within the {1e3 * resolution:.2f} mm resolution"
+        if eps:
+            if abs(d) <= eps:
+                rule = "$|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN}$"
+            elif d < 0:
+                rule = "$dR_\\mathrm{sep} < -\\varepsilon_\\mathrm{DN}$"
+            else:
+                rule = "$dR_\\mathrm{sep} > \\varepsilon_\\mathrm{DN}$"
+            text += f"\\\\ {rule}, $\\varepsilon_\\mathrm{{DN}}$ = {1e3 * eps:.1f} mm"
         items += [Label((x0 + 0.5 + 0.5 * width, y_arrow - 0.15), text, "small label,align=center", anchor="north",
                         role="d_r_sep"),
                   Label((xy(r1, lo)[0] + 0.25, xy(r1, lo)[1]), "$R$", "small label", anchor="west", role="axes"),
@@ -1130,7 +1147,8 @@ def _anatomy_labels(kind, state, cm, traces, strikes) -> List:
         band = _outboard_level_point(state, 0.5 * (lower.psi + upper.psi), -0.18)
         items += point("primary SOL:\\\\lower divertor only", band, -0.2, "right")
         items += point("common SOL", [0.5 * (max(q["r_lower_m"], q["r_upper_m"]) + 1.45), 0.12], 0.1, "right")
-        items += point(f"$dR_\\mathrm{{sep}} = R_L - R_U$\\\\= {_mm(state['d_r_sep'])} $<0$", [r_mid, z_ax],
+        items += point(f"$dR_\\mathrm{{sep}} = R_L - R_U$ = {_mm(state['d_r_sep'])}\\\\"
+                       "$< -\\varepsilon_\\mathrm{DN}$: LSN", [r_mid, z_ax],
                        -0.02, "right")
         items += point("private flux\\\\(upper divertor)", [upper.r - 0.03, upper.z + 0.06], 0.4, "left")
         items += point("common SOL\\\\(inboard)", seed["inboard"], 0.12, "left")
@@ -1146,7 +1164,7 @@ def _anatomy_labels(kind, state, cm, traces, strikes) -> List:
     items += point("LCFS through\\\\both X-points", _run_point([lcfs], 0.2, True), 0.3, "right")
     items += point("common SOL (outboard):\\\\lower outer $\\leftrightarrow$ upper outer",
                    [0.5 * (q["r_upper_m"] + 1.45), -0.15], -0.15, "right")
-    items += point(f"$R_L = R_U$: $dR_\\mathrm{{sep}}$ = {_mm(state['d_r_sep'])}\\\\no primary SOL", [r_mid, z_ax],
+    items += point("$R_L = R_U$, $|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN}$\\\\no primary SOL", [r_mid, z_ax],
                    0.05, "right")
     items += point("common SOL (inboard):\\\\lower inner $\\leftrightarrow$ upper inner", seed["inboard"], 0.05,
                    "left")
@@ -1202,8 +1220,8 @@ def double_null_topology(*, labels: bool = True) -> Diagram:
 
     Both X-points are active and lie on the same flux: one separatrix
     closes through both as the LCFS, and the two crossings coincide on the
-    outboard midplane, $R_L = R_U$, $dR_\mathrm{sep} = 0$ within the flux
-    resolution. There is no primary SOL: the outboard SOL connects the lower
+    outboard midplane, $R_L = R_U$, $dR_\mathrm{sep} = 0$, inside the DN band
+    $|dR_\mathrm{sep}| \le \varepsilon_\mathrm{DN} = 0.005\,a$. There is no primary SOL: the outboard SOL connects the lower
     outer to the upper outer target, the inboard SOL the lower inner to the
     upper inner, and the two do not meet. Each divertor has its private flux
     and two strike points, four in all. A balanced magnetic configuration
@@ -1420,19 +1438,20 @@ def _glyph_midplane(state, gx, gy, width, height) -> List:
     return items
 
 
-def _glyph_signed_line(gx, gy, width, value: Optional[float], resolution: Optional[float], *,
-                       span: float) -> List:
-    """A signed dR_sep axis of half-width ``span`` [m]: the resolution band, zero, and the value (if any)."""
+def _glyph_signed_line(gx, gy, width, value: Optional[float], uncertainty: Optional[float], *, span: float,
+                       tolerance: Optional[float] = None) -> List:
+    """A signed dR_sep axis of half-width ``span`` [m]: the DN band +-``tolerance`` (shaded), the LSN and USN
+    sides, and the value (if any) with its grid uncertainty as an error bar."""
     def x(v):
-        return gx + v / span * 0.5 * width
+        return gx + max(-span, min(span, v)) / span * 0.5 * width
 
     items: List = []
-    if resolution:
-        r = min(resolution, span)
-        items.append(Polyline.of([(x(-r), gy - 0.25), (x(r), gy - 0.25), (x(r), gy + 0.25), (x(-r), gy + 0.25)],
-                                 "fill=qblue!35,draw=none", role="glyph", closed=True))
+    if tolerance:
+        items += [Polyline.of([(x(-tolerance), gy - 0.25), (x(tolerance), gy - 0.25), (x(tolerance), gy + 0.25),
+                               (x(-tolerance), gy + 0.25)], "fill=qblue!35,draw=none", role="glyph", closed=True),
+                  Label((x(0.0), gy - 0.28), "DN", "font=\\scriptsize", anchor="north", role="glyph")]
     items += [Arrow((x(-span) - 0.1, gy), (x(span) + 0.1, gy), "frame axis arrow", role="glyph", both=True),
-              Polyline.of([(x(0.0), gy - 0.3), (x(0.0), gy + 0.3)], "black,line width=1.1pt", role="glyph"),
+              Polyline.of([(x(0.0), gy - 0.12), (x(0.0), gy + 0.12)], "black,line width=0.9pt", role="glyph"),
               Label((x(-span), gy - 0.2), "LSN", "font=\\scriptsize", anchor="north west", role="glyph"),
               Label((x(span), gy - 0.2), "USN", "font=\\scriptsize", anchor="north east", role="glyph")]
     if value is None:
@@ -1442,44 +1461,48 @@ def _glyph_signed_line(gx, gy, width, value: Optional[float], resolution: Option
                               role="glyph"),
                   Label((x(0.0) + 0.3, gy + 0.6), "not 0", "font=\\scriptsize,text=driftred", anchor="west",
                         role="glyph")]
-    else:
-        items += [Arrow((x(0.0), gy + 0.5), (x(value), gy + 0.5), "connector", role="glyph"),
-                  Marker((x(value), gy), "o", "fill=driftred", role="glyph")]
+        return items
+    if uncertainty:
+        lo, hi = x(value - uncertainty), x(value + uncertainty)
+        items += [Polyline.of([(lo, gy + 0.35), (hi, gy + 0.35)], "driftred,line width=0.8pt", role="glyph"),
+                  Polyline.of([(lo, gy + 0.27), (lo, gy + 0.43)], "driftred,line width=0.8pt", role="glyph"),
+                  Polyline.of([(hi, gy + 0.27), (hi, gy + 0.43)], "driftred,line width=0.8pt", role="glyph")]
+    items.append(Marker((x(value), gy), "o", "fill=driftred", role="glyph"))
     return items
 
 
 def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -> Diagram:
-    r"""How $dR_\mathrm{sep}$ is computed, with the values one near-double-null case gives at each step.
+    r"""How $dR_\mathrm{sep}$ and the topology are computed, with one near-double-null case's values at each step.
 
-    Flux map, critical points (O- and X-points with the Hessian test
-    $\det H_\psi < 0$), topology and the primary/secondary selection of
-    ``XPoint.role`` and ``XPoint.branch``, the outboard intersections of
-    both X-point fluxes at $Z = Z_\mathrm{axis}$, and the signed result with
-    its applicability and resolution. Each box carries a small picture of its
-    step, computed from ``derive_boundary_representation`` on the analytic
-    family with skew ``bias``, and that case's values. Below the chain: the
-    four outcomes, none of which reports a missing value as zero.
+    1. the flux map; 2. its critical points (X-points where
+    $\det H_\psi < 0$) and the ones relevant to the boundary; 3. where each
+    X-point's flux crosses the outboard midplane, $R_L$ and $R_U$ at
+    $Z = Z_\mathrm{axis}$; 4. the signed $dR_\mathrm{sep} = R_L - R_U$ with
+    its grid uncertainty $\delta_R$ (``quality["resolution_m"]``); 5. the
+    classification. Each box carries a small picture of its step, computed
+    from ``derive_boundary_representation`` on the analytic family with skew
+    ``bias``.
+
+    Classification
+    --------------
+    A plasma resting on the wall or limiter with no boundary-relevant
+    X-point is LIMITED. A diverted boundary with an upper and a lower X-point
+    is classified by the signed $dR_\mathrm{sep}$ against
+    $\varepsilon_\mathrm{DN} = 0.005\,a$ (``DOUBLE_NULL_TOLERANCE_FRACTION``
+    times the minor radius): $|dR_\mathrm{sep}| \le \varepsilon_\mathrm{DN}$
+    is DN (both X-points active), below $-\varepsilon_\mathrm{DN}$ LSN, above
+    $+\varepsilon_\mathrm{DN}$ USN, and outside the band the other X-point is
+    secondary however close its flux. The grid uncertainty $\delta_R$ never
+    decides the class: when $\delta_R > \varepsilon_\mathrm{DN}$ the result
+    carries ``topology_evidence["topology_unresolved_on_grid"]``.
 
     Outcomes
     --------
     Diverted balance
-        The topology is diverted (LSN, USN, DN) and both X-point fluxes
-        cross the outboard midplane: ``d_r_sep.available`` with
-        ``quality["applicability"] == "diverted_balance"`` and the flux
-        resolution mapped to metres in ``quality["resolution_m"]``.
-    DN within resolution
-        The two X-point fluxes are closer than the grid can resolve: the flux
-        at a saddle is only known to within a window of a few grid cells, and
-        that window, carried to the midplane, is about
-        $\delta_R$ = ``quality["resolution_m"]``. So when
-        $|dR_\mathrm{sep}| \lesssim \delta_R$ the grid cannot tell an exact
-        double null from a slightly biased one. The process calls it DN, sets
-        ``topology_evidence["double_null_resolution_limited"]``, and keeps the
-        small signed value with its $\pm\delta_R$ -- it is not rounded to
-        zero. (The exact test compares the X-points' $\psi_N$ difference with
-        the saddle flux window.) A finer grid may resolve it into LSN or USN.
+        LSN, USN or DN with both crossings: ``d_r_sep.available``,
+        ``applicability == "diverted_balance"``, the signed value $\pm\delta_R$.
     Geometric only
-        LIMITED or AMBIGUOUS, while both crossings still exist: the value is
+        LIMITED or AMBIGUOUS while both crossings still exist: the value is
         kept with ``applicability == "geometric_only"`` and a reason. A
         limited plasma with external nulls is not a diverted balance sample.
     Unavailable
@@ -1490,27 +1513,31 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
     labels = _check_labels(labels)
     state = balance_state(_check_skew(bias, "bias"))
     rep, q = state["representation"], state["quality"]
+    evidence = rep.topology_evidence
     xps = _x_points(state)
     width, height, gap = 4.2, 5.5, 0.8
     glyph_y = 0.75
     d, resolution = state["d_r_sep"], q.get("resolution_m")
-    span = max(2.0 * abs(d or 0.0), 3.0 * (resolution or 0.0), 1e-3)
+    eps = evidence.get("double_null_tolerance_m")
+    span = max(2.0 * abs(d or 0.0), 3.0 * (eps or 0.0), 3.0 * (resolution or 0.0), 1e-3)
     steps = (
         ("flux_map", "1. Flux map", _glyph_flux_map(state, 0.0, glyph_y, 2.2, saddles=False),
          f"$\\psi(R,Z)$ on the grid with the magnetic axis and the wall\\\\[2pt]"
          f"here: {state['equilibrium'].r.size} $\\times$ {state['equilibrium'].z.size} grid"),
         ("critical_points", "2. Critical points", _glyph_flux_map(state, 0.0, glyph_y, 2.2, saddles=True),
-         "$\\nabla\\psi = 0$; a saddle (X-point) where $\\det H_\\psi < 0$\\\\[2pt]"
-         f"here: {len(rep.x_points)} saddles"),
-        ("selection", "3. Topology and roles", _glyph_roles(state, 0.0, glyph_y, 2.2),
-         "the active X-point is primary, the other side's secondary (XPoint.role)\\\\[2pt]"
-         f"here: {_topology_text(state)}, lower {xps['lower'].role}"),
-        ("intersections", "4. Midplane crossings", _glyph_midplane(state, 0.0, glyph_y - 0.1, 3.0, 1.7),
+         "$\\nabla\\psi = 0$; a saddle (X-point) where $\\det H_\\psi < 0$, one per divertor"
+         f"\\\\[2pt]here: {len(rep.x_points)} saddles"),
+        ("intersections", "3. Midplane crossings", _glyph_midplane(state, 0.0, glyph_y - 0.1, 3.0, 1.7),
          "$\\psi(R_L, Z_\\mathrm{axis}) = \\psi_L$, $\\psi(R_U, Z_\\mathrm{axis}) = \\psi_U$\\\\[2pt]"
          f"here: $R_L$ = {q['r_lower_m']:.4f} m, $R_U$ = {q['r_upper_m']:.4f} m"),
-        ("result", "5. Signed result", _glyph_signed_line(0.0, glyph_y, 3.2, d, resolution, span=span),
-         "$dR_\\mathrm{sep} = R_L - R_U$, its applicability and flux resolution (shaded)\\\\[2pt]"
+        ("result", "4. Signed separation", _glyph_signed_line(0.0, glyph_y, 3.2, d, resolution, span=span),
+         "$dR_\\mathrm{sep} = R_L - R_U$, with its grid uncertainty $\\pm\\delta_R$ (bar)\\\\[2pt]"
          f"here: {_mm(d)} $\\pm$ {1e3 * (resolution or float('nan')):.2f} mm"),
+        ("selection", "5. Classification", _glyph_signed_line(0.0, glyph_y, 3.2, d, resolution, span=span,
+                                                                tolerance=eps),
+         "$|dR_\\mathrm{sep}| \\le \\varepsilon_\\mathrm{DN} = 0.005\\,a$: DN; below: LSN; above: USN\\\\[2pt]"
+         f"here: $\\varepsilon_\\mathrm{{DN}}$ = {1e3 * (eps or float('nan')):.1f} mm $\\Rightarrow$ "
+         f"{_topology_text(state)}"),
     )
     items: List = []
     boxes = []
@@ -1520,22 +1547,11 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
                                 style="concept box"))
     for a, b in zip(boxes, boxes[1:]):
         items.append(connector(a, b, role="flow"))
-    resolved = balance_state(0.001)
     limited = balance_state(0.08, limiter_tip=0.72)
-    lim_q = limited["quality"]
-    res_q = resolved["quality"]
     outcomes = (
-        ("available", "Diverted balance",
-         _glyph_signed_line(0.0, 0.0, 3.2, d, resolution, span=span),
-         "\\textit{when} the topology is diverted (LSN, USN, DN) and both X-point fluxes cross the midplane"
-         "\\\\[2pt]\\textit{gives} the signed value in metres, $\\pm\\delta_R$ (resolution\\_m)"),
-        ("resolution_limited", "DN within resolution",
-         _glyph_signed_line(0.0, 0.0, 3.2, resolved["d_r_sep"], res_q.get("resolution_m"),
-                            span=3.0 * res_q["resolution_m"]),
-         "\\textit{when} the X-point fluxes are too close for the grid: $|dR_\\mathrm{sep}|$ within "
-         "$\\pm\\delta_R$ (shaded)"
-         f"\\\\[2pt]\\textit{{gives}} DN, flagged; the small value is kept, not set to 0 "
-         f"(here {_mm(resolved['d_r_sep'])})"),
+        ("available", "Diverted balance", _glyph_roles(state, 0.0, 0.0, 2.0),
+         "\\textit{when} LSN, USN or DN and both X-point fluxes cross the midplane"
+         "\\\\[2pt]\\textit{gives} the signed value $\\pm\\delta_R$; flagged if $\\delta_R > \\varepsilon_\\mathrm{DN}$"),
         ("geometric_only", "Geometric only", _glyph_roles(limited, 0.0, 0.0, 2.0),
          "\\textit{when} LIMITED (here on an inboard tip) or AMBIGUOUS, yet both crossings exist"
          f"\\\\[2pt]\\textit{{gives}} the value ({_mm(limited['d_r_sep'])}) as geometric\\_only, with a reason"),
@@ -1544,7 +1560,7 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
          "\\textit{when} no magnetic axis, no upper or lower X-point, or its flux misses the midplane"
          "\\\\[2pt]\\textit{gives} None and a reason, never 0"),
     )
-    out_height = 6.2
+    out_height = 6.0
     y = -0.5 * height - 1.6 - 0.5 * out_height
     bus = -0.5 * height - 0.8
     # every outcome leaves step 5: one bus from its bottom edge, an arrow down to each outcome
@@ -1557,14 +1573,15 @@ def separatrix_balance_calculation(bias: float = 0.01, *, labels: bool = True) -
         glyph_at = y + 0.5 * out_height - 1.75
         shifted = [_shift(item, cx, glyph_at) for item in glyph]
         _glyph_box(items, cx, y, width, out_height, title, shifted, body, glyph_at + 0.2, role, labels,
-                   style="concept leaf",
-                   offset=False)
+                   style="concept leaf", offset=False)
         items.append(Arrow((cx, bus), (cx, y + 0.5 * out_height + 0.08), "connector", role="outcome"))
     return Diagram("separatrix_balance_calculation", Scene(tuple(items)),
                    model={"topology": state["topology"], "d_r_sep": d, "quality": q,
+                          "double_null_tolerance": eps,
+                          "unresolved_on_grid": bool(evidence.get("topology_unresolved_on_grid")),
                           "roles": {k: v.role for k, v in xps.items()}, "linearized": q.get("linearized_m"),
-                          "outcome_examples": {"resolution_limited": (resolved["topology"], resolved["d_r_sep"]),
-                                               "geometric_only": (limited["topology"], lim_q.get("applicability"))}})
+                          "outcome_examples": {"geometric_only": (limited["topology"],
+                                                                  limited["quality"].get("applicability"))}})
 
 
 def _shift(item, dx: float, dy: float):
