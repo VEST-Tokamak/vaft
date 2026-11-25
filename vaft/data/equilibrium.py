@@ -650,12 +650,24 @@ class StationaryPoint:
 
 @dataclass(frozen=True)
 class XPoint:
+    """A saddle of psi as reported on a :class:`BoundaryRepresentation`.
+
+    ``active`` marks a saddle that bounds the plasma (a primary X-point).
+    ``role`` says how the separatrix analysis used it: ``"primary"`` for an
+    active X-point, ``"secondary"`` for the inactive X-point on the other side
+    whose separatrix enters dRsep, ``None`` for every other saddle (interior,
+    downstream or unrelated).  ``branch`` is ``"upper"`` or ``"lower"``
+    relative to the magnetic-axis height, ``None`` without an axis.
+    """
+
     r: float
     z: float
     psi: float
     psi_n: float
     active: bool
     hessian_determinant: float
+    role: str | None = None
+    branch: str | None = None
 
 
 @dataclass(frozen=True)
@@ -691,6 +703,15 @@ class BoundaryRepresentation:
     reason: str | None = None
     stationary_points: tuple[StationaryPoint, ...] = ()
     wall_contact_distance: DerivedValue | None = None
+    #: The evidence behind ``topology``: which rule made each X-point active,
+    #: the wall-contact test and any numerical caveat, kept apart from the
+    #: physical classification itself.
+    topology_evidence: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def separatrix_x_points(self) -> dict[str, XPoint]:
+        """The X-points dRsep uses, keyed ``"upper"``/``"lower"``."""
+        return {point.branch: point for point in self.x_points if point.role is not None and point.branch is not None}
 
 
 __all__ = [

@@ -14,7 +14,8 @@ from typing import Any, Iterable, Mapping, Sequence
 import numpy as np
 from scipy.constants import mu_0 as MU0
 from scipy.interpolate import RectBivariateSpline, UnivariateSpline
-from scipy.optimize import least_squares, root
+from scipy.ndimage import label as _label_regions
+from scipy.optimize import brentq, least_squares, root
 from scipy.spatial import cKDTree
 
 from vaft.data.cocos import VAFT_INTERNAL_COCOS, cocos_spec
@@ -2989,30 +2990,42 @@ def _boundary_relevant_saddles(
     scale = abs(eq.psi_boundary - eq.psi_axis)
 
     def flux_window(point: StationaryPoint) -> float:
-        """How precisely this saddle's flux label is known.
-
-        psi is stationary at a saddle, so a position error does not perturb it
-        to first order: displacing by one grid cell changes psi only by about
-        ``curvature*h^2/2``.  That makes the identity test far sharper than the
-        grid's generic flux resolution, and it is set by the saddle's own local
-        topology rather than by any global assumption.
-
-        It is not the only uncertainty, though, and on a fine grid it stops
-        being the dominant one.  ``psi_boundary`` is taken from the source and
-        no reconstruction places it at the X-point flux to one part in a
-        million -- EFIT routinely puts the boundary a fraction of a percent
-        inside the separatrix.  Without a floor the window shrinks as ``h^2``,
-        so refining the grid would start rejecting real X-points, which is
-        backwards.  :data:`BOUNDARY_FLUX_PRECISION` is that floor.
-        """
-        if tolerance is not None:
-            return tolerance
-        return max(0.5 * point.curvature * spacing**2 / scale, BOUNDARY_FLUX_PRECISION)
+        return _saddle_flux_window(point, tolerance, spacing, scale)
 
     candidates = [
         point for point in saddles
         if np.isfinite(point.psi_n) and abs(point.psi_n - 1.0) <= flux_window(point)
     ]
+    return _confined_reach_test(eq, candidates, resolution, minor_radius, spacing, scale)
+
+
+def _saddle_flux_window(point: StationaryPoint, tolerance: float | None, spacing: float, scale: float) -> float:
+    """How precisely this saddle's flux label is known.
+
+    psi is stationary at a saddle, so a position error does not perturb it
+    to first order: displacing by one grid cell changes psi only by about
+    ``curvature*h^2/2``.  That makes the identity test far sharper than the
+    grid's generic flux resolution, and it is set by the saddle's own local
+    topology rather than by any global assumption.
+
+    It is not the only uncertainty, though, and on a fine grid it stops
+    being the dominant one.  ``psi_boundary`` is taken from the source and
+    no reconstruction places it at the X-point flux to one part in a
+    million -- EFIT routinely puts the boundary a fraction of a percent
+    inside the separatrix.  Without a floor the window shrinks as ``h^2``,
+    so refining the grid would start rejecting real X-points, which is
+    backwards.  :data:`BOUNDARY_FLUX_PRECISION` is that floor.
+    """
+    if tolerance is not None:
+        return tolerance
+    return max(0.5 * point.curvature * spacing**2 / scale, BOUNDARY_FLUX_PRECISION)
+
+
+def _confined_reach_test(
+    eq: EquilibriumData, candidates: Sequence[StationaryPoint], resolution: float,
+    minor_radius: float, spacing: float, scale: float,
+) -> tuple[list[StationaryPoint], str | None]:
+    """Keep the flux-matching saddles that the confined region actually reaches."""
     if not candidates:
         return [], None
     offset = max(2.0 * resolution, 1e-4)
@@ -3039,15 +3052,190 @@ def _boundary_relevant_saddles(
     return active, None
 
 
-def _wall_contact_distance(eq: EquilibriumData) -> float | None:
-    """Closest approach between the LCFS and the limiter/first wall."""
+def _wall_contact(eq: EquilibriumData) -> tuple[float, tuple[float, float]] | None:
+    """Closest approach between the LCFS and the wall, and the LCFS point where it occurs."""
     if eq.limiter is None or eq.limiter.r.size < 2 or eq.lcfs is None or eq.lcfs.r.size < 2:
         return None
     try:
         wall = _resample_contour(eq.limiter, max(512, 8 * eq.limiter.r.size))
     except ValueError:
         return None
-    return float(np.min(cKDTree(wall.points).query(eq.lcfs.points)[0]))
+    distances = cKDTree(wall.points).query(eq.lcfs.points)[0]
+    index = int(np.argmin(distances))
+    return float(distances[index]), (float(eq.lcfs.r[index]), float(eq.lcfs.z[index]))
+
+
+def _wall_contact_distance(eq: EquilibriumData) -> float | None:
+    """Closest approach between the LCFS and the limiter/first wall."""
+    contact = _wall_contact(eq)
+    return None if contact is None else contact[0]
+
+
+#: The largest offset, as a fraction of the axis-to-boundary flux, between
+#: ``psi_boundary`` and a saddle that the source LCFS itself runs into, for the
+#: saddle still to count as the boundary's X-point.  Reconstructions place the
+#: boundary up to a fraction of a percent inside the separatrix (EFIT traces
+#: it at a small flux inset), which the grid-limited flux window of
+#: :data:`BOUNDARY_FLUX_PRECISION` rejects; the geometric anchoring test below
+#: is what keeps the wider window honest.  It stays a factor of seven below
+#: the nearest numerical artifact seen on VEST reconstructions (psi_n 1.073).
+BOUNDARY_FLUX_OFFSET_LIMIT = 1e-2
+
+
+def _lcfs_anchored_saddles(
+    eq: EquilibriumData, saddles: Sequence[StationaryPoint], already_active: Sequence[StationaryPoint],
+    spacing: float, scale: float, minor_radius: float,
+    contact: tuple[float, tuple[float, float]] | None, touching: float,
+) -> tuple[list[StationaryPoint], list[dict[str, Any]]]:
+    """Saddles the LCFS runs into although their flux misses ``psi_boundary`` by a small offset.
+
+    A boundary traced a flux offset ``dpsi`` inside the separatrix passes the
+    X-point at the quadratic retreat ``sqrt(2*dpsi/curvature)``; a saddle the
+    source LCFS approaches that closely is the boundary's X-point whatever the
+    grid resolves of its flux.  The wall decides the one case this cannot: if
+    the LCFS also rests on the wall *away* from the saddle, the wall sets the
+    boundary and the plasma is a limited near-null, not diverted.  An apparent
+    contact in the saddle's own neighbourhood is its divertor legs reaching the
+    wall on a coarse grid and does not count against it.
+    """
+    if eq.lcfs is None or eq.lcfs.r.size < 3:
+        return [], []
+    known = {(point.r, point.z) for point in already_active}
+    anchored: list[StationaryPoint] = []
+    notes: list[dict[str, Any]] = []
+    for point in saddles:
+        if (point.r, point.z) in known or not np.isfinite(point.psi_n):
+            continue
+        offset = abs(point.psi_n - 1.0)
+        if offset > BOUNDARY_FLUX_OFFSET_LIMIT or point.curvature <= 0:
+            continue
+        retreat = np.sqrt(2.0 * max(offset, BOUNDARY_FLUX_PRECISION) * scale / point.curvature)
+        reach = min(max(2.0 * retreat, spacing), 0.25 * minor_radius)
+        separation = float(np.min(np.hypot(eq.lcfs.r - point.r, eq.lcfs.z - point.z)))
+        if separation > reach:
+            continue
+        note = {"r": point.r, "z": point.z, "psi_n": point.psi_n, "lcfs_separation_m": separation, "reach_m": reach}
+        if contact is not None and contact[0] <= touching:
+            away = float(np.hypot(contact[1][0] - point.r, contact[1][1] - point.z))
+            note["wall_contact_from_saddle_m"] = away
+            if away > max(2.0 * reach, 2.0 * touching):
+                note["rejected"] = "the LCFS rests on the wall away from this saddle, so the wall sets the boundary"
+                notes.append(note)
+                continue
+        anchored.append(point)
+        notes.append(note)
+    return anchored, notes
+
+
+#: Half-angle of the vertical sector, about the axis's vertical line, in which a
+#: saddle counts as an upper or lower divertor X-point: the X-point must lie
+#: closer to vertical than to horizontal as seen from the magnetic axis.  It
+#: keeps an outboard or inboard midplane null, which belongs to neither
+#: divertor, out of the upper/lower balance.
+_DIVERTOR_SECTOR = "|Z_X - Z_axis| >= |R_X - R_axis|"
+
+
+def _basin_reaches(eq: EquilibriumData, point: StationaryPoint, window: float, scale: float, spacing: float, minor_radius: float) -> bool:
+    """Whether the region of flux below this saddle that holds the axis reaches it.
+
+    A saddle bounds the plasma's flux basin -- its separatrix belongs to this
+    plasma -- when the connected region ``psi_n < psi_n(saddle)`` containing
+    the magnetic axis extends to it.  The region is probed twice the saddle's
+    own flux window below it -- the flux change across about a cell at the
+    saddle, so the grid mask separates the basins the saddle joins -- and
+    retreats from a genuine X-point by the same quadratic scale as in
+    :func:`_confined_reach_test`.  A saddle of some other basin (between two
+    coils, say) is never reached.
+    """
+    if eq.magnetic_axis is None or eq.psi_axis is None or eq.psi_boundary is None:
+        return False
+    psi_n = (eq.psi - eq.psi_axis) / (eq.psi_boundary - eq.psi_axis)
+    offset = max(2.0 * window, 1e-4)
+    regions, _ = _label_regions(psi_n < point.psi_n - offset)
+    ia = int(np.argmin(np.abs(eq.r - eq.magnetic_axis[0])))
+    iz = int(np.argmin(np.abs(eq.z - eq.magnetic_axis[1])))
+    basin = regions[ia, iz]
+    if basin == 0:
+        return False
+    inside = np.argwhere(regions == basin)
+    distance = float(np.min(np.hypot(eq.r[inside[:, 0]] - point.r, eq.z[inside[:, 1]] - point.z)))
+    expected = np.sqrt(2.0 * offset * scale / point.curvature) if point.curvature > 0 else np.inf
+    reach = min(max(3.0 * expected, 4.0 * spacing), 0.5 * minor_radius)
+    return distance <= reach
+
+
+def _select_separatrix_x_points(
+    eq: EquilibriumData, saddles: Sequence[StationaryPoint], active: Sequence[StationaryPoint],
+    flux_tolerance: float | None, resolution: float, spacing: float, minor_radius: float,
+) -> tuple[dict[str, StationaryPoint], dict[str, str], dict[str, Any]]:
+    """Pick the upper and lower X-points whose separatrices define dRsep.
+
+    Per side of the magnetic axis: an active X-point if there is one;
+    otherwise the vacuum-side saddle (``psi_n >= 1 - window``, so never an
+    interior saddle) in the divertor sector whose basin test passes, taking the
+    smallest psi_n -- the first separatrix met going outward.  A downstream
+    null further out is not the secondary separatrix.  Two qualifying saddles
+    on one side whose fluxes the grid cannot separate leave that side
+    ambiguous (a snowflake-like multi-null) rather than guessed.
+    """
+    scale = abs(eq.psi_boundary - eq.psi_axis)
+    r_axis, z_axis = eq.magnetic_axis
+    chosen: dict[str, StationaryPoint] = {}
+    why: dict[str, str] = {}
+    evidence: dict[str, Any] = {"divertor_sector": _DIVERTOR_SECTOR}
+    for side, on_side in (("upper", lambda p: p.z >= z_axis), ("lower", lambda p: p.z < z_axis)):
+        side_active = sorted((p for p in active if on_side(p)), key=lambda p: abs(p.psi_n - 1.0))
+        if side_active:
+            chosen[side] = side_active[0]
+            continue
+        rejected: list[str] = []
+        candidates = []
+        for point in saddles:
+            if not on_side(point) or not np.isfinite(point.psi_n):
+                continue
+            window = _saddle_flux_window(point, flux_tolerance, spacing, scale)
+            if point.psi_n < 1.0 - window:
+                rejected.append(f"({point.r:.3g}, {point.z:.3g}) psi_n={point.psi_n:.4g} is inside the separatrix")
+            elif abs(point.z - z_axis) < abs(point.r - r_axis):
+                rejected.append(f"({point.r:.3g}, {point.z:.3g}) lies outside the divertor sector")
+            elif not _basin_reaches(eq, point, window, scale, spacing, minor_radius):
+                rejected.append(f"({point.r:.3g}, {point.z:.3g}) does not bound the plasma's flux basin")
+            else:
+                candidates.append((point, window))
+        if rejected:
+            evidence[f"{side}_rejected"] = rejected
+        if not candidates:
+            why[side] = f"no relevant {side} X-point outside the separatrix"
+            continue
+        candidates.sort(key=lambda item: item[0].psi_n)
+        first, window = candidates[0]
+        if len(candidates) > 1 and candidates[1][0].psi_n - first.psi_n <= window + candidates[1][1]:
+            why[side] = (f"{len(candidates)} {side} saddles share the secondary flux within the grid's resolution; "
+                         "the multi-null topology is ambiguous")
+            continue
+        chosen[side] = first
+    return chosen, why, evidence
+
+
+def _outboard_crossing(eq: EquilibriumData, psi_value: float, r_axis: float, z0: float) -> dict[str, float] | None:
+    """Root-refined first outboard crossing of ``psi_value`` on ``Z = z0``, with dpsi/dR there."""
+    if eq.r is None or eq.z is None or eq.psi is None:
+        return None
+    spline = RectBivariateSpline(eq.r, eq.z, eq.psi, kx=min(3, eq.r.size-1), ky=min(3, eq.z.size-1))
+    samples = np.linspace(r_axis, float(eq.r[-1]), 1024)
+    delta = np.asarray(spline.ev(samples, np.full_like(samples, z0)), dtype=float) - psi_value
+    crossings = np.where(delta[:-1] * delta[1:] <= 0)[0]
+    if not crossings.size:
+        return None
+    index = int(crossings[0])
+    lo, hi = float(samples[index]), float(samples[index + 1])
+    if delta[index] == 0.0:
+        radius = lo
+    elif delta[index + 1] == 0.0:
+        radius = hi
+    else:
+        radius = float(brentq(lambda rr: float(spline.ev(rr, z0)) - psi_value, lo, hi, xtol=1e-12))
+    return {"r": radius, "crossings": float(crossings.size), "dpsi_dr": float(spline.ev(radius, z0, dx=1, dy=0))}
 
 
 def _outboard_radius_at_z(contour: Contour, z0: float) -> float | None:
@@ -3100,19 +3288,8 @@ def _outboard_midplane_radius(eq: EquilibriumData, psi_value: float, r_axis: flo
     :func:`_outboard_radius_at_z`, which intersects an already-extracted
     contour and is therefore subject to that contour being clipped.
     """
-    if eq.r is None or eq.z is None or eq.psi is None:
-        return None
-    spline = RectBivariateSpline(eq.r, eq.z, eq.psi, kx=min(3, eq.r.size-1), ky=min(3, eq.z.size-1))
-    samples = np.linspace(r_axis, float(eq.r[-1]), 1024)
-    delta = np.asarray(spline.ev(samples, np.full_like(samples, z0)), dtype=float) - psi_value
-    crossings = np.where(delta[:-1] * delta[1:] <= 0)[0]
-    if not crossings.size:
-        return None
-    index = int(crossings[0])
-    if delta[index + 1] == delta[index]:
-        return float(samples[index])
-    weight = -delta[index] / (delta[index + 1] - delta[index])
-    return float(samples[index] + weight * (samples[index + 1] - samples[index]))
+    crossing = _outboard_crossing(eq, psi_value, r_axis, z0)
+    return None if crossing is None else crossing["r"]
 
 
 def _arc_length_fourier(contour: Contour, modes: int, samples: int | None = None) -> tuple[dict[str, np.ndarray], float, Contour, float]:
@@ -3588,6 +3765,76 @@ def _segment_intersections(first: Contour, second: Contour) -> list[tuple[float,
     return out
 
 
+#: The published definition of :attr:`BoundaryRepresentation.d_r_sep`.
+D_R_SEP_DEFINITION = "R_out(psi_X,lower)-R_out(psi_X,upper) at Z=Z_axis"
+
+
+def _separatrix_balance(
+    eq: EquilibriumData, topology: Topology, selected: Mapping[str, StationaryPoint], missing: Mapping[str, str],
+    active_keys: set, flux_tolerance: float | None, spacing: float | None, resolution: float | None,
+) -> DerivedValue:
+    """Signed dRsep from the selected upper and lower X-points.
+
+    The geometric separation is formed whenever both X-points exist and both
+    flux levels are reached on the outboard ray, whatever the topology.  It is
+    published as *available* only for a diverted topology, the one case in
+    which it is a magnetic-balance sample; a limited or ambiguous boundary
+    keeps the number in ``value`` with a ``reason`` that marks it geometric
+    only.  Missing nulls and unresolved branches are never zero.
+    """
+    from vaft.formula.equilibrium import separatrix_radial_separation, separatrix_separation_from_flux_imbalance
+
+    fields = ("psi", "magnetic_axis")
+    if eq.magnetic_axis is None:
+        return _unavailable(eq, "m", D_R_SEP_DEFINITION,
+                            "the magnetic axis sets the reference height and is unavailable; "
+                            "no geometric-centre fallback is used", fields)
+    if eq.psi_axis is None or eq.psi_boundary is None or resolution is None or spacing is None:
+        return _unavailable(eq, "m", D_R_SEP_DEFINITION, "an R/Z psi grid with psi_axis and psi_boundary is required", fields)
+    if "upper" not in selected or "lower" not in selected:
+        reasons = "; ".join(missing[side] for side in ("upper", "lower") if side in missing)
+        return _unavailable(eq, "m", D_R_SEP_DEFINITION, reasons or "an upper and a lower X-point are required", fields)
+    r_axis, z_ref = eq.magnetic_axis
+    crossings = {side: _outboard_crossing(eq, point.psi, r_axis, z_ref) for side, point in selected.items()}
+    unreached = [side for side, crossing in crossings.items() if crossing is None]
+    if unreached:
+        return _unavailable(eq, "m", D_R_SEP_DEFINITION,
+                            f"the {' and '.join(unreached)} X-point flux level is not reached on the outboard midplane "
+                            "inside the grid", fields)
+    upper, lower = selected["upper"], selected["lower"]
+    r_u, r_l = crossings["upper"]["r"], crossings["lower"]["r"]
+    value = float(separatrix_radial_separation(r_l, r_u))
+    scale = abs(eq.psi_boundary - eq.psi_axis)
+    gradient = 0.5 * (crossings["upper"]["dpsi_dr"] + crossings["lower"]["dpsi_dr"])
+    windows = [_saddle_flux_window(point, flux_tolerance, spacing, scale) for point in (upper, lower)]
+    quality: dict[str, Any] = {
+        "z_reference_m": float(z_ref), "z_reference": "magnetic axis",
+        "r_upper_m": r_u, "r_lower_m": r_l,
+        "upper_x_point": (upper.r, upper.z), "lower_x_point": (lower.r, lower.z),
+        "upper_role": "primary" if (upper.r, upper.z) in active_keys else "secondary",
+        "lower_role": "primary" if (lower.r, lower.z) in active_keys else "secondary",
+        "psi_upper": upper.psi, "psi_lower": lower.psi, "psi_n_upper": upper.psi_n, "psi_n_lower": lower.psi_n,
+        "psi_unit": {True: "Wb/rad", False: "Wb"}.get(eq.convention.psi_per_radian),
+        "cocos": eq.convention.cocos,
+        "flux_imbalance": float(lower.psi - upper.psi),
+        "outboard_crossings": {side: int(crossing["crossings"]) for side, crossing in crossings.items()},
+        # The X-point flux is known only to its window; mapped to the midplane it
+        # is the resolution below which dRsep cannot tell a DN from a near-DN.
+        "resolution_m": float(max(windows) * scale / abs(gradient)) if gradient else float("inf"),
+        "linearized_m": (float(separatrix_separation_from_flux_imbalance(lower.psi, upper.psi, gradient))
+                         if gradient else None),
+    }
+    if topology.is_diverted:
+        quality["applicability"] = "diverted_balance"
+        return _derived(eq, value, "m", D_R_SEP_DEFINITION, "outboard-midplane flux inversion", fields, quality)
+    quality["applicability"] = "geometric_only"
+    return DerivedValue(
+        value, "m", D_R_SEP_DEFINITION, _provenance(eq, "outboard-midplane flux inversion", fields), quality,
+        reason=(f"the boundary is {topology.value}: the separatrix separation is geometric only and is not a "
+                "diverted magnetic-balance sample"),
+    )
+
+
 def derive_boundary_representation(
     equilibrium: Any, *, gap_angles: Mapping[str, float] | None = None,
     flux_tolerance: float | None = None, fourier_modes: int = 16,
@@ -3617,11 +3864,13 @@ def derive_boundary_representation(
     Returns
     -------
     BoundaryRepresentation
-        The topology and the reason for it; the X-points with their active flags;
-        the strike points with their flux expansion and incidence; the named gaps;
-        the outer-midplane separation between the first two separatrices; and the
-        Fourier coefficients with their fit error.  Distances in metres, angles in
-        radians, everything else dimensionless [-].
+        The topology, the reason for it and the evidence behind it; the
+        X-points with their active flags and their roles in the separatrix
+        analysis; the strike points with their flux expansion and incidence;
+        the named gaps; the signed outboard-midplane separatrix separation
+        ``d_r_sep``; and the Fourier coefficients with their fit error.
+        Distances in metres, angles in radians, everything else
+        dimensionless [-].
 
     Convention
     ----------
@@ -3629,7 +3878,21 @@ def derive_boundary_representation(
     together with a last closed flux surface in contact with the wall, makes it
     limited.  Anything that cannot be settled -- a grid-clipped confined region, no
     wall to test against, or a surface bounded by neither -- is reported ambiguous
-    with a reason rather than forced into one of the two.
+    with a reason rather than forced into one of the two.  A saddle the source
+    LCFS runs into within :data:`BOUNDARY_FLUX_OFFSET_LIMIT` of the boundary
+    flux is also an X-point unless the LCFS rests on the wall away from it,
+    since reconstructions trace the boundary slightly inside the separatrix.
+
+    ``d_r_sep`` is ``R_out(psi_X,lower) - R_out(psi_X,upper)`` at the
+    magnetic-axis height (``vaft.formula.separatrix_radial_separation``):
+    negative for a lower single null, positive for an upper single null, the
+    DIII-D/EFIT ``DRSEP`` sign.  Breaking change (#2324): it was
+    upper-minus-lower before, so earlier signed values are reversed.  The
+    secondary X-point is the vacuum-side saddle in the divertor sector that
+    bounds the plasma's flux basin, nearest in flux; interior saddles are never
+    used.  It is available only for a diverted topology; a limited or
+    ambiguous one keeps the geometric value with a reason and
+    ``quality["applicability"] == "geometric_only"``.
 
     Defaults
     --------
@@ -3663,6 +3926,8 @@ def derive_boundary_representation(
     .. [1] The Hessian classification of stationary points of psi is the standard
        O-point and X-point test; the boundary-relevance condition is what
        distinguishes a physical X-point from a saddle elsewhere in the domain.
+    .. [2] T. W. Petrie et al., GA-A24338 (2003) and J. Nucl. Mater. 290--293
+       (2001) 935: dRsep = R_L - R_U at the outer midplane.
     """
     eq = as_equilibrium(equilibrium)
     unavailable = lambda definition, reason: _unavailable(eq, "m", definition, reason)
@@ -3680,14 +3945,17 @@ def derive_boundary_representation(
         },
     )
     if eq.lcfs is None:
-        return BoundaryRepresentation(None, eq.limiter, (), Topology.AMBIGUOUS, unavailable("outboard upper-minus-lower separatrix offset", "LCFS is unavailable"), (), (), {}, unavailable("Fourier LCFS RMS", "LCFS is unavailable"), provenance, "LCFS is unavailable")
+        return BoundaryRepresentation(None, eq.limiter, (), Topology.AMBIGUOUS, unavailable(D_R_SEP_DEFINITION, "LCFS is unavailable"), (), (), {}, unavailable("Fourier LCFS RMS", "LCFS is unavailable"), provenance, "LCFS is unavailable")
 
     center_geo = _polygon_geometry(eq.lcfs); center = (center_geo["r"], center_geo["z"])
     minor_radius = 0.5 * float(np.max(eq.lcfs.r) - np.min(eq.lcfs.r))
     stationary = _stationary_points(eq)
     saddles = [point for point in stationary if point.kind == "x"]
     # Computed once: the classification tests it and the report publishes it.
-    contact = _wall_contact_distance(eq)
+    contact_info = _wall_contact(eq)
+    contact = None if contact_info is None else contact_info[0]
+    touching = max(3.0 * spacing, 0.02 * minor_radius) if spacing is not None else 0.02 * minor_radius
+    evidence: dict[str, Any] = {"wall_contact_m": contact, "wall_contact_tolerance_m": touching}
 
     reason: str | None = None
     if resolution is None:
@@ -3696,6 +3964,20 @@ def derive_boundary_representation(
                   "saddle against the boundary flux")
     else:
         active, indeterminate = _boundary_relevant_saddles(eq, saddles, flux_tolerance, resolution, minor_radius)
+        evidence["flux_window_active"] = [(point.r, point.z, point.psi_n) for point in active]
+        if indeterminate is None:
+            anchored, notes = _lcfs_anchored_saddles(
+                eq, saddles, active, spacing, abs(eq.psi_boundary - eq.psi_axis), minor_radius, contact_info, touching,
+            )
+            if notes:
+                evidence["lcfs_anchored"] = notes
+            if anchored:
+                # Numerical, not physical: the boundary flux misses the X-point
+                # flux by more than the grid window, so say so beside the result.
+                evidence["caveat"] = ("psi_boundary is offset from the X-point flux by up to "
+                                      f"{max(abs(point.psi_n - 1.0) for point in anchored):.3g} in psi_n; "
+                                      "the X-point was identified from the LCFS geometry")
+            active = [*active, *anchored]
         if indeterminate is not None:
             topology = Topology.AMBIGUOUS
             reason = f"{indeterminate}; the boundary cannot be classified at this resolution"
@@ -3712,7 +3994,6 @@ def derive_boundary_representation(
                     else Topology.LOWER_SINGLE_NULL
                 )
         else:
-            touching = max(3.0 * spacing, 0.02 * minor_radius) if spacing is not None else 0.02 * minor_radius
             if contact is None:
                 topology = Topology.AMBIGUOUS
                 reason = ("no saddle is relevant to the boundary flux, and no limiter or first-wall "
@@ -3725,9 +4006,33 @@ def derive_boundary_representation(
                           f"clear of the wall (contact needs {touching:.4g} m), so the boundary is set by neither")
 
     active_keys = {(point.r, point.z) for point in active}
+    selected: dict[str, StationaryPoint] = {}
+    missing: dict[str, str] = {}
+    if resolution is not None and eq.magnetic_axis is not None:
+        selected, missing, selection_evidence = _select_separatrix_x_points(
+            eq, saddles, active, flux_tolerance, resolution, spacing, minor_radius,
+        )
+        evidence.update(selection_evidence)
+    if topology == Topology.DOUBLE_NULL and {"upper", "lower"} <= selected.keys():
+        # Both nulls pass the flux window, so the grid cannot tell this double
+        # null from a near-double null whose fluxes differ by less than it.
+        scale_flux = abs(eq.psi_boundary - eq.psi_axis)
+        upper_x, lower_x = selected["upper"], selected["lower"]
+        separation = abs(upper_x.psi_n - lower_x.psi_n)
+        window = max(_saddle_flux_window(point, flux_tolerance, spacing, scale_flux) for point in (upper_x, lower_x))
+        evidence["double_null_flux_separation_psi_n"] = float(separation)
+        evidence["double_null_resolution_limited"] = bool(separation > 0.1 * window)
+    roles = {
+        (point.r, point.z): ("primary" if (point.r, point.z) in active_keys else "secondary", side)
+        for side, point in selected.items()
+    }
+    z_branch = eq.magnetic_axis[1] if eq.magnetic_axis is not None else None
     xpoints = tuple(sorted(
-        (XPoint(point.r, point.z, point.psi, point.psi_n, (point.r, point.z) in active_keys, point.hessian_determinant)
-         for point in saddles),
+        (XPoint(
+            point.r, point.z, point.psi, point.psi_n, (point.r, point.z) in active_keys, point.hessian_determinant,
+            role=roles.get((point.r, point.z), (None,))[0],
+            branch=None if z_branch is None else ("upper" if point.z >= z_branch else "lower"),
+        ) for point in saddles),
         key=lambda point: (abs(point.psi_n - 1), point.z),
     ))
 
@@ -3737,21 +4042,7 @@ def derive_boundary_representation(
         else unavailable("min distance from the LCFS to the limiter/first wall", "a limiter/first-wall contour is required")
     )
 
-    # dRsep separates two X-point flux surfaces, so it is only meaningful once
-    # the configuration is known to be diverted.
-    d_r_sep = unavailable("R_out(psi_X,upper)-R_out(psi_X,lower)", "a diverted topology with both an upper and a lower X-point is required")
-    if topology.is_diverted and eq.psi_axis is not None and eq.psi_boundary is not None:
-        r_axis, z_mid = eq.magnetic_axis if eq.magnetic_axis else center
-        ordered = sorted(saddles, key=lambda point: abs(point.psi_n - 1))
-        all_upper = [point for point in ordered if point.z >= z_mid]
-        all_lower = [point for point in ordered if point.z < z_mid]
-        if all_upper and all_lower:
-            r_up = _outboard_midplane_radius(eq, all_upper[0].psi, r_axis, z_mid)
-            r_low = _outboard_midplane_radius(eq, all_lower[0].psi, r_axis, z_mid)
-            if r_up is None or r_low is None:
-                d_r_sep = unavailable("R_out(psi_X,upper)-R_out(psi_X,lower)", "an X-point flux level is not reached on the outboard midplane")
-            else:
-                d_r_sep = _derived(eq, float(r_up-r_low), "m", "R_out(psi_X,upper)-R_out(psi_X,lower) at Z=Z_axis", "outboard-midplane flux inversion", ("psi", "magnetic_axis"))
+    d_r_sep = _separatrix_balance(eq, topology, selected, missing, active_keys, flux_tolerance, spacing, resolution)
     gaps: list[Gap] = []
     angles = dict(gap_angles or {"outboard": 0.0, "top": np.pi/2, "inboard": np.pi, "bottom": 3*np.pi/2})
     for name, angle in angles.items():
@@ -3794,7 +4085,7 @@ def derive_boundary_representation(
             reason = "no separatrix/wall intersections were found for the boundary-relevant X-points"
     return BoundaryRepresentation(
         eq.lcfs, eq.limiter, xpoints, topology, d_r_sep, tuple(gaps), tuple(strikes),
-        coefficients, fourier_error, provenance, reason, stationary, wall_contact,
+        coefficients, fourier_error, provenance, reason, stationary, wall_contact, evidence,
     )
 
 

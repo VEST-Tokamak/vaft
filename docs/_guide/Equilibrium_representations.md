@@ -245,15 +245,54 @@ Local Miller fits report RMS, maximum, and Hausdorff contour errors. Fits near
 the separatrix (`psi_n >= 0.995`) or within `0.05a` of an X-point are flagged
 because the local form is unreliable there. The analytic Solov'ev model assumes
 axisymmetric constant-`p'` and constant-`FF'` solutions; it is an example and
-regression model rather than a general experimental equilibrium solver. Edge
-`dRsep` is the upper-minus-lower X-point flux-surface radius at the outboard
-midplane, and is reported only for diverted configurations.
+regression model rather than a general experimental equilibrium solver.
+
+Edge `dRsep` follows the DIII-D/EFIT sign: `R_out(psi_X,lower) - R_out(psi_X,upper)`
+at the magnetic-axis height, in metres. It is negative for a lower single null,
+zero for a balanced double null and positive for an upper single null, the
+meaning of the EFIT a-file `DRSEP` and of the published magnetic-balance scans.
+**Sign change (#2324/#2325):** earlier versions published upper-minus-lower, so
+every stored signed value from them is reversed. Absolute jumps, such as the
+free-boundary scan's `d_r_sep_jump_m`, are unaffected. The formula is
+`vaft.formula.separatrix_radial_separation`. Its first-order flux form and
+the normalisation by `lambda_q` are `separatrix_separation_from_flux_imbalance`
+and `separatrix_imbalance_to_heat_flux_width`. That ratio compares the
+magnetic offset with the SOL heat channel. It does not predict how power is
+shared between the divertors.
+
+The upper and lower X-points behind it are chosen per side of the magnetic
+axis. An active X-point is used if there is one. Otherwise the choice is the
+saddle that lies outside the separatrix (`psi_n >= 1 - window`, never an
+interior saddle), sits in the divertor sector (`|Z_X - Z_axis| >= |R_X - R_axis|`),
+bounds the plasma's own flux basin, and has the smallest `psi_n`, so a
+downstream null further out is not used. Two such saddles that the grid
+cannot tell apart in flux leave that side ambiguous. The chosen X-points carry
+`role` (`primary` or `secondary`) and `branch` on `x_points`. The radii,
+fluxes, flux unit, crossings and resolution are in `d_r_sep.quality`.
+
+The value is published as available only for a diverted topology. A limited
+or ambiguous boundary with two external nulls keeps the geometric number in
+`d_r_sep.value`, with `quality["applicability"] == "geometric_only"` and a
+reason, so it is never mistaken for a magnetic-balance sample. A missing
+secondary null, an unreached flux level or a missing magnetic axis is
+unavailable, never zero, and the geometric centre is not used as a fallback
+reference height.
 
 Boundary topology is inferred from the flux map without machine-specific
 geometry. Stationary points are classified by the Hessian determinant; a
 saddle becomes an active X-point only if its flux matches the boundary within
 a curvature- and grid-dependent window and the confined region reaches it.
 Irrelevant numerical saddles remain in `x_points` with `active=False`.
+A reconstruction often traces its boundary a fraction of a percent inside the
+separatrix. A saddle that the source LCFS itself runs into, with a flux
+offset of at most `BOUNDARY_FLUX_OFFSET_LIMIT` (1 % of the axis-to-boundary
+flux), is therefore also active, unless the LCFS rests on the wall away from
+that saddle. In that case the wall sets the boundary. Without this rule a
+coarse g-file of a diverted plasma came out limited (#2324). When it applies,
+`topology_evidence["caveat"]` records it, so the numerical caveat stays
+separate from the physical classification. A double null whose two X-point
+fluxes differ by less than the grid resolves is flagged
+`double_null_resolution_limited`.
 A diverted boundary yields upper single-null, lower single-null, or
 double-null topology. A wall-contacting LCFS without an active X-point is
 limited; a clipped region, missing wall, or indeterminate boundary is

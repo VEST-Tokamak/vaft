@@ -55,6 +55,8 @@ __all__ = [
     "two_point_upstream_temperature",
     "eich_target_heat_flux_profile",
     "eich_integral_width",
+    "separatrix_imbalance_to_heat_flux_width",
+    "secondary_separatrix_exponential_factor",
     "radiative_condensation_growth_rate",
     "radiative_thermal_instability_growth_rate",
     "BlobRegimeVelocities",
@@ -981,6 +983,99 @@ def blob_crossover_size(*, relative_amplitude=1.0):
            (2011) 060501, p. 060501-25.
     """
     return _out(_amplitude(relative_amplitude) ** 0.2)
+
+
+def separatrix_imbalance_to_heat_flux_width(d_r_sep, lambda_q):
+    r"""Divertor magnetic imbalance in units of the SOL heat-flux width.
+
+    $$\chi = \frac{dR_{\rm sep}}{\lambda_q}$$
+
+    Parameters
+    ----------
+    d_r_sep : float or np.ndarray
+        Signed outboard-midplane separatrix separation $R_L - R_U$
+        (``vaft.formula.equilibrium.separatrix_radial_separation``) [m].
+    lambda_q : float or np.ndarray
+        Heat-flux decay length mapped to the outer midplane, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\chi$, keeping the sign of $dR_{\rm sep}$ (negative lower-biased) [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a non-positive ``lambda_q``.
+
+    Physical interpretation
+    -----------------------
+    $|\chi| \lesssim 1$ is the transport-relevant near-double-null band: the
+    secondary separatrix lies inside the near-SOL heat channel, so both
+    divertors connect to it. $|\chi| \gg 1$ behaves as a single null even
+    though a second X-point exists. On Alcator C-Mod the up/down power split
+    changes over $|dR_{\rm sep}|$ of order $\lambda_q$ [1]_.
+
+    Limitations
+    -----------
+    A ratio of geometric and transport scales, not a power-sharing law: drifts,
+    the inner/outer asymmetry, recycling and detachment all move the actual
+    split, so magnetic balance ($\chi = 0$) need not mean thermal balance.
+
+    References
+    ----------
+    .. [1] D. Brunner, A. Q. Kuang, B. LaBombard and J. L. Terry, Nucl. Fusion
+           58 (2018) 076010, doi:10.1088/1741-4326/aac006.
+    """
+    d_r_sep = np.asarray(d_r_sep, dtype=float)
+    if not np.all(np.isfinite(d_r_sep)):
+        raise ValueError("d_r_sep must be finite")
+    lambda_q = _positive(lambda_q, "lambda_q")
+    return _out(d_r_sep / lambda_q)
+
+
+def secondary_separatrix_exponential_factor(d_r_sep, lambda_q):
+    r"""Illustrative exponential heat-flux factor at the secondary separatrix.
+
+    $$\frac{q(|dR_{\rm sep}|)}{q_0} = \exp\left(-\frac{|dR_{\rm sep}|}{\lambda_q}\right)$$
+
+    Parameters
+    ----------
+    d_r_sep : float or np.ndarray
+        Signed outboard-midplane separatrix separation [m].
+    lambda_q : float or np.ndarray
+        Outboard-midplane heat-flux decay length, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Ratio of the model upstream heat flux at the secondary separatrix to
+        its value at the primary one, in $(0, 1]$ [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input or a non-positive ``lambda_q``.
+
+    Assumptions
+    -----------
+    A single exponential upstream profile $q(x)/q_0 = \exp(-x/\lambda_q)$
+    with $x$ the outboard-midplane distance outside the primary separatrix.
+
+    Limitations
+    -----------
+    Not the fraction of the total power reaching the secondary divertor: that
+    depends on connection topology, the inner/outer split, drifts, recycling
+    and detachment. Use it to illustrate the scale, not to predict sharing.
+
+    References
+    ----------
+    .. [1] D. Brunner, A. Q. Kuang, B. LaBombard and J. L. Terry, Nucl. Fusion
+           58 (2018) 076010, doi:10.1088/1741-4326/aac006.
+    .. [2] T. Eich et al., Phys. Rev. Lett. 107 (2011) 215001.
+    """
+    chi = separatrix_imbalance_to_heat_flux_width(d_r_sep, lambda_q)
+    return _out(np.exp(-np.abs(np.asarray(chi, dtype=float))))
 
 
 def radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_parallel):
