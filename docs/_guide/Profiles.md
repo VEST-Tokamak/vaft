@@ -240,7 +240,7 @@ is not the canonical top. `resonant_windows(pedestal, boundary=...)` selects `"i
 
 ### Pedestal characterization
 
-`vaft.process.profile.characterize_pedestal` is what `pedestal_top` now reduces. It returns the
+`vaft.process.profile.characterize_pedestal` (new in #2335) returns the
 geometry (top, centre, foot, native and full width), the fitted profile *evaluated* at the top, foot
 and LCFS next to the tanh's asymptotic height, the actual top-to-foot drop, the steepest gradient and
 its position, one-sigma uncertainties propagated from the fit covariance ($J C J^\mathsf{T}$), the
@@ -256,22 +256,28 @@ detection status:
 | `fit_failed` | the fit did not converge |
 | `not_available` | too few valid samples after every mask |
 
-`pedestal_top` returns the fallback position for every status but `present`, and records the status;
-the fallback is a partition policy for region reductions, never an observed pedestal.
+`pedestal_top` always records this status and the characterization, but by default it still
+*decides* with the pre-#2335 acceptance below (`acceptance="legacy"`), so every earlier window and
+GPEC/RMP result reproduces. `acceptance="localized"` is the opt-in that accepts a fit only when the
+status is `present`; it stays opt-in until it is qualified on VEST data. A `method="eped_fit"` result
+whose `status` is not `present` is one the localized test would have refused. The fallback is a
+partition policy for region reductions, never an observed pedestal.
 
-The fallback is `PEDESTAL_FALLBACK_PSI_NORM = 0.85`, and it fires when no pedestal is resolved: too
-few points in the window after masking, a fit that did not converge, a fitted pedestal coefficient
-resting on a bound, a top-to-foot drop that does not stand `PEDESTAL_RESOLUTION_FACTOR` times above
-the scatter around the feature or `PEDESTAL_SIGNIFICANCE` times above its own uncertainty, an edge
-gradient no steeper than the core, a width or top the samples do not resolve, or a tanh wider than
-`PEDESTAL_MAX_WIDTH`. That last width test matters more than it looks:
+The fallback is `PEDESTAL_FALLBACK_PSI_NORM = 0.85`. Under the default legacy acceptance it fires
+when there is nothing to fit: too few points in the window, a fit that did not converge, a fitted
+pedestal coefficient resting on a bound, a fitted curve that does not vary across the window by
+`PEDESTAL_RESOLUTION_FACTOR` times the residual scatter, or a tanh wider than `PEDESTAL_MAX_WIDTH`.
+The opt-in localized acceptance replaces the whole-window variation test with the characterization's
+tests: a top-to-foot drop above `PEDESTAL_RESOLUTION_FACTOR` times the scatter around the feature and
+`PEDESTAL_SIGNIFICANCE` times its own uncertainty, an edge gradient steeper than the core, and a width
+and top the samples resolve. That last width test matters more than it looks:
 the model's own box allows a width of 0.3, and over the 171 fits of one MAST campaign 25 came back
 between 0.20 and 0.29 — curves that ramp across half the minor radius while reporting themselves as
 measured pedestals. The variation test is the interesting one — the model's `f_ped - f_sep` is the $\tanh$'s
 *asymptotic* amplitude, which a wide, shallow fit through noise can make look large while the curve
-it actually draws is almost flat. The test is on the curve, not the parameters -- and since #2335
-on the localized drop from top to foot rather than the curve's range over the whole window, which
-also counted core variation as pedestal evidence.
+it actually draws is almost flat. The test is on the curve, not the parameters. Its whole-window form
+also counts core variation as pedestal evidence, which is why the opt-in localized acceptance tests
+the drop from top to foot instead.
 
 ## Writing `core_profiles`
 

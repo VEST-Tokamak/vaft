@@ -218,12 +218,8 @@ def test_uncertainties_actually_weight_the_fit():
 
     plain = pedestal_top(x, y, quantity="p_total")
     weighted = pedestal_top(x, y, quantity="p_total", value_std=sigma)
-    assert plain.method == "eped_fit"
-    # Distrusting everything outside x_ped leaves f_sep and x_ped trading off
-    # (|rho| ~ 0.998), so since #2335 the weighted fit is reported as
-    # unresolved rather than accepted; its fitted centre still has to move.
-    assert weighted.status == "unresolved" and "correlate" in weighted.reason
-    assert weighted.characterization.center != pytest.approx(plain.position, abs=1e-9)
+    assert plain.method == weighted.method == "eped_fit"
+    assert weighted.position != pytest.approx(plain.position, abs=1e-9)
 
 
 def test_a_value_std_of_the_wrong_length_is_refused():
@@ -285,3 +281,15 @@ def test_the_core_shape_exponents_cannot_go_below_one():
     x, y, _ = _h_mode()
     lower, upper = eped_tanh_bounds(x, y)
     assert lower[5] >= 1.0 and lower[6] >= 1.0
+
+
+def test_the_localized_acceptance_refuses_the_edge_distrusting_fit():
+    """Opt-in (#2335): distrusting everything outside x_ped leaves f_sep and
+    x_ped trading off (|rho| ~ 0.998), so the localized test calls it
+    unresolved while the legacy default still accepts it."""
+    x, y, truth = _h_mode(noise=0.02, seed=5)
+    sigma = np.where(x > truth["x_ped"], 1.0, 0.001)
+    weighted = pedestal_top(x, y, quantity="p_total", value_std=sigma)
+    assert weighted.method == "eped_fit" and weighted.status == "unresolved"
+    localized = pedestal_top(x, y, quantity="p_total", value_std=sigma, acceptance="localized")
+    assert localized.method == "fallback" and "correlate" in localized.reason

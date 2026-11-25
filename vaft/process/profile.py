@@ -3800,7 +3800,10 @@ class PedestalTop:
     ``status`` is the detection status of :func:`characterize_pedestal`
     (``present``, ``absent``, ``unresolved``, ``fit_failed``,
     ``not_available``) and ``characterization`` the full record behind it;
-    both default so that positional construction keeps working.
+    both default so that positional construction keeps working.  Under the
+    default legacy acceptance of :func:`pedestal_top` they are informational:
+    ``method`` decides, and a ``method="eped_fit"`` record whose ``status``
+    is not ``present`` is one the localized test would not have accepted.
     """
 
     position: float
@@ -3937,7 +3940,7 @@ def pedestal_top(
     window=(0.4, 1.05),
     min_points=20,
     max_width=PEDESTAL_MAX_WIDTH,
-    acceptance="characterized",
+    acceptance="legacy",
 ):
     """Pedestal-top position of a profile, from an EPED-style fit.
 
@@ -3973,11 +3976,12 @@ def pedestal_top(
     max_width : float, optional
         Widest tanh still counted as a pedestal, in ``coordinate`` [-].
     acceptance : str, optional
-        ``"characterized"`` (default) accepts a fit only when
-        :func:`characterize_pedestal` reports ``present``; ``"legacy"``
-        reproduces the pre-#2335 decision exactly -- single-start fit,
-        ``min_points`` counted before sigma masking, and the whole-window
-        variation test -- for re-deriving earlier windows [n/a].
+        ``"legacy"`` (default) reproduces the pre-#2335 decision exactly --
+        single-start fit, ``min_points`` counted before sigma masking, and
+        the whole-window variation test; ``"localized"`` (opt-in) accepts a
+        fit only when :func:`characterize_pedestal` reports ``present``.
+        Under either, ``status`` and ``characterization`` carry the
+        localized verdict, so a caller can see where the two disagree [n/a].
 
     Returns
     -------
@@ -3996,18 +4000,18 @@ def pedestal_top(
 
     Processing steps
     ----------------
-    1. Characterize the profile with :func:`characterize_pedestal`: restrict
-       to ``window``, drop non-finite samples and invalid ``value_std``,
-       fit ``eped_tanh`` (multi-start, covariance kept) weighted by
-       ``value_std`` when given, and qualify the localized edge feature.
-    2. Accept ``x_ped`` when the detection status is ``present``.
-    3. Otherwise return ``fallback`` with the status and its reason -- too
-       few points after masking, a fit that did not converge, a pedestal
-       coefficient resting on a bound of the model's box, a tanh wider than
-       ``max_width``, a top-to-foot drop that does not stand
-       :data:`PEDESTAL_RESOLUTION_FACTOR` times above the local scatter or
-       :data:`PEDESTAL_SIGNIFICANCE` times above its own uncertainty, or a
-       step whose width or top the samples do not resolve.
+    1. Characterize the profile with :func:`characterize_pedestal` (always;
+       informational under the legacy default) and record its status.
+    2. Legacy acceptance (default): restrict to ``window``, fit
+       ``eped_tanh`` from the legacy seed weighted by ``value_std``, and
+       accept ``x_ped`` unless there are too few points, the fit did not
+       converge, ``f_ped``/``f_sep``/``x_ped``/``width`` rests on a bound,
+       the tanh is wider than ``max_width``, ``x_ped`` lies outside the data,
+       or the fitted curve does not vary across the window by
+       :data:`PEDESTAL_RESOLUTION_FACTOR` times the residual scatter.
+    3. Localized acceptance (opt-in): accept ``x_ped`` only when the
+       characterization is ``present``.
+    4. Otherwise return ``fallback`` with the reason and the status.
 
     Defaults
     --------
@@ -4016,11 +4020,12 @@ def pedestal_top(
     the legacy windows rather than derived.  ``window = (0.4, 1.05)`` and
     ``min_points = 20`` are numerical convenience -- enough of the edge to
     resolve a pedestal, and more samples than the model has parameters.
-    ``acceptance = "characterized"`` is a validated-workflow default since
-    #2335; ``"legacy"`` is a legacy compatibility value.
+    ``acceptance = "legacy"`` is a legacy compatibility value: it keeps the
+    boundaries every earlier window and GPEC/RMP result was built from until
+    the localized test is qualified on VEST data.
     :data:`PEDESTAL_RESOLUTION_FACTOR` is an empirical estimate: the measured
-    separation between a pure-noise fit and a real one, now applied to the
-    localized top-to-foot drop (#2335).  The fallback is a partition policy
+    separation between a pure-noise fit and a real one (whole window under
+    the legacy acceptance, top-to-foot drop under the localized one).  The fallback is a partition policy
     for downstream region reductions, never an observed pedestal.
 
     Convention
@@ -4067,8 +4072,8 @@ def pedestal_top(
     """
     if coordinate not in COORDINATES:
         raise ValueError(f"coordinate must be one of {COORDINATES}, got {coordinate!r}")
-    if acceptance not in ("characterized", "legacy"):
-        raise ValueError(f"acceptance must be 'characterized' or 'legacy', got {acceptance!r}")
+    if acceptance not in ("legacy", "localized"):
+        raise ValueError(f"acceptance must be 'legacy' or 'localized', got {acceptance!r}")
     characterization = characterize_pedestal(
         x, values, quantity=quantity, value_std=value_std, coordinate=coordinate,
         window=window, min_points=min_points, max_width=max_width,

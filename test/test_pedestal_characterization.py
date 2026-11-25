@@ -355,7 +355,7 @@ def test_coordinate_is_validated():
 
 
 def test_pedestal_top_carries_status_canonical_boundaries_and_legacy_inner_edge():
-    result = pedestal_top(X, _h_mode(), quantity="p_total")
+    result = pedestal_top(X, _h_mode(), quantity="p_total", acceptance="localized")
     c = result.characterization
     assert result.status == result.detection_status == "present"
     assert result.position == c.center and result.width == c.native_width
@@ -367,7 +367,7 @@ def test_pedestal_top_carries_status_canonical_boundaries_and_legacy_inner_edge(
 
 
 def test_the_fallback_is_labelled_a_partition_policy_with_the_real_status():
-    result = pedestal_top(X, 1.0 - 0.3 * X**2, quantity="n_e")
+    result = pedestal_top(X, 1.0 - 0.3 * X**2, quantity="n_e")  # legacy default
     assert result.method == "fallback" and result.position == 0.85
     assert result.status == "absent"
     assert result.top is None and result.foot is None and result.full_width is None
@@ -399,6 +399,43 @@ def test_legacy_acceptance_reproduces_the_pre_2335_result(seed, noise, method, p
         assert legacy.width == pytest.approx(width, abs=1e-7)
     # The status of the characterization is still recorded.
     assert legacy.status in PEDESTAL_STATUSES
+
+
+def test_the_default_reproduces_develop_on_the_reference_cases():
+    """The default stays the pre-#2335 acceptance until the localized test is
+    qualified on VEST/GPEC benchmarks (#2335 section 7)."""
+    import json
+    from pathlib import Path
+
+    table = json.loads((Path(__file__).parent / "data" / "pedestal_top_develop_f878d31ae.json").read_text())
+    disagreements = 0
+    for row in table["rows"]:
+        y = _h_mode(noise=row["noise"], seed=row["seed"])
+        result = pedestal_top(X, y, quantity="T_e")
+        assert result.method == row["method"] and result.reason == row["reason"], row
+        assert result.position == pytest.approx(row["position"], abs=1e-7), row
+        if row["width"] is None:
+            assert result.width is None
+        else:
+            assert result.width == pytest.approx(row["width"], abs=1e-7), row
+        # The localized verdict is still recorded, for information.
+        assert result.status in PEDESTAL_STATUSES and result.characterization is not None
+        disagreements += result.from_fit != (result.status == "present")
+    assert len(table["rows"]) == 48
+    assert disagreements > 0  # the noisy cases where the two tests differ are visible
+
+
+def test_localized_acceptance_is_opt_in_and_follows_the_status():
+    for seed in range(12):
+        y = _h_mode(noise=0.3, seed=seed)
+        legacy = pedestal_top(X, y, quantity="T_e")
+        if legacy.from_fit and legacy.status != "present":
+            break
+    else:  # pragma: no cover - the reference table shows such cases exist
+        pytest.fail("no case where the two acceptances disagree")
+    localized = pedestal_top(X, y, quantity="T_e", acceptance="localized")
+    assert localized.method == "fallback" and localized.status == legacy.status
+    assert localized.reason == legacy.characterization.reason
 
 
 def test_an_unknown_acceptance_is_refused():
