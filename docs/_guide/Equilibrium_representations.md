@@ -278,6 +278,50 @@ secondary null, an unreached flux level or a missing magnetic axis is
 unavailable, never zero, and the geometric centre is not used as a fallback
 reference height.
 
+**IMAS/OMAS mapping (DD 3.41).** The data dictionary has no leaf for a signed
+upper-minus-lower separation. VAFT therefore writes only the standard topology
+leaves, and re-derives the signed value from the stored flux map when it is
+needed.
+
+- `GEQDSK.to_omas` (with derived data) and
+  `vaft.omas.update.update_equilibrium_boundary_topology` write:
+  - `boundary.type` and `boundary_separatrix.type`: 0 limiter or 1 diverted,
+    and only when the topology is determinate;
+  - `boundary.x_point` and `boundary_separatrix.x_point`: the active X-points
+    only;
+  - `boundary_separatrix.psi`;
+  - for a diverted boundary with a secondary X-point,
+    `boundary_secondary_separatrix.psi`, its `x_point` and its
+    `distance_inner_outer`.
+- `distance_inner_outer` is the DD's own quantity: unsigned, inner to outer,
+  at the height of the inner separatrix's largest R. It is not `|dRsep|`.
+- Every topology leaf is cleared before it is written. Reprocessing a slice
+  into a limited, ambiguous or failed state therefore leaves no stale
+  secondary separatrix.
+- A vacuum or terminated slice is cleared, not labelled limited.
+- Fluxes are written in the ODS's convention.
+  `boundary_secondary_separatrix.psi` is on the COCOS psi-scaling list.
+- `update_equilibrium_boundary` stays geometry-only and cheap. The topology
+  update is a separate call, because it runs the full saddle analysis.
+
+`vaft.process.equilibrium.separatrix_balance_series(ods)` returns a
+`SeparatrixBalanceSeries` for an equilibrium history. It holds, per slice:
+- the signed dRsep, which is NaN unless the slice is a diverted balance sample;
+- a state: `valid`, `limited`, `unavailable`, `ambiguous`, `no_plasma` or
+  `failed`;
+- the geometric value of limited or ambiguous slices;
+- the DN/near-DN resolution;
+- the native EFIT `DRSEP`, aligned to metres.
+
+It never modifies its input. EFIT's `DRSEP` is centimetres with the same sign
+(`shapesurf.F90`), but some values do not carry that sign:
+- EFIT writes a 40 cm default whenever its LCFS lies within 10 cm of a wall
+  region. On VEST that is nearly every slice.
+- `MAR` is an unsigned magnitude.
+
+Only `SNT`, `SNB` and `DN` values are compared. Everything else is NaN with a
+reason. Newer DD 4.x boundary representations are not mapped yet.
+
 Boundary topology is inferred from the flux map without machine-specific
 geometry. Stationary points are classified by the Hessian determinant; a
 saddle becomes an active X-point only if its flux matches the boundary within

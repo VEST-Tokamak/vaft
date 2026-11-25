@@ -3855,16 +3855,21 @@ def _separatrix_balance(
     # The IMAS boundary_secondary_separatrix.distance_inner_outer: unsigned,
     # inner to outer, at the height of the inner separatrix's largest R --
     # a different reference plane from dRsep's, so it is computed on its own.
-    inner = selected["lower"] if quality["lower_role"] == "primary" else selected["upper"]
-    outer = selected["upper"] if inner is selected["lower"] else selected["lower"]
-    if quality["lower_role"] != quality["upper_role"] and eq.lcfs is not None and eq.lcfs.r.size:
-        peak = int(np.argmax(eq.lcfs.r))
+    outer = selected["upper"] if quality["lower_role"] == "primary" else selected["lower"]
+    # The largest R is sought on the confined part of the inner separatrix --
+    # between the two X-point heights -- because a separatrix contour that
+    # carries its divertor legs reaches its largest R on a leg.
+    confined = (
+        (eq.lcfs.z >= min(upper.z, lower.z)) & (eq.lcfs.z <= max(upper.z, lower.z))
+        if eq.lcfs is not None else np.zeros(0, dtype=bool)
+    )
+    if quality["lower_role"] != quality["upper_role"] and np.any(confined):
+        peak = int(np.argmax(np.where(confined, eq.lcfs.r, -np.inf)))
         z_peak, r_peak = float(eq.lcfs.z[peak]), float(eq.lcfs.r[peak])
         crossing = _outboard_crossing(eq, outer.psi, r_axis, z_peak)
         if crossing is not None:
             quality["imas_distance_inner_outer_m"] = float(crossing["r"] - r_peak)
             quality["imas_distance_reference_z_m"] = z_peak
-    del inner
     if topology.is_diverted:
         quality["applicability"] = "diverted_balance"
         return _derived(eq, value, "m", D_R_SEP_DEFINITION, "outboard-midplane flux inversion", fields, quality)
