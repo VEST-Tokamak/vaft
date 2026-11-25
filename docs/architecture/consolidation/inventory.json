@@ -7316,7 +7316,6 @@
     }
    ],
    "callers": [
-    "vaft.database._summary.extract_equilibrium_global",
     "vaft.plot.time.time_virial_equilibrium_quantities",
     "vaft.validation.equilibrium._virial_rows",
     "workflow.efit_uncertainty_calibration.weight_scan._virial",
@@ -7556,7 +7555,6 @@
     }
    ],
    "callers": [
-    "vaft.database._summary.extract_equilibrium_global",
     "vaft.plot.time.time_diamagnetic_flux"
    ],
    "classification": "unverified",

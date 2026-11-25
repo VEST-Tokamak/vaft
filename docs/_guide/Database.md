@@ -66,6 +66,37 @@ way. `source` (default
 `"local"`) only labels the `source`/`equilibrium_source` columns. Both paths list the shots they
 skipped, with the reason, in `attrs["skipped"]`.
 
+### How each value was obtained
+
+`provenance=True` (on either path) records, for every row and column, how the value was obtained.
+The values are the same as without it; the record is attached as `attrs["provenance"]`:
+
+```python
+slices = vaft.database.summary(odss=samples, preset="equilibrium_global", provenance=True)
+record = slices.attrs["provenance"]
+record.table       # one row per (row key, column): status, step, reason, inputs
+record.counts()    # status counts per column
+record.code        # {"vaft_version", "commit", "dirty"} of the code that ran
+```
+
+| status | meaning |
+|---|---|
+| `computed` | calculated in this run by its primary method; `step` names the updater or the extractor (a recomputation that reproduces the stored number says so) |
+| `copied` | the stored value, read as it is (unit conversion aside): no updater exists for it, or the updater skipped this slice, and `reason` says why |
+| `fallback` | calculated through a substitute branch; `inputs` names it |
+| `failed` | a step raised; `reason` carries the exception and the value is NaN |
+| `missing` | NaN because an input is absent; `reason` says which, from the updater's own warning where it gave one |
+| `unrecorded` | the preset's extractor does not record provenance yet |
+
+`equilibrium_global` records every column. The branches it names as `fallback` are the ones that
+change values silently otherwise: `R0` taken from `tf.r0` because the stored
+`vacuum_toroidal_field.r0` disagrees with the TF field (moves `beta_pol`, `li_3` and, through the
+rebuilt `B0`, the toroidal betas), the stored `B0` kept because `profiles_1d.f` has no finite
+boundary value, and a slice with no stored time. `inputs` carries the `R0` and `B0` source on every
+column that depends on them. The other presets report `unrecorded`/`missing` until their extractors
+record. `record` compares by identity, so `concat` and `merge` of the table work as usual; a shot
+in `attrs["skipped"]` has no record rows.
+
 ## Preset row contracts
 
 Every preset declares what one row is and what each column measures. The contract changes no value

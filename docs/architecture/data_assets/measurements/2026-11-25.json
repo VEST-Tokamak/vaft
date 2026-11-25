@@ -1,0 +1,2093 @@
+{
+  "schema_version": 2,
+  "measured_at": "2026-11-25T05:34:45+00:00",
+  "method": {
+    "tree": "git ls-tree -r -l <ref>; blob sizes as stored in Git (LFS files count as pointers); packed_bytes = local objectsize:disk of the tree's blobs",
+    "history": "git rev-list --objects over every refs/remotes/origin/* branch and tag (what a full clone downloads), then git cat-file --batch-check objectsize / objectsize:disk. Blobs reachable from no code branch are attributed by ref to the gh-pages groups.",
+    "lfs": "pointer files (< 1 KiB blobs starting with the LFS spec line); object size from the pointer; presence checked in the local .git/lfs/objects",
+    "historical_sample_references": "every vaft/data/samples/<shot>/manifest.yaml blob in history; bytes_in_history = a representation blob in history hashes to the recorded sha256",
+    "packages": "PyPI JSON API for the latest release",
+    "github": "gh api repos/<repo> .size (KiB, GitHub's own accounting)",
+    "local_pack": "git count-objects -v size-pack"
+  },
+  "limitations": [
+    "consumers are a text search for path fragments and API names; run-time built paths are missed and broad patterns over-count",
+    "a blob stored under several paths is attributed to the first path rev-list reports",
+    "packed (on-disk) bytes depend on the local repository's packing",
+    "wheel membership is evaluated from pyproject.toml plus the setup.py 39915 swap, not by building a wheel; the sdist is not modelled",
+    "in a partial clone, absent blobs are counted as missing, not measured (lazy fetch is disabled)"
+  ],
+  "trees": {
+    "origin/develop": {
+      "commit": "f878d31aec11f60ec3be58e2a99ef81aade63b30",
+      "files": 3497,
+      "bytes": 940791647,
+      "packed_bytes": 628848542,
+      "missing_blobs": 0,
+      "by_group": {
+        "samples.shot.representations": {
+          "files": 11,
+          "bytes": 298690367
+        },
+        "legacy.raw_fixtures": {
+          "files": 83,
+          "bytes": 193524508
+        },
+        "samples.shot.sources": {
+          "files": 20,
+          "bytes": 179190530
+        },
+        "notebooks.outputs": {
+          "files": 61,
+          "bytes": 53501316
+        },
+        "docs.media": {
+          "files": 566,
+          "bytes": 51647071
+        },
+        "unassigned": {
+          "files": 2230,
+          "bytes": 39351882
+        },
+        "samples.wheel_projection": {
+          "files": 3,
+          "bytes": 20786701
+        },
+        "workflow.results": {
+          "files": 24,
+          "bytes": 20387307
+        },
+        "efit.gfile_fixtures": {
+          "files": 6,
+          "bytes": 14691749
+        },
+        "test.fixtures": {
+          "files": 308,
+          "bytes": 13549729
+        },
+        "samples.shot.stage_products": {
+          "files": 15,
+          "bytes": 12458293
+        },
+        "notebooks.data": {
+          "files": 19,
+          "bytes": 11411756
+        },
+        "samples.tables": {
+          "files": 21,
+          "bytes": 8393224
+        },
+        "efit.generated_tables_plain": {
+          "files": 2,
+          "bytes": 6991821
+        },
+        "samples.kinetic_efit": {
+          "files": 6,
+          "bytes": 6938220
+        },
+        "data.geometry_config": {
+          "files": 85,
+          "bytes": 4749743
+        },
+        "data.small_fixtures": {
+          "files": 5,
+          "bytes": 3356764
+        },
+        "samples.shot.pinned_parts": {
+          "files": 8,
+          "bytes": 739999
+        },
+        "efit.inputs": {
+          "files": 11,
+          "bytes": 297895
+        },
+        "samples.shot.manifests": {
+          "files": 7,
+          "bytes": 87700
+        },
+        "efit.table_records": {
+          "files": 2,
+          "bytes": 44543
+        },
+        "efit.green_tables_lfs": {
+          "files": 4,
+          "bytes": 529
+        }
+      },
+      "lfs_pointers": [
+        {
+          "path": "vaft/data/efit/ec129129.ddd",
+          "oid": "sha256:a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+          "size": 20636944
+        },
+        {
+          "path": "vaft/data/efit/ep129129.ddd",
+          "oid": "sha256:bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+          "size": 9984616
+        },
+        {
+          "path": "vaft/data/efit/rfcoil.ddd",
+          "oid": "sha256:d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+          "size": 15616
+        },
+        {
+          "path": "vaft/data/efit/rv129129.ddd",
+          "oid": "sha256:c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+          "size": 134459248
+        }
+      ],
+      "lfs_object_bytes": 165096424
+    },
+    "origin/main": {
+      "commit": "548d12d2ea15524c3eaf19b7b9348480f830bb31",
+      "files": 3314,
+      "bytes": 906932471,
+      "packed_bytes": 602759537,
+      "missing_blobs": 0,
+      "by_group": {
+        "samples.shot.representations": {
+          "files": 11,
+          "bytes": 298690367
+        },
+        "legacy.raw_fixtures": {
+          "files": 83,
+          "bytes": 193524508
+        },
+        "samples.shot.sources": {
+          "files": 20,
+          "bytes": 179190530
+        },
+        "notebooks.outputs": {
+          "files": 61,
+          "bytes": 51895255
+        },
+        "docs.media": {
+          "files": 556,
+          "bytes": 49061166
+        },
+        "unassigned": {
+          "files": 2106,
+          "bytes": 36066394
+        },
+        "samples.wheel_projection": {
+          "files": 3,
+          "bytes": 20786701
+        },
+        "workflow.results": {
+          "files": 25,
+          "bytes": 20510052
+        },
+        "efit.gfile_fixtures": {
+          "files": 6,
+          "bytes": 14691749
+        },
+        "test.fixtures": {
+          "files": 299,
+          "bytes": 12141274
+        },
+        "notebooks.data": {
+          "files": 14,
+          "bytes": 7236301
+        },
+        "efit.generated_tables_plain": {
+          "files": 2,
+          "bytes": 6991821
+        },
+        "samples.kinetic_efit": {
+          "files": 6,
+          "bytes": 6938220
+        },
+        "data.geometry_config": {
+          "files": 85,
+          "bytes": 4680750
+        },
+        "data.small_fixtures": {
+          "files": 5,
+          "bytes": 3356764
+        },
+        "samples.shot.pinned_parts": {
+          "files": 8,
+          "bytes": 739999
+        },
+        "efit.inputs": {
+          "files": 11,
+          "bytes": 297835
+        },
+        "samples.shot.manifests": {
+          "files": 7,
+          "bytes": 87713
+        },
+        "efit.table_records": {
+          "files": 2,
+          "bytes": 44543
+        },
+        "efit.green_tables_lfs": {
+          "files": 4,
+          "bytes": 529
+        }
+      },
+      "lfs_pointers": [
+        {
+          "path": "vaft/data/efit/ec129129.ddd",
+          "oid": "sha256:a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+          "size": 20636944
+        },
+        {
+          "path": "vaft/data/efit/ep129129.ddd",
+          "oid": "sha256:bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+          "size": 9984616
+        },
+        {
+          "path": "vaft/data/efit/rfcoil.ddd",
+          "oid": "sha256:d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+          "size": 15616
+        },
+        {
+          "path": "vaft/data/efit/rv129129.ddd",
+          "oid": "sha256:c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+          "size": 134459248
+        }
+      ],
+      "lfs_object_bytes": 165096424
+    }
+  },
+  "history": {
+    "scope": "clone (origin branches + tags)",
+    "refs": 31,
+    "gh_pages_refs": [
+      "refs/remotes/origin/backup/gh-pages-20261021",
+      "refs/remotes/origin/gh-pages",
+      "refs/tags/archive/gh-pages-develop"
+    ],
+    "total": {
+      "blobs": 75801,
+      "raw": 14583474633,
+      "packed": 3011694251,
+      "missing": 0
+    },
+    "by_group": {
+      "samples.shot.sources": {
+        "blobs": 43,
+        "raw": 1003475629,
+        "packed": 976579640,
+        "missing": 0
+      },
+      "samples.shot.representations": {
+        "blobs": 88,
+        "raw": 1919503233,
+        "packed": 899213296,
+        "missing": 0
+      },
+      "notebooks.outputs": {
+        "blobs": 849,
+        "raw": 1006002752,
+        "packed": 278571838,
+        "missing": 0
+      },
+      "history.retired_layouts": {
+        "blobs": 46,
+        "raw": 939477196,
+        "packed": 261386666,
+        "missing": 0
+      },
+      "history.gh_pages_backups": {
+        "blobs": 53336,
+        "raw": 8136584423,
+        "packed": 244533019,
+        "missing": 0
+      },
+      "legacy.raw_fixtures": {
+        "blobs": 90,
+        "raw": 218331593,
+        "packed": 120431900,
+        "missing": 0
+      },
+      "samples.wheel_projection": {
+        "blobs": 28,
+        "raw": 189195270,
+        "packed": 62312739,
+        "missing": 0
+      },
+      "docs.media": {
+        "blobs": 1835,
+        "raw": 204032092,
+        "packed": 39993965,
+        "missing": 0
+      },
+      "unassigned": {
+        "blobs": 18156,
+        "raw": 703193011,
+        "packed": 38193971,
+        "missing": 0
+      },
+      "workflow.results": {
+        "blobs": 42,
+        "raw": 22111074,
+        "packed": 15201868,
+        "missing": 0
+      },
+      "notebooks.data": {
+        "blobs": 41,
+        "raw": 12830640,
+        "packed": 12475629,
+        "missing": 0
+      },
+      "samples.shot.stage_products": {
+        "blobs": 15,
+        "raw": 12458293,
+        "packed": 12437585,
+        "missing": 0
+      },
+      "efit.generated_tables_plain": {
+        "blobs": 6,
+        "raw": 15618579,
+        "packed": 10617827,
+        "missing": 0
+      },
+      "data.geometry_config": {
+        "blobs": 396,
+        "raw": 49678105,
+        "packed": 9498452,
+        "missing": 0
+      },
+      "data.small_fixtures": {
+        "blobs": 15,
+        "raw": 9386091,
+        "packed": 6641772,
+        "missing": 0
+      },
+      "samples.kinetic_efit": {
+        "blobs": 10,
+        "raw": 19573154,
+        "packed": 6025518,
+        "missing": 0
+      },
+      "efit.gfile_fixtures": {
+        "blobs": 6,
+        "raw": 14691749,
+        "packed": 5726628,
+        "missing": 0
+      },
+      "history.gh_pages_current": {
+        "blobs": 336,
+        "raw": 78019279,
+        "packed": 5048183,
+        "missing": 0
+      },
+      "test.fixtures": {
+        "blobs": 307,
+        "raw": 17899503,
+        "packed": 2753178,
+        "missing": 0
+      },
+      "samples.tables": {
+        "blobs": 23,
+        "raw": 8401424,
+        "packed": 2721005,
+        "missing": 0
+      },
+      "samples.shot.pinned_parts": {
+        "blobs": 14,
+        "raw": 1479464,
+        "packed": 1170308,
+        "missing": 0
+      },
+      "samples.shot.manifests": {
+        "blobs": 79,
+        "raw": 660660,
+        "packed": 91259,
+        "missing": 0
+      },
+      "efit.inputs": {
+        "blobs": 27,
+        "raw": 825423,
+        "packed": 58235,
+        "missing": 0
+      },
+      "efit.table_records": {
+        "blobs": 2,
+        "raw": 44543,
+        "packed": 8437,
+        "missing": 0
+      },
+      "efit.green_tables_lfs": {
+        "blobs": 11,
+        "raw": 1453,
+        "packed": 1333,
+        "missing": 0
+      }
+    },
+    "largest_blobs": [
+      {
+        "path": "vaft/data/samples/42962/omas.json.gz",
+        "raw_bytes": 45042906,
+        "packed_bytes": 44792333
+      },
+      {
+        "path": "vaft/data/samples/42962/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 44929376,
+        "packed_bytes": 44691339
+      },
+      {
+        "path": "vaft/data/samples/45531/omas.json.gz",
+        "raw_bytes": 45916361,
+        "packed_bytes": 43981407
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 39051679,
+        "packed_bytes": 38145208
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 39015860,
+        "packed_bytes": 38105983
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38961153,
+        "packed_bytes": 38068239
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38961190,
+        "packed_bytes": 38067294
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38967523,
+        "packed_bytes": 38043555
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38930228,
+        "packed_bytes": 38007128
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871677,
+        "packed_bytes": 37961724
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871658,
+        "packed_bytes": 37960856
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871718,
+        "packed_bytes": 37960691
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38922191,
+        "packed_bytes": 37957306
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38922048,
+        "packed_bytes": 37956604
+      },
+      {
+        "path": "vaft/data/samples/41672/omas.json.gz",
+        "raw_bytes": 38871647,
+        "packed_bytes": 37955153
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38920728,
+        "packed_bytes": 37946863
+      },
+      {
+        "path": "vaft/data/samples/41672/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 38909012,
+        "packed_bytes": 37940397
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36713389,
+        "packed_bytes": 35979108
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36687253,
+        "packed_bytes": 35954261
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36687979,
+        "packed_bytes": 35946101
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36632656,
+        "packed_bytes": 35905081
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36632641,
+        "packed_bytes": 35904290
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36691316,
+        "packed_bytes": 35891165
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36687941,
+        "packed_bytes": 35890336
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36690793,
+        "packed_bytes": 35888950
+      },
+      {
+        "path": "vaft/data/samples/39915/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36676088,
+        "packed_bytes": 35871882
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36160882,
+        "packed_bytes": 35407566
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36154356,
+        "packed_bytes": 35391670
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36111471,
+        "packed_bytes": 35372805
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36091166,
+        "packed_bytes": 35361415
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076117,
+        "packed_bytes": 35327238
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076151,
+        "packed_bytes": 35326945
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076111,
+        "packed_bytes": 35326614
+      },
+      {
+        "path": "vaft/data/samples/41524/omas.json.gz",
+        "raw_bytes": 36076084,
+        "packed_bytes": 35325890
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36034821,
+        "packed_bytes": 35298468
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 36034796,
+        "packed_bytes": 35298005
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35996335,
+        "packed_bytes": 35188766
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35996056,
+        "packed_bytes": 35186540
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35995421,
+        "packed_bytes": 35184108
+      },
+      {
+        "path": "vaft/data/samples/41524/source/pipeline-until-efit.json.gz",
+        "raw_bytes": 35984160,
+        "packed_bytes": 35179533
+      }
+    ],
+    "lfs_history": [
+      {
+        "path": "vaft/data/efit/ec129129.ddd",
+        "object_sha256": "b2570c761691bebca47df641ad47f3010edded06d00ac089453717aeed002c8d",
+        "bytes": 19305664,
+        "first_commit": "be3be688b 2026-07-08",
+        "in_measured_trees": false,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ep129129.ddd",
+        "object_sha256": "03fe274694893f0328eb64aa441546030b3f9dea9ad44c026f238a826d67f934",
+        "bytes": 9984616,
+        "first_commit": "be3be688b 2026-07-08",
+        "in_measured_trees": false,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rfcoil.ddd",
+        "object_sha256": "9f9a42b6bbe7dc57322613a0d77f0f670d9e8031407eec7dc4f156cf16e571f3",
+        "bytes": 9616,
+        "first_commit": "be3be688b 2026-07-08",
+        "in_measured_trees": false,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rv129129.ddd",
+        "object_sha256": "6884c517cfbefc4f2c2948a67621d832e2544aa15941865470ca726b147a870f",
+        "bytes": 134383248,
+        "first_commit": "be3be688b 2026-07-08",
+        "in_measured_trees": false,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ec129129.ddd",
+        "object_sha256": "f7b07a58c21f86a7aed18fab24e1ceaf44df5bd6f8f436edbe1c6b91ed8002f7",
+        "bytes": 19305664,
+        "first_commit": "4d22d4484 2026-09-14",
+        "in_measured_trees": false,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ep129129.ddd",
+        "object_sha256": "bd3948a785ceb6149db91cc0e56f7805037dccf78e0de755d785f918c31fdf04",
+        "bytes": 9984616,
+        "first_commit": "4d22d4484 2026-09-14",
+        "in_measured_trees": true,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rfcoil.ddd",
+        "object_sha256": "4e17f5deeedc76c96b8b655fdd659cf0a2b2ada7907a1792845d69cb1d5b6a6f",
+        "bytes": 9616,
+        "first_commit": "4d22d4484 2026-09-14",
+        "in_measured_trees": false,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rv129129.ddd",
+        "object_sha256": "047b7700d45530330759738d7cf257e0a8191be054705e622d714fe065996e2a",
+        "bytes": 134383248,
+        "first_commit": "4d22d4484 2026-09-14",
+        "in_measured_trees": false,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/ec129129.ddd",
+        "object_sha256": "a66574729cb4d4d88acc6b066a1e679a3ebafac308b4f68d8fc6b522b5dde879",
+        "bytes": 20636944,
+        "first_commit": "e2f73cea8 2026-09-15",
+        "in_measured_trees": true,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rfcoil.ddd",
+        "object_sha256": "d851ac43cd1bec6102bedee5ac0db8c712f60dd67e93456ea0624278d83f28d0",
+        "bytes": 15616,
+        "first_commit": "e2f73cea8 2026-09-15",
+        "in_measured_trees": true,
+        "object_in_local_store": true
+      },
+      {
+        "path": "vaft/data/efit/rv129129.ddd",
+        "object_sha256": "c0b050cb074aa627f762ab7fef3057d2ba6b37844b02b3c5d7444a10e44bc2ec",
+        "bytes": 134459248,
+        "first_commit": "e2f73cea8 2026-09-15",
+        "in_measured_trees": true,
+        "object_in_local_store": true
+      }
+    ],
+    "lfs_history_summary": {
+      "objects": 11,
+      "bytes": 482478096,
+      "objects_not_in_measured_trees": 7,
+      "bytes_not_in_measured_trees": 317381672
+    },
+    "historical_sample_references": [
+      {
+        "reference_id": "vest-39915-until-efit-v1",
+        "shot": 39915,
+        "manifest_paths": [
+          "packaging/wheel_samples/39915/manifest.yaml",
+          "vaft/data/samples/39915/manifest.yaml",
+          "vaft/data/wheel_samples/39915/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "0118e524049e01a84236ba0c907646d6c8dab53257adb26771b7078b7edd679a",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "047a7923bb35192a031d986dbfccc85c9f8d72c98fe745744daaf45013f2fc77",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "0ef549bbb7d398891ec126b0adc0ee17e17c11b6429228d97107a8f308b96e19",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "11ba8b37fa60c9c00eb0939b02c853c4ffc5cd23303a3cf22991293373d24b76",
+            "found_at": [
+              "packaging/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "22c68beeaa230a70c4366f4a35c167db7a4448bec344da0688f63e8ca85d6e57",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "25e1a1939460d9d0259af74609a872edb8219f7805671ffe2ced2ed144d8f17c",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "283e77a6334065e991d00fc309bb512177ad7b125eba0030dad85e6606b4ed14",
+            "found_at": [
+              "packaging/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "2a53a5d5d0cf73e4f942036944f2caae878caaefa81bcf73d2358bbe8dd4769f",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "32d758604aacbf7ae8c6f3fbbc92e3391cfc1be62b35811741174001fb158d93",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "40fce1355dbe92ca666722352be6377a29fcddc1e4b3f9e81187fbab9815624a",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "6ed950b7eeea6814a2e9704226cce9eaa3acf0bb69322f343016a23d85f23722",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "73126eee8c473b64005a03bb3d0b81b03951c6ea0f8c7aafc7275a9f129bcf2b",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "83ada36ee937897aedcf6692885f1be03559dc3ddc131d94d0c23b5657f2631e",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "8847ed91234512780dcd4b0547b8a1a0356426b1d1259a3c0285ddba84ea9dd0",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "8c4ae4fb7fef6d820b6c9a4443c0599acc0fb675dc3470c14b21c34501a3b695",
+            "found_at": [
+              "packaging/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "9323fa6ee796ff2d5d64f1e1ef2a472485fc6fbf00d64d9acfaea2933becaab9",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "995b3eb62a9e10e69778ad0e68b3075fa382b7c78ca84c568da93e1cbdcf0258",
+            "found_at": [
+              "packaging/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "9bef1c8ba542cd67681230a2830b1fd053a675b17e06336bf64967d628cb442e",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "9d03cd5c90c9dcac1c8b7e3200d5c51c7c155131ffc773583b4975887eedd9c4",
+            "found_at": [
+              "packaging/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "b1355cb30eece2676fc8312a033b104006c1a0277c25dc55456e6cabc87395b0",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "cb35b6204998420549310cb9913cf7647e607d4c2b223688df325b6ca9c4c1d6",
+            "found_at": [
+              "packaging/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "d56d89ca858f15280beba682beac992b603a9e47de22ec88b9008e7ac3d589ba",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "dbb39afa6956baf86ef9a1b448f985f51b9b62e00c24242813cedadf74df1c1a",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e166c909ebf4e197c007b1e0749118e5d456a4e9b2d7806d15a720eee120c2b6",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "ececd7dc93cc15e6d6b3b2f3c25290f7552db933b38e0afe26df0d1ac518cdc5",
+            "found_at": [
+              "packaging/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "10545d14accd9c2f2477ff93c367aee31b50d9cf7a7584bd44e8a07e8ddd3cb6",
+            "found_at": [
+              "packaging/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "12bdd23a9c88bd4a571954a7403275a47119d7e43e6f2c950a355417a3c1946d",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "236bc1d7ed167690b4eefe7bd291872bc07e9e0aaa87cdc28141f83b8fdc25d2",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "36a8bf476870168e6a1c7ae7320bf2cc5ebef76fcc5049eb495883b107f12137",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "39bc61953343362db8e7ce7d94725799dbadc6b34e1972e01878ae0fbb16009d",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "45075b8ec6f1b68a432e371259b80f0a15e0ef0cffd211a33c161a71b59cf1f8",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "4e6f688f74165bfa8b8e834a81fa9dcfc46efc2223dae29df633c5618b3b96e8",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "53e27fe9e5774fa317529050a18e1cce5c6185e59902562a8345bb10043a6a27",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "5e49ed0abb129e9d51398496567b5be8362ecea02b8cf981f6d21c67b1fba1b3",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "62e4c00e103523f7b4462f5d23fc2f9f23514ef917730618b754254c75227c2d",
+            "found_at": [
+              "packaging/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "63d28c2645ac507fe43f9ae6e5ad3d2583c7cacd743f5b926d76f46cbd379580",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "76b06487879c5b1429898e7fbd4c7149056b9bec20aeb7fc29aff6a123b8d80e",
+            "found_at": [
+              "packaging/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "8b4bed47c0b5e433c299e26554eaf10441251498f2eabc483d2f72644ace0fd2",
+            "found_at": [
+              "packaging/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "8d08a949f68df0dc45088885a6e59b87e4995db06f4c9aa32bfb071aa0bbb44b",
+            "found_at": [
+              "packaging/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "97ff93634261c8d19c9e9344334f689cba7ef86a1f8ee737c830eaa44477fb8e",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "9b87d963a8314804c1e68cfb7acf80cbecf592db7c930ca1b15b95b190fb0984",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "b206d9013c4cc1ac00fdc662b56ecdcb6e2677fe9e5ca7291b8e547d841c282f",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "ceff4d5db963dd31e76878c60157f05b2ea27ff2e737b9ecfd479af1a5689bbc",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "cf8f6c2cfa8d2911aa055db10d6894e7b82013a5fd6acca254f9a846fa0095e9",
+            "found_at": [
+              "packaging/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "d60d8e9fa4a73998cbd6dfb8548b71908f9805f70b54c70d87e6f546399decc0",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "e3bcfa2024493848001da9565ca295428537d30db7a86a185097f2b476932d5c",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "e4a7a46699ca0f9b90e1b3cb46a0ccb064ff62be98667ecbdabe9bb882e3798f",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "f7a1db496dbc38056cd3f86649f2ebf931b2acea0d4702819632e416bba1a09d",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "f901bcc6f8f27af9dc422b953189ba7c404207b191398346d134bf3db21e0df4",
+            "found_at": [
+              "packaging/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "fea89357f30743d0eeceb794f443b3495c1a39e7fcf0aea67b5bdc588617eda0",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v2",
+        "shot": 39915,
+        "manifest_paths": [
+          "vaft/data/samples/39915/manifest.yaml",
+          "vaft/data/wheel_samples/39915/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "65b1691a1da086931874f42c9818add911c1a36d60c52399abb42d3ac9f561d8",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "d403f3c88e1e8fc4a19b9173e1862cc749119b7ad51a37b2d52ad7758566d171",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "257452d5e7cc94d7682b7a069d60180e3a94bc5580e41cb90ca13384159d24e5",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "636228676d034e4421d406ac2f4829f10a9488d199e208138939a65c5adc4c00",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v3",
+        "shot": 39915,
+        "manifest_paths": [
+          "vaft/data/samples/39915/manifest.yaml",
+          "vaft/data/wheel_samples/39915/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "b1c813ebb05e1550bd423d800cce401b007ea76ab031c34856b32ea3c9cf2d87",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e1a4b5267c0d9c6a4014d0e3501006111cb1a01195cf0c16baf456dd30312a10",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "625e8c0ddb6ae1b9125961721e629f000411af4bdddc975e5cb879042c8f3add",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "8333d581962563e0635cd5ecbbf8c2ad71614f151342d59ccefe246d72c80053",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v4",
+        "shot": 39915,
+        "manifest_paths": [
+          "vaft/data/samples/39915/manifest.yaml",
+          "vaft/data/wheel_samples/39915/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "4c54a687c94366c602ae3b94d27d22d8f603285defada3955d4c1c874bcd8518",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "d2f755ccf3948772bb62df652769f38c0066e448f3265080ae4b01b5d613a065",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "7bd7d61e5f6f76dfe945c560bed785d9be39067696388d73d79f3c54637630be",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "afed7ccb9e95f6e5f94957b9960da0afac9a0f1174e6d6f144c0f5815f35f83a",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-39915-until-efit-v5",
+        "shot": 39915,
+        "manifest_paths": [
+          "vaft/data/samples/39915/manifest.yaml",
+          "vaft/data/wheel_samples/39915/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "77cf94a3ae79f60d5365aa45af7d779e336b6c2cea8084f17d97b7bd5778073e",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "cd6c7e076d2f8d9c49fa3b3add1542d7770b39402dbaa31f91dfc878cabb4397",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e38388036d1c74598782a50c606cc1e23339e479712e3326ad362f15b49bf226",
+            "found_at": [
+              "vaft/data/samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "ff173d4e3f0118a4e4087eb8f6984dda18c0993c7d8c9971c2a872dec713e6aa",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "48e76cdf5bf3dcc44a8b57fffcdcdf96b25e49eb1e5366dc6e5d8a7ba0720aa7",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "78b7502b170615534cd42a3659d4fe6a88cabe32da09f1b91927f46448c63ecf",
+            "found_at": [
+              "vaft/data/samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "85eb39ea03e4f33fe6ff521d6ede60e3ef24fa7a2f1a20ead0028195f662a33b",
+            "found_at": [
+              "vaft/data/wheel_samples/39915/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-40600-camera-fluctuation-v1",
+        "shot": 40600,
+        "manifest_paths": [
+          "vaft/data/samples/40600/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "31443eec4238fda52b817c74ff73dfcbb586d5664da805aa78d761cee3bb9d17",
+            "found_at": [
+              "vaft/data/samples/40600/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-40600-camera-fluctuation-v2",
+        "shot": 40600,
+        "manifest_paths": [
+          "vaft/data/samples/40600/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+            "found_at": [
+              "vaft/data/samples/40600/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-legacy-full-imas-v1",
+        "shot": 41524,
+        "manifest_paths": [
+          "vaft/data/samples/41524/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "b5d382ab2e2efcb3e739ab6212f8852c60c6c0ff6b5b24f195aba0db6a4db8b0",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v2",
+        "shot": 41524,
+        "manifest_paths": [
+          "vaft/data/samples/41524/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "2772efa9fa93e793def67d6c3a1fc369fe06c8c808078d749c4aabcdc1ff8716",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "27a17ef7115a72d9ceceefef8efd7729303d38f2fb1f2dd187fdefad4fb7414e",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "84dfb42c54db55435a04ac7e2bea99d22f48af50725e0d65bee13c0e24a5fd50",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "b990c6d0a63f5b31407271c481b41e17f12f6022184de0fb097671e127fcea0b",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "c10d7f619675e78a96b0afa744dd5c6ac66f7235c4745f616750bb4aebaef063",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "c31844f08576e6b0677fef0333845974145579d2c1f7a0f373989e63698c2ddb",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "d75813f77c639aba45fdbb6e57ff0e31dddac6fbb5399ebaece499fbd7d8bd39",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e28678c827f1ac66ca170e13d7f11bef0f0332b83de36fcd61676d88a74db034",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v3",
+        "shot": 41524,
+        "manifest_paths": [
+          "vaft/data/samples/41524/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "5d1f03d47410d1e1f45e21b8cb01cbdcfa180079ec2103d2bb263a976a49125a",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "9c00c1828044980d2ff7f6dfcb8ed9163e3984ba77fbb7396cf5706ffb1ebbee",
+            "found_at": [
+              "vaft/data/samples/41524/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v4",
+        "shot": 41524,
+        "manifest_paths": [
+          "vaft/data/samples/41524/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "c8917664b404478927ec3759084afe4082fc510a32de8360c7f63f64ed07fa0b",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "b3a51a0e391b1373c6d2253c4057fe655c9bf2882aaa03b09be0072365fc86dc",
+            "found_at": [
+              "vaft/data/samples/41524/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v5",
+        "shot": 41524,
+        "manifest_paths": [
+          "vaft/data/samples/41524/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "84e4a239ef573060a0ecf2f335ffe0b90ee8ca4634852b11a1d8b312f90e3cb9",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "1ca7152401d1ddf2008b8f34e837e9de893aa9495b3200dfcafa0b1c6864f656",
+            "found_at": [
+              "vaft/data/samples/41524/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41524-pipeline-full-imas-v6",
+        "shot": 41524,
+        "manifest_paths": [
+          "vaft/data/samples/41524/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "9a27fba43962fe828a61386109cbabe749ca8718f1102303882cff1f5a5bf744",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "b4c93f7e7bd1975678221d05020744206ac9ebd09a3ea8f192200c3e0a22ae5b",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e2b5d430452d98351c9a067f3d064dedd1a994ef770b4332761ecb36db778b6d",
+            "found_at": [
+              "vaft/data/samples/41524/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "2b214c556fce090aceceeb21360f9891a9d285fea761787e3c90b342681af8b8",
+            "found_at": [
+              "vaft/data/samples/41524/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "96c1673bd176d0a318502254b3f618149882b1cddab85b6542251ba014b8b28d",
+            "found_at": [
+              "vaft/data/samples/41524/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "d560035e42292cf120ee30845da8c332f94da87fbed4c80bd8dd4d7e44af8e33",
+            "found_at": [
+              "vaft/data/samples/41524/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-legacy-full-imas-v1",
+        "shot": 41672,
+        "manifest_paths": [
+          "vaft/data/samples/41672/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "f2be4c51e559ed4c2262cc8f58c036ba55ec7ff8fe109711187d0a05f2b283c9",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v2",
+        "shot": 41672,
+        "manifest_paths": [
+          "vaft/data/samples/41672/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "023823602d54e78799eb86dd7a4ade65e11d08332608a2b7bcc3317ef8393ccf",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "52965f9615a1c966f890f003ce171d169bddcf34b104b0cdc0ab00b59aafed1b",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "984411746ba95c8ef0c6c853707a24caed9bf13cf24be72e209271990cd35089",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "98bac116ed191d9a003252c9dcf2c4081d926a4083cd64b04df639198f24b96c",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "ace51302537d20d8b82d163752d58c49e1c86fe3ad316ddafe2ce7efed930b56",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e6ca10064752e2779ca98fb8bdb5dd06496f97a5f338f40219a2d4032b8b88be",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "e6d87edcc7d8f7908b2ff1e4bf0314162e3161eb5e8ac23a51d474747d53502f",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "f51827f717605e1ae865f3539bac250aeecc358660d8ce56ac8f9e0a6f2b7095",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v3",
+        "shot": 41672,
+        "manifest_paths": [
+          "vaft/data/samples/41672/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "43d04f7c2fd8fe7e73978f70c8373920440e6868834628fe48e9b76226e077fb",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "b802248cb7216842bd2e50052716646b399f5a5ddc5d11f810db65dde7c45246",
+            "found_at": [
+              "vaft/data/samples/41672/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v4",
+        "shot": 41672,
+        "manifest_paths": [
+          "vaft/data/samples/41672/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "4d95b51e20f31e3ed5be92cbb111983f3db1229ba8a97d16562d60b76a0be393",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "25a675c83668164b4fc9a028975923495b55ac026482223f522708d6c98715cd",
+            "found_at": [
+              "vaft/data/samples/41672/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v5",
+        "shot": 41672,
+        "manifest_paths": [
+          "vaft/data/samples/41672/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "3093cdbd5258d88796ebfa7ddcdca0a47b1f36d11a3b06f19f1f04f7ce545f75",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "d3693cc2a27514c20ae1f9a9e25d943b8bdcb194d66a8425e23e1e3412e0528b",
+            "found_at": [
+              "vaft/data/samples/41672/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-41672-pipeline-full-imas-v6",
+        "shot": 41672,
+        "manifest_paths": [
+          "vaft/data/samples/41672/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "7027c0ab0113ec129e0d4ea5aa4af7ce2e48c00c0fe6825396134bc817e43f91",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "8dc04c61f9aaa66721e6a94f689ebeb4e6615d66dfc8013994eef926632a3cef",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "imas",
+            "sha256": "bf2108ac2d8b20a725980c5215200cb479233f264f2fd3f3bf99900b85f83c6b",
+            "found_at": [
+              "vaft/data/samples/41672/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "3728e3b65ed3118e2b8746670ece4350d7253e036e491f3fc687240cbc19ce90",
+            "found_at": [
+              "vaft/data/samples/41672/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "5345407c7b28d2f12a8cd24af87b18ed2df254274448f7b596128b14d5537db2",
+            "found_at": [
+              "vaft/data/samples/41672/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "c37a7d0a69031d85a1116d477adf2e5c399fa305b49e710eaf32262266c2b8ce",
+            "found_at": [
+              "vaft/data/samples/41672/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-42962-pipeline-full-imas-v1",
+        "shot": 42962,
+        "manifest_paths": [
+          "vaft/data/samples/42962/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "imas",
+            "sha256": "8965b80024a5847765bebc83eef17b572777ba87ca32887477dd9ac99983c077",
+            "found_at": [
+              "vaft/data/samples/42962/imas.nc"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "533de4695403c73952e4fc41c58860aaf0485e96fc6414adc975cc3de15450f9",
+            "found_at": [
+              "vaft/data/samples/42962/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-45531-fluctuation-v1",
+        "shot": 45531,
+        "manifest_paths": [
+          "vaft/data/samples/45531/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "07709cd3fa75b451dd3adcb8b74bcc2b694651ac7e5ebf4de708e21517d05f3e",
+            "found_at": [
+              "vaft/data/samples/45531/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-45531-fluctuation-v2",
+        "shot": 45531,
+        "manifest_paths": [
+          "vaft/data/samples/45531/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+            "found_at": [
+              "vaft/data/samples/45531/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-48224-kinetic-300ms-v1",
+        "shot": 48224,
+        "manifest_paths": [
+          "vaft/data/samples/48224/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "6178be57065853b4e7fedbdd79101b4ee28e82782252aaf3b5439e2bcc938ac7",
+            "found_at": [
+              "vaft/data/samples/48224/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      },
+      {
+        "reference_id": "vest-48224-kinetic-300ms-v2",
+        "shot": 48224,
+        "manifest_paths": [
+          "vaft/data/samples/48224/manifest.yaml"
+        ],
+        "representations": [
+          {
+            "name": "omas",
+            "sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+            "found_at": [
+              "vaft/data/samples/48224/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          },
+          {
+            "name": "omas",
+            "sha256": "6178be57065853b4e7fedbdd79101b4ee28e82782252aaf3b5439e2bcc938ac7",
+            "found_at": [
+              "vaft/data/samples/48224/omas.json.gz"
+            ],
+            "bytes_in_history": true
+          }
+        ]
+      }
+    ],
+    "historical_sample_summary": {
+      "reference_ids": 24,
+      "distinct_representation_sha256": 120,
+      "distinct_sha256_in_history": 120,
+      "reference_ids_reused_for_changed_bytes": [
+        "vest-39915-until-efit-v1",
+        "vest-39915-until-efit-v2",
+        "vest-39915-until-efit-v3",
+        "vest-39915-until-efit-v4",
+        "vest-39915-until-efit-v5",
+        "vest-41524-pipeline-full-imas-v2",
+        "vest-41524-pipeline-full-imas-v6",
+        "vest-41672-pipeline-full-imas-v2",
+        "vest-41672-pipeline-full-imas-v6",
+        "vest-48224-kinetic-300ms-v2"
+      ]
+    },
+    "retired_paths": [
+      {
+        "path": "packaging/wheel_samples/39915/imas.nc",
+        "blobs": 7,
+        "raw": 68401123,
+        "packed": 399181
+      },
+      {
+        "path": "packaging/wheel_samples/39915/manifest.yaml",
+        "blobs": 8,
+        "raw": 39229,
+        "packed": 2057
+      },
+      {
+        "path": "packaging/wheel_samples/39915/omas.json.gz",
+        "blobs": 7,
+        "raw": 60227761,
+        "packed": 39001741
+      },
+      {
+        "path": "vaft/data/39915.json",
+        "blobs": 1,
+        "raw": 56898013,
+        "packed": 18091172
+      },
+      {
+        "path": "vaft/data/39916.json",
+        "blobs": 1,
+        "raw": 62863713,
+        "packed": 20148646
+      },
+      {
+        "path": "vaft/data/39917.json",
+        "blobs": 1,
+        "raw": 56897399,
+        "packed": 18084315
+      },
+      {
+        "path": "vaft/data/44740_imas_equilibrium.h5",
+        "blobs": 1,
+        "raw": 70646424,
+        "packed": 22965548
+      },
+      {
+        "path": "vaft/data/imas/barometry.h5",
+        "blobs": 1,
+        "raw": 60609,
+        "packed": 17850
+      },
+      {
+        "path": "vaft/data/imas/coils_non_axisymmetric.h5",
+        "blobs": 1,
+        "raw": 30448,
+        "packed": 1010
+      },
+      {
+        "path": "vaft/data/imas/core_profiles.h5",
+        "blobs": 1,
+        "raw": 167442,
+        "packed": 12116
+      },
+      {
+        "path": "vaft/data/imas/dataset_description.h5",
+        "blobs": 1,
+        "raw": 10780,
+        "packed": 407
+      },
+      {
+        "path": "vaft/data/imas/equilibrium.h5",
+        "blobs": 1,
+        "raw": 16059812,
+        "packed": 15326151
+      },
+      {
+        "path": "vaft/data/imas/magnetics.h5",
+        "blobs": 1,
+        "raw": 1112489,
+        "packed": 996213
+      },
+      {
+        "path": "vaft/data/imas/master.h5",
+        "blobs": 1,
+        "raw": 4364,
+        "packed": 743
+      },
+      {
+        "path": "vaft/data/imas/pf_active.h5",
+        "blobs": 1,
+        "raw": 138924,
+        "packed": 80302
+      },
+      {
+        "path": "vaft/data/imas/pf_passive.h5",
+        "blobs": 1,
+        "raw": 15483626,
+        "packed": 15363540
+      },
+      {
+        "path": "vaft/data/imas/spectrometer_uv.h5",
+        "blobs": 1,
+        "raw": 170572,
+        "packed": 138571
+      },
+      {
+        "path": "vaft/data/imas/tf.h5",
+        "blobs": 1,
+        "raw": 57241,
+        "packed": 35243
+      },
+      {
+        "path": "vaft/data/imas/thomson_scattering.h5",
+        "blobs": 1,
+        "raw": 47566,
+        "packed": 3151
+      },
+      {
+        "path": "vaft/data/imas/vest_imas_3.40.1.nc",
+        "blobs": 1,
+        "raw": 32649657,
+        "packed": 31640105
+      },
+      {
+        "path": "vaft/data/imas/wall.h5",
+        "blobs": 1,
+        "raw": 39180,
+        "packed": 1146
+      },
+      {
+        "path": "vaft/data/omas/39915.json",
+        "blobs": 2,
+        "raw": 173208352,
+        "packed": 19228462
+      },
+      {
+        "path": "vaft/data/omas/41524.json",
+        "blobs": 2,
+        "raw": 169438500,
+        "packed": 30933615
+      },
+      {
+        "path": "vaft/data/omas/41672.json",
+        "blobs": 2,
+        "raw": 154823972,
+        "packed": 28915381
+      }
+    ]
+  },
+  "local_pack_kib": 3409806,
+  "pypi": {
+    "version": "0.9.0",
+    "files": [
+      {
+        "filename": "vaft-0.9.0-py3-none-any.whl",
+        "packagetype": "bdist_wheel",
+        "bytes": 18106235
+      },
+      {
+        "filename": "vaft-0.9.0.tar.gz",
+        "packagetype": "sdist",
+        "bytes": 27993933
+      }
+    ]
+  },
+  "github": {
+    "repository_size_kib": 3103164
+  }
+}
