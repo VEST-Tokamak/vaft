@@ -99,12 +99,15 @@ def _when(stamp: float) -> str:
 
 def _selected(arguments) -> str | None:
     """The non-default namespace type, or ``None`` for the legacy HSDS behaviour."""
-    chosen = "all" if getattr(arguments, "all", False) else arguments.type
-    return None if chosen in (None, "hsds") else chosen
+    if getattr(arguments, "all", False):
+        if arguments.type not in (None, "all"):
+            raise ValueError("--all and --type are mutually exclusive")
+        return "all"
+    return None if arguments.type in (None, "hsds") else arguments.type
 
 
-def _override(arguments, name: str):
-    """``--cache`` applies only when a single namespace is selected."""
+def _override(arguments):
+    """``--cache`` as an override path (checked to name a single namespace)."""
     return None if arguments.cache == "auto" else arguments.cache
 
 
@@ -116,7 +119,10 @@ def _namespaces(kind: str) -> tuple[str, ...]:
 
 def _check_single(arguments, kind: str) -> None:
     if arguments.cache != "auto" and len(_namespaces(kind)) != 1:
-        raise ValueError(f"--cache needs a single namespace; --type {kind} covers several")
+        raise ValueError(
+            f"--cache names one directory, but --type {kind} covers several namespaces "
+            f"({', '.join(_namespaces(kind))}); set VAFT_CACHE_DIR instead"
+        )
 
 
 def _namespace_info(name: str, override) -> dict:
@@ -141,7 +147,7 @@ def _namespace_info(name: str, override) -> dict:
 
 def _info_namespaces(arguments, kind: str, out) -> int:
     _check_single(arguments, kind)
-    reports = [_namespace_info(name, _override(arguments, name)) for name in _namespaces(kind)]
+    reports = [_namespace_info(name, _override(arguments)) for name in _namespaces(kind)]
     if arguments.json:
         print(json.dumps({"namespaces": reports}, indent=2), file=out)
         return 0
@@ -164,7 +170,7 @@ def _list_namespaces(arguments, kind: str, out) -> int:
         raise ValueError("--shot/--source apply to the hsds cache only")
     rows = []
     for name in _namespaces(kind):
-        override = _override(arguments, name)
+        override = _override(arguments)
         if name == "hsds":
             for entry in hsds_cache.entries(override if override is not None else "auto"):
                 rows.append((name, f"{entry.shot}/{entry.source}/{entry.filename}", entry.size, entry.last_used))
@@ -205,34 +211,46 @@ def _remove_namespaces(arguments, kind: str, out, *, clearing: bool) -> int:
         print(f"error: --type {kind} has no cap; prune needs --older-than", file=sys.stderr)
         return 2
     verb = "Would remove" if arguments.dry_run else "Removed"
+    status = 0
     for name in _namespaces(kind):
-        override = _override(arguments, name)
-        if name == "public":
-            from vaft.data.public import _fetch
+        override = _override(arguments)
+        try:
+            if name == "public":
+                from vaft.data.public import _fetch
 
-            removed, freed, kept = _fetch.remove_cached_sources(
-                keys, older_than=older, cache=override, dry_run=arguments.dry_run
+                removed, freed, kept = _fetch.remove_cached_sources(
+                    keys, older_than=older, cache=override, dry_run=arguments.dry_run
+                )
+                print(f"{verb} {len(removed)} {name} file(s), {hsds_cache.format_size(freed)}.", file=out)
+                if kept:
+                    print(f"  kept (checksum mismatch or not removable): {', '.join(kept)}", file=out)
+                continue
+            result = storage.remove_entries(
+                name,
+                keys=keys,
+                older_than=older,
+                everything=clearing and keys is None,
+                dry_run=arguments.dry_run,
+                override=override,
             )
-            print(f"{verb} {len(removed)} {name} file(s), {hsds_cache.format_size(freed)}.", file=out)
-            if kept:
-                print(f"  kept (checksum mismatch, inspect by hand): {', '.join(kept)}", file=out)
+        except (ValueError, OSError) as error:
+            # Report and go on: the other namespaces of this --type still run.
+            print(f"error: {name}: {error}", file=sys.stderr)
+            status = 1
             continue
-        result = storage.remove_entries(
-            name,
-            keys=keys,
-            older_than=older,
-            everything=clearing and keys is None,
-            dry_run=arguments.dry_run,
-            override=override,
-        )
         print(
             f"{verb} {len(result.removed)} {name} entr(ies), {hsds_cache.format_size(result.freed_bytes)}; "
             f"{hsds_cache.format_size(result.remaining_bytes)} left.",
             file=out,
         )
+        if result.stale_parts_removed:
+            print(f"  {verb.lower()} interrupted writes: {', '.join(result.stale_parts_removed)}", file=out)
+        if result.failed:
+            print(f"  could not remove: {', '.join(result.failed)}", file=out)
+            status = 1
         if result.skipped:
             print(f"  not VAFT's, left alone: {', '.join(result.skipped)}", file=out)
-    return 0
+    return status
 
 
 def _info(arguments, out) -> int:

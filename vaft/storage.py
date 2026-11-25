@@ -50,11 +50,15 @@ Ownership
 Only content VAFT wrote is ever removed. For the namespaces managed here
 (everything but ``hsds``, which keeps its own rules), a namespace directory is
 VAFT's only when it carries the :data:`NAMESPACE_MARKER` file naming that
-namespace. An *entry* is a sub-directory holding an :data:`ENTRY_RECORD`, and it
-counts only if it is a real directory directly inside the namespace directory,
-not a symbolic link. Anything else (stray files, half-written ``.part``
-directories younger than an hour, symbolic links) is reported, never removed.
-Removal also refuses a namespace that contains, or is, the FileDB root.
+namespace; :func:`ensure_namespace` refuses to mark a directory that already
+holds other files. An *entry* is a sub-directory whose name does not start with
+``.`` and which holds an :data:`ENTRY_RECORD`; it counts only if it is a real
+directory directly inside the namespace directory, not a symbolic link.
+In-flight ``.<key>.<random>.part`` directories that this module created and
+nothing has written to for an hour are removed as interrupted writes, and
+reported. Anything else (stray files, other directories, symbolic links) is
+reported, never removed. Removal also refuses a namespace that contains, or
+is, the FileDB root.
 """
 
 from __future__ import annotations
@@ -64,6 +68,7 @@ from dataclasses import dataclass, field
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -293,24 +298,61 @@ def _managed(name: str) -> Namespace:
     return ns
 
 
+def _check_key(key: str) -> None:
+    """An entry key: one path component that does not start with ``.``.
+
+    Dot names are reserved for the marker, the lock and in-flight ``.part``
+    directories, so an entry could never be told apart from them.
+    """
+    _check_parts((key,))
+    if key.startswith("."):
+        raise ValueError(f"an entry key must not start with '.': {key!r}")
+
+
 def ensure_namespace(name: str, override: str | os.PathLike[str] | None = None) -> Path:
-    """Create the namespace directory and its ownership marker; return the directory."""
+    """Create the namespace directory and its ownership marker; return the directory.
+
+    A directory that already holds files but no marker is not VAFT's: it is
+    refused rather than claimed, so a mistyped ``override`` never turns a user
+    directory into one ``vaft cache`` may clean.
+    """
     ns = _managed(name)
     directory = namespace_path(name, override)
     marker = directory / NAMESPACE_MARKER
-    if not marker.is_file():
-        directory.mkdir(parents=True, exist_ok=True)
-        # Written through a temporary and renamed, so a concurrent reader never
-        # sees a half-written marker and mistakes the namespace for foreign.
-        handle, name = tempfile.mkstemp(dir=directory, prefix=f"{NAMESPACE_MARKER}.", suffix=".part")
-        try:
-            with os.fdopen(handle, "w", encoding="utf-8") as stream:
-                stream.write(json.dumps({"namespace": ns.name, "owner": ns.owner}, indent=2) + "\n")
-            os.replace(name, marker)
-        except BaseException:
-            Path(name).unlink(missing_ok=True)
-            raise
+    if marker.is_file():
+        if not _owned(directory, name):
+            raise ValueError(f"{directory} is marked for another namespace; not using it for {name!r}")
+        return directory
+    if directory.is_dir() and any(
+        child.name not in (LOCK_NAME, NAMESPACE_MARKER) and not _PART.fullmatch(child.name)
+        for child in directory.iterdir()
+    ):
+        # Another process may have marked the namespace and published into it
+        # since the check above; then the files are VAFT's after all.
+        if _owned(directory, name):
+            return directory
+        raise ValueError(
+            f"{directory} already holds files and no {NAMESPACE_MARKER}; "
+            f"refusing to claim it for {name!r} (use an empty directory)"
+        )
+    directory.mkdir(parents=True, exist_ok=True)
+    # Written through a temporary and renamed, so a concurrent reader never
+    # sees a half-written marker and mistakes the namespace for foreign.
+    handle, temporary = tempfile.mkstemp(dir=directory, prefix=f"{NAMESPACE_MARKER}.", suffix=".part")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            stream.write(json.dumps({"namespace": ns.name, "owner": ns.owner}, indent=2) + "\n")
+        os.replace(temporary, marker)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
     return directory
+
+
+#: Names this module creates for in-flight work: ``.<key>.<random>.part``
+#: directories (``tempfile.mkdtemp``) and ``.vaft-cache-namespace.<random>.part``
+#: marker temporaries.
+_PART = re.compile(r"\.[^.].*\.[A-Za-z0-9_]{8}\.part")
 
 
 def _owned(directory: Path, name: str) -> bool:
@@ -390,7 +432,7 @@ def entry_path(name: str, key: str, override: str | os.PathLike[str] | None = No
     entry.
     """
     _managed(name)
-    _check_parts((key,))
+    _check_key(key)
     directory = namespace_path(name, override)
     candidate = directory / key
     if _owned(directory, name) and _is_entry_dir(directory, candidate):
@@ -417,45 +459,48 @@ def publish_entry(
     """Build entry ``key`` atomically and return its path.
 
     ``populate(directory)`` writes the entry's files into a private temporary
-    directory and verifies them (raising aborts the publish; nothing is left
-    behind). The record is written last, and the directory is renamed into
-    place, so a reader never sees a half-written entry. If another process
-    published ``key`` first, its entry wins and this one is discarded. The
-    scientific verification belongs to the caller; this only guarantees that
-    what lands is complete.
+    ``.part`` directory and verifies them (raising aborts the publish; nothing
+    is left behind). It runs **without** the namespace lock, so a long download
+    blocks neither other publishers nor ``vaft cache``. The record is written
+    last, and only the final existence check and rename hold the lock, so a
+    reader never sees a half-written entry. If another process published
+    ``key`` first, its entry wins and this one is discarded. The scientific
+    verification belongs to the caller; this only guarantees that what lands
+    is complete.
     """
-    _check_parts((key,))
+    _check_key(key)
     directory = ensure_namespace(name, override)
-    with file_lock(directory, exclusive=False):
-        existing = entry_path(name, key, override)
-        if existing is not None:
-            return existing
-        partial = Path(tempfile.mkdtemp(dir=directory, prefix=f".{key}.", suffix=".part"))
-        try:
-            populate(partial)
-            payload = {"key": key, "namespace": name, "created": time.time(), **(record or {})}
-            (partial / ENTRY_RECORD).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-            try:
-                partial.rename(directory / key)
-            except OSError:
-                winner = entry_path(name, key, override)
-                if winner is None:
-                    raise
+    existing = entry_path(name, key, override)
+    if existing is not None:
+        return existing
+    partial = Path(tempfile.mkdtemp(dir=directory, prefix=f".{key}.", suffix=".part"))
+    try:
+        populate(partial)
+        payload = {"key": key, "namespace": name, "created": time.time(), **(record or {})}
+        (partial / ENTRY_RECORD).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        with file_lock(directory, exclusive=True):
+            winner = entry_path(name, key, override)
+            if winner is not None:
                 shutil.rmtree(partial, ignore_errors=True)
                 return winner
-        except BaseException:
-            shutil.rmtree(partial, ignore_errors=True)
-            raise
+            partial.rename(directory / key)
+    except BaseException:
+        shutil.rmtree(partial, ignore_errors=True)
+        raise
     return directory / key
 
 
 @dataclass(frozen=True)
 class RemovalResult:
+    """What :func:`remove_entries` removed, would remove, or could not remove."""
+
     removed: list[str]
     freed_bytes: int
     remaining_bytes: int
     skipped: list[str]
     dry_run: bool
+    failed: list[str] = field(default_factory=list)
+    stale_parts_removed: list[str] = field(default_factory=list)
 
 
 def _filedb_conflict(directory: Path) -> str | None:
@@ -472,6 +517,18 @@ def _filedb_conflict(directory: Path) -> str | None:
     return None
 
 
+def _newest_mtime(path: Path) -> float:
+    """Latest modification time of a directory or anything below it (no links followed)."""
+    newest = path.lstat().st_mtime
+    for root, dirs, files in os.walk(path, followlinks=False):
+        for item in (*dirs, *files):
+            try:
+                newest = max(newest, os.lstat(os.path.join(root, item)).st_mtime)
+            except OSError:
+                pass
+    return newest
+
+
 def remove_entries(
     name: str,
     *,
@@ -486,11 +543,18 @@ def remove_entries(
     Select with ``keys``, ``older_than`` (seconds since last use) or
     ``everything=True``; with none of them nothing is removed. Only entries
     (see the module docstring) are candidates; unknown files are listed in
-    ``skipped``. ``dry_run`` reports without removing.
+    ``skipped``. In-flight ``.part`` directories this module created and that
+    nothing has written to for :data:`STALE_PART_SECONDS` are removed too and
+    listed in ``stale_parts_removed``. An entry that cannot be removed (for
+    example a file open on Windows) is listed in ``failed`` and the rest go on.
+    ``dry_run`` reports without removing.
     """
     _managed(name)
     if keys is None and older_than is None and not everything:
         raise ValueError("say what to remove: keys, older_than, or everything=True")
+    if keys is not None:
+        for key in keys:
+            _check_key(key)
     directory = namespace_path(name, override)
     if not directory.is_dir():
         return RemovalResult([], 0, 0, [], dry_run)
@@ -499,20 +563,25 @@ def remove_entries(
     conflict = _filedb_conflict(directory)
     if conflict:
         raise ValueError(conflict)
-    if keys is not None:
-        for key in keys:
-            _check_parts((key,))
     removed: list[str] = []
+    failed: list[str] = []
+    stale: list[str] = []
     freed = 0
     with file_lock(directory, exclusive=True):
         now = time.time()
         current = entries(name, override)
+        parts = [
+            child
+            for child in directory.iterdir()
+            if _PART.fullmatch(child.name) and child.is_dir() and not child.is_symlink()
+        ]
         skipped = sorted(
             child.name
             for child in directory.iterdir()
             if child.name not in {NAMESPACE_MARKER, LOCK_NAME}
             and not _is_entry_dir(directory, child)
-            and not (child.name.endswith(".part") and child.name.startswith("."))
+            and child not in parts
+            and not (_PART.fullmatch(child.name) and child.is_file())
         )
         for entry in current:
             chosen = (
@@ -522,22 +591,25 @@ def remove_entries(
             )
             if not chosen:
                 continue
+            if not dry_run:
+                try:
+                    shutil.rmtree(entry.path)
+                except OSError:
+                    failed.append(entry.key)
+                    continue
             removed.append(entry.key)
             freed += entry.size
+        for part in parts:
+            try:
+                if now - _newest_mtime(part) <= STALE_PART_SECONDS:
+                    continue
+            except OSError:
+                continue
+            stale.append(part.name)
             if not dry_run:
-                shutil.rmtree(entry.path)
-        if not dry_run:
-            for child in directory.iterdir():
-                if (
-                    child.name.startswith(".")
-                    and child.name.endswith(".part")
-                    and child.is_dir()
-                    and not child.is_symlink()
-                    and now - child.stat().st_mtime > STALE_PART_SECONDS
-                ):
-                    shutil.rmtree(child, ignore_errors=True)
+                shutil.rmtree(part, ignore_errors=True)
         remaining = sum(e.size for e in current if e.key not in removed)
-    return RemovalResult(removed, freed, remaining, skipped, dry_run)
+    return RemovalResult(removed, freed, remaining, skipped, dry_run, failed, sorted(stale))
 
 
 def namespace_report(name: str, override: str | os.PathLike[str] | None = None) -> dict[str, Any]:

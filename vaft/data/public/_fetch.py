@@ -155,7 +155,8 @@ def cached_sources(cache: str | os.PathLike[str] | None = None) -> list[dict]:
     Returns
     -------
     list of dict
-        ``key``, ``path``, ``bytes``, ``last_used`` (modification time) and
+        ``key``, ``path``, ``bytes``, ``last_used`` (modification time, which
+        :func:`fetch` refreshes on every cache hit) and
         ``verified`` (SHA-256 equals the registry) per present file [-].
     """
     directory = cache_dir(cache)
@@ -200,8 +201,9 @@ def remove_cached_sources(
     Returns
     -------
     tuple
-        Removed keys, freed bytes, and keys kept because their SHA-256 does not
-        match the registry (left for inspection, as :func:`fetch` does) [-].
+        Removed keys, freed bytes, and keys kept: their SHA-256 does not match
+        the registry (left for inspection, as :func:`fetch` does) or removing
+        them failed [-].
     """
     import time
 
@@ -219,10 +221,14 @@ def remove_cached_sources(
         if not item["verified"]:
             kept.append(item["key"])
             continue
+        if not dry_run:
+            try:
+                item["path"].unlink()
+            except OSError:
+                kept.append(item["key"])
+                continue
         removed.append(item["key"])
         freed += item["bytes"]
-        if not dry_run:
-            item["path"].unlink()
     return removed, freed, kept
 
 
@@ -332,6 +338,10 @@ def fetch(
             f"Cached {destination} has SHA-256 {actual}, expected {sha256}; "
             "delete it to re-download."
         )
+    try:  # a cache hit is a use: `vaft cache prune --older-than` keys on this
+        os.utime(destination)
+    except OSError:
+        pass
     return destination
 
 

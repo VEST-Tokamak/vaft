@@ -446,10 +446,11 @@ The same operations are available from Python in `vaft.database.hsds_cache` (`in
   still returns its data. An unreadable `VAFT_HSDS_CACHE_MAX` or config file is logged and the
   default cap applies.
 
-### One cache root for every disposable copy
+### The shared cache root and its namespaces
 
 The HSDS cache is one *namespace* under a shared cache root, `$VAFT_CACHE_DIR`
-(`vaft.storage`, #2317). The root holds only disposable copies, things VAFT can
+(`vaft.storage`, #2317). With nothing set, `hsds` keeps its historical location while the other
+namespaces use the platform cache root, so on macOS they sit in two different directories. The root holds only disposable copies, things VAFT can
 fetch or generate again. FileDB (`VAFT_FILEDB_DIR`) stays the persistent store,
 and the MCP artifact root (`VAFT_ARTIFACT_DIR`) stays an access boundary for the
 MCP server. Neither is derived from the cache root.
@@ -487,15 +488,24 @@ vaft cache clear --type public --yes                # only registered, checksum-
 - **No caps outside `hsds`.** Release references and EFUND tables are not size-capped and are
   never evicted automatically.
 - **Removal needs an explicit scope.** `prune --type X` needs `--older-than`, and `clear --type X`
-  needs `--entry` or `--yes`. `--type all` is accepted only by `info` and `list`.
+  needs `--entry` or `--yes`. `--type all` is accepted only by `info` and `list`. `--cache <dir>`
+  names one directory, so it works with `--type public` or `--type generated` but not with
+  `--type references`, which covers two namespaces; set `VAFT_CACHE_DIR` instead. When one
+  namespace fails, the others still run, and the command exits 1.
 - **Only VAFT's content is removed.** In `references/*` and `generated/*`, that is a sub-directory
-  holding a `.vaft-entry.json` record, inside a directory marked `.vaft-cache-namespace`. Symbolic
-  links, stray files and other directories are reported and left alone. In `public`, only files
+  holding a `.vaft-entry.json` record, inside a directory marked `.vaft-cache-namespace`. VAFT refuses
+  to mark a directory that already holds other files. Symbolic links, stray files and other
+  directories are reported and left alone. The one exception is VAFT's own interrupted writes,
+  `.<entry>.<random>.part` directories that nothing has touched for an hour: they are removed and
+  reported. In `public`, only files
   named in the public-source registry whose SHA-256 matches are removed. A mismatching file is kept
   for inspection, as `fetch` already does.
 - **Atomic writes.** Providers write entries through `vaft.storage.publish_entry`, which builds
   the entry in a private `.part` directory, writes its record last and renames it into place. A
-  reader never sees a half-written entry.
+  reader never sees a half-written entry. The download or generation runs without the namespace
+  lock; only the final rename holds it, so `vaft cache` is not blocked by a long download.
+- **Last use.** For entries, last use is the record's modification time. For public files, it is
+  the file's, which `fetch` refreshes on every cache hit.
 
 Canonical IMAS images remain authoritative after a save. The default
 `derived_cache="auto"` also creates per-IDS images; the historical full-ODS

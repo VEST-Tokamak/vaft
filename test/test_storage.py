@@ -179,7 +179,12 @@ def test_removal_requires_marker_and_skips_unknown(tmp_path):
     (root / "user_file.txt").write_text("mine")
     with pytest.raises(ValueError, match="not removing anything"):
         storage.remove_entries("generated/efund", everything=True, override=root)
+    # A directory that already holds a user's files is never claimed.
+    with pytest.raises(ValueError, match="refusing to claim"):
+        _publish("generated/efund", "id1", override=root)
+    (root / "user_file.txt").unlink()
     _publish("generated/efund", "id1", override=root)
+    (root / "user_file.txt").write_text("mine")
     result = storage.remove_entries("generated/efund", everything=True, override=root)
     assert result.removed == ["id1"]
     assert result.skipped == ["user_file.txt"]
@@ -289,3 +294,115 @@ def test_public_removal_only_touches_verified_registry_files(isolated_home, tmp_
     code, text = _run("clear", "--type", "public", "--entry", key)
     assert code == 0 and not (public / source.filename).exists()
     assert (public / "pr08" / "user.dat").read_text() == "keep"
+
+
+@pytest.mark.parametrize("key", [".hidden", ".x.part", ".lock", storage.NAMESPACE_MARKER])
+def test_dot_keys_are_refused(tmp_path, key):
+    with pytest.raises(ValueError, match="must not start"):
+        _publish("generated/efund", key, override=tmp_path / "gen")
+    with pytest.raises(ValueError):
+        storage.entry_path("generated/efund", key, tmp_path / "gen")
+
+
+def test_marker_for_another_namespace_is_refused(tmp_path):
+    root = tmp_path / "shared"
+    _publish("generated/efund", "id1", override=root)
+    with pytest.raises(ValueError, match="another namespace"):
+        _publish("references/samples", "ref", override=root)
+
+
+def test_stale_parts_are_removed_only_when_ours_and_idle(tmp_path):
+    root = tmp_path / "gen"
+    _publish("generated/efund", "id1", override=root)
+    ours = root / ".id2.abcd1234.part"
+    ours.mkdir()
+    (ours / "partial.bin").write_bytes(b"x")
+    foreign = root / ".user_thing.part"  # not the mkdtemp pattern
+    foreign.mkdir()
+    fresh = root / ".id3.efgh5678.part"
+    fresh.mkdir()
+    for path in (ours, ours / "partial.bin", foreign):
+        os.utime(path, (1, 1))
+    result = storage.remove_entries("generated/efund", keys=["nothing"], override=root)
+    assert result.stale_parts_removed == [".id2.abcd1234.part"]
+    assert not ours.exists() and foreign.exists() and fresh.exists()
+    assert ".user_thing.part" in result.skipped
+
+
+def test_populate_runs_without_the_namespace_lock(tmp_path):
+    root = tmp_path / "gen"
+    _publish("generated/efund", "first", override=root)
+    seen = []
+
+    def populate(directory: Path) -> None:
+        # A clear in another thread must not wait for this "download".
+        worker = threading.Thread(
+            target=lambda: seen.append(
+                storage.remove_entries("generated/efund", keys=["first"], override=root).removed
+            )
+        )
+        worker.start()
+        worker.join(timeout=10)
+        assert not worker.is_alive()
+        (directory / "t.bin").write_bytes(b"y")
+
+    storage.publish_entry("generated/efund", "second", populate, override=root)
+    assert seen == [["first"]]
+    assert [e.key for e in storage.entries("generated/efund", root)] == ["second"]
+
+
+def _publish_in_process(root: str, tag: int) -> str:
+    from pathlib import Path as _Path
+
+    from vaft import storage as _storage
+
+    return str(
+        _storage.publish_entry(
+            "generated/efund", "same", lambda d: (d / "t.bin").write_bytes(bytes([tag])), override=_Path(root)
+        )
+    )
+
+
+def test_concurrent_publish_across_processes(tmp_path):
+    import concurrent.futures
+    import multiprocessing
+
+    root = tmp_path / "gen"
+    context = multiprocessing.get_context("spawn")
+    with concurrent.futures.ProcessPoolExecutor(max_workers=3, mp_context=context) as pool:
+        paths = list(pool.map(_publish_in_process, [str(root)] * 6, range(6)))
+    assert set(paths) == {str(root / "same")}
+    assert len(storage.entries("generated/efund", root)) == 1
+    assert not [p for p in root.iterdir() if p.name.endswith(".part")]
+
+
+def test_cli_partial_failure_reports_and_continues(isolated_home, tmp_path, monkeypatch):
+    monkeypatch.setenv("VAFT_CACHE_DIR", str(tmp_path / "vol"))
+    _publish("references/samples", "ref1")
+    unmarked = tmp_path / "vol" / "references" / "efit-baseline"
+    unmarked.mkdir(parents=True)
+    (unmarked / "user.bin").write_bytes(b"keep")
+    code, text = _run("clear", "--type", "references", "--yes")
+    assert code == 1
+    assert "Removed 1 references/samples" in text
+    assert (unmarked / "user.bin").exists()
+
+
+def test_cli_all_and_type_conflict(isolated_home):
+    assert _run("info", "--all", "--type", "public")[0] == 2
+
+
+def test_cli_cache_with_multi_namespace_type(isolated_home, tmp_path):
+    assert _run("list", "--type", "references", "--cache", str(tmp_path))[0] == 2
+
+
+def test_public_cache_hit_refreshes_last_use(isolated_home, tmp_path, monkeypatch):
+    monkeypatch.setenv("VAFT_PUBLIC_DATA_DIR", str(tmp_path / "pub"))
+    target = tmp_path / "pub" / "f.dat"
+    target.parent.mkdir()
+    target.write_bytes(b"data")
+    os.utime(target, (1, 1))
+    import hashlib
+
+    _fetch.fetch("https://example.invalid/f", sha256=hashlib.sha256(b"data").hexdigest(), filename="f.dat")
+    assert target.stat().st_mtime > 1

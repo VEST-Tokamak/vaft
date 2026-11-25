@@ -94,7 +94,8 @@ CACHE_DIR_ENV = "VAFT_CACHE_DIR"
 CONFIG_SECTION = "hsds"
 CONFIG_KEY = "cache_max"
 LOCK_NAME = ".lock"
-#: How long a Windows holder waits for another process to release the lock.
+#: Kept for compatibility only: the lock primitive is :func:`vaft.storage.file_lock`,
+#: and :data:`vaft.storage.LOCK_WAIT_S` is the wait that applies.
 LOCK_WAIT_S = 60.0
 MARKER_NAME = ".vaft-hsds-cache"
 #: An interrupted write's temporary older than this is debris.
