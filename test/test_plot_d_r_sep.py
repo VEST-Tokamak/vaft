@@ -208,6 +208,30 @@ def test_time_range_windows_every_trace(stubbed):
     assert model.x_limits == (0.303, 0.311)
 
 
+def test_a_single_slice_still_gets_its_zero_line(stubbed):
+    stubbed[1] = _series([0.3], ["valid"], [0.002])
+    model = vaft_omas.extract_equilibrium_time_d_r_sep(_stub_ods(1), dn_tolerance=0.001)
+    zero = [series for series in model.series if not series.label and not series.channel]
+    assert len(zero) == 1 and zero[0].x[1] > zero[0].x[0]
+    assert any("tolerance" in series.label for series in model.series)
+    assert model.x_limits[0] < 0.3 < model.x_limits[1]
+
+
+def test_a_slice_without_a_time_still_breaks_the_line(stubbed):
+    stubbed[1] = _series([0.30, np.nan, 0.32], ["valid", "failed", "valid"], [0.001, 0.0, 0.002])
+    trace = _by_channel(vaft_omas.extract_equilibrium_time_d_r_sep(_stub_ods(1)))[D_R_SEP_CHANNEL]
+    assert trace.y.size == 3 and np.isnan(trace.y[1]) and np.isnan(trace.x[1])
+
+
+@pytest.mark.parametrize("options", [
+    {"dn_tolerance": True}, {"native_overlay": "false"}, {"native_overlay": 1}, {"smooth": 0.01},
+])
+def test_loose_option_values_are_refused(stubbed, options):
+    stubbed[1] = SERIES_A
+    with pytest.raises(ValueError):
+        vaft_omas.extract_equilibrium_time_d_r_sep(_stub_ods(1), **options)
+
+
 def test_the_options_belong_to_the_d_r_sep_plot_only():
     validate_options(PLOT, {"dn_tolerance": 0.002, "native_overlay": True})
     for option in ("dn_tolerance", "native_overlay"):
@@ -292,7 +316,10 @@ def test_real_analysis_draws_signed_values_markers_and_never_writes_the_input(di
     assert np.isnan(trace.y[2])  # no plasma: a gap
     assert D_R_SEP_LIMITED_CHANNEL not in div
     np.testing.assert_allclose(lim[D_R_SEP_LIMITED_CHANNEL].x, [0.305])
-    assert np.isnan(lim[D_R_SEP_CHANNEL].y).all()  # its geometric value is not drawn
+    # No valid slice: no dRsep trace at all, and its geometric value is not drawn.
+    assert D_R_SEP_CHANNEL not in lim
+    drawn = np.concatenate([series.y for series in model.series if series.entry == "lim"])
+    assert np.all(drawn == 0.0)
 
 
 def test_section_shows_separatrices_roles_and_midplane_crossings(diverted):

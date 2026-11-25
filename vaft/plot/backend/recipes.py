@@ -16966,8 +16966,8 @@ _PROFILE_FIT_READS = {
 }
 _PROFILE_FIT_EQUILIBRIUM_READS = (
     "equilibrium.time", "equilibrium.time_slice.{i}.time",
-    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
-    "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+    "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim1", "equilibrium.time_slice.{i}.profiles_2d.{j}.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
     "equilibrium.time_slice.{i}.global_quantities.psi_axis", "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
     "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
     "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
@@ -18205,13 +18205,47 @@ def _dn_tolerance_option(options: Mapping[str, Any]) -> float | None:
     value = options.get("dn_tolerance")
     if value is None:
         return None
-    try:
-        tolerance = float(value)
-    except (TypeError, ValueError):
-        raise ValueError(f"dn_tolerance must be a distance in metres; got {value!r}") from None
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"dn_tolerance must be a distance in metres; got {value!r}")
+    tolerance = float(value)
     if not (np.isfinite(tolerance) and tolerance > 0.0):
         raise ValueError(f"dn_tolerance must be a positive distance in metres; got {value!r}")
     return tolerance
+
+
+#: Half-width [s] given to the reference lines when every drawn slice sits at
+#: one time, so the zero line still has a length to be drawn over.
+_D_R_SEP_POINT_SPAN_S = 1e-3
+
+
+def _d_r_sep_slices(record: Any, window: tuple[float, float] | None) -> tuple[np.ndarray, ...]:
+    """``(time, state, d_r_sep, native)`` of one record, in drawing order.
+
+    Slices stay in stored order when their finite times already increase, so
+    a slice without a time remains in the trace as a NaN sample and still
+    breaks the line where it sits.  An unordered history is sorted by time,
+    and a slice without a time then has no place: it is dropped with a
+    warning.  Only a valid slice keeps a number.
+    """
+    time = np.asarray(record.time, dtype=float)
+    state = np.asarray(record.state, dtype=object)
+    finite = np.isfinite(time)
+    inside = np.ones(time.shape, dtype=bool) if window is None else (
+        ~finite | ((time >= window[0]) & (time <= window[1])))
+    if np.all(np.diff(time[finite]) >= 0.0):
+        order = np.flatnonzero(inside)
+    else:
+        if (~finite).any():
+            warnings.warn(
+                f"equilibrium_time_d_r_sep: {int((~finite).sum())} slice(s) without a time are dropped "
+                "from an unordered history", stacklevel=3)
+        kept = np.flatnonzero(inside & finite)
+        order = kept[np.argsort(time[kept], kind="stable")]
+    state = state[order]
+    # The record already holds NaN for every state but valid; the plot does
+    # not rely on that staying so.
+    values = np.where(state == "valid", np.asarray(record.d_r_sep, dtype=float)[order], np.nan)
+    return time[order], state, values, np.asarray(record.native_d_r_sep, dtype=float)[order]
 
 
 def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> LineSeries:
@@ -18222,35 +18256,24 @@ def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> L
     is never written.  A valid slice is drawn as its signed value; a confirmed
     limited slice is an ``x`` at zero under its own legend entry -- a category
     on the axis, not a sample, and absent from the dRsep trace itself; every
-    other state is a NaN in the trace, so no line joins across it.
+    other state is a NaN in the trace, so no line joins across it.  The zero
+    line is drawn whenever there is a time to draw it over.
     ``native_overlay=True`` adds the aligned EFIT ``DRSEP``; ``dn_tolerance=``
-    (metres) draws a band about zero only when asked for.
+    (metres) draws the band's limits about zero only when asked for.
     """
     from vaft.process.equilibrium import separatrix_balance_series
 
+    if options.get("smooth") is not None:
+        raise ValueError("equilibrium_time_d_r_sep takes no smooth=: a rolling window would bridge its gaps")
     window = _range_option(options, "time_range")
     tolerance = _dn_tolerance_option(options)
-    native = bool(options.get("native_overlay", False))
-    records = []
-    for label, ods in entries:
-        record = separatrix_balance_series(ods)
-        time = np.asarray(record.time, dtype=float)
-        keep = np.isfinite(time)
-        if window is not None:
-            keep &= (time >= window[0]) & (time <= window[1])
-        order = np.argsort(time[keep], kind="stable")
-        state = np.asarray(record.state, dtype=object)[keep][order]
-        valid = state == "valid"
-        records.append((
-            str(label), time[keep][order], state,
-            # Only a valid slice is a number; the record already holds NaN
-            # elsewhere, and the plot does not trust that to stay so.
-            np.where(valid, np.asarray(record.d_r_sep, dtype=float)[keep][order], np.nan),
-            np.asarray(record.native_d_r_sep, dtype=float)[keep][order],
-        ))
+    native = options.get("native_overlay", False)
+    if not isinstance(native, (bool, np.bool_)):
+        raise ValueError(f"native_overlay must be True or False; got {native!r}")
+    records = [(str(label), *_d_r_sep_slices(separatrix_balance_series(ods), window)) for label, ods in entries]
     x_display = _resolve_axis_display(
         "s", unit=options.get("xunit"), subject="equilibrium",
-        series_values=[time for _, time, _, _, _ in records],
+        series_values=[time[np.isfinite(time)] for _, time, _, _, _ in records],
     )
     y_display = _resolve_axis_display(
         "m", unit=options.get("yunit"), subject="equilibrium",
@@ -18260,12 +18283,13 @@ def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> L
     series: list[Series] = []
     for position, (label, time, state, values, native_values) in enumerate(records):
         color = palette(position)
-        series.append(Series(
-            x=time * xs, y=values * ys, entry=label, channel=D_R_SEP_CHANNEL,
-            # A marker on every sample: a valid slice between two gaps has no
-            # neighbour to draw a line to and would otherwise vanish.
-            style={"color": color, "marker": ".", "linewidth": 1.4},
-        ))
+        if np.isfinite(values).any():
+            series.append(Series(
+                x=time * xs, y=values * ys, entry=label, channel=D_R_SEP_CHANNEL,
+                # A marker on every sample: a valid slice between two gaps has
+                # no neighbour to draw a line to and would otherwise vanish.
+                style={"color": color, "marker": ".", "linewidth": 1.4},
+            ))
         limited = state == "limited"
         if limited.any():
             series.append(Series(
@@ -18280,18 +18304,19 @@ def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> L
                 style={"color": color, "linestyle": "--", "marker": "+", "linewidth": 1.0, "alpha": 0.8},
             ))
     if window is not None:
-        span = (window[0] * xs, window[1] * xs)
+        span = (window[0], window[1])
     else:
-        times = [time for _, time, _, _, _ in records if time.size]
-        span = (float(min(t.min() for t in times)) * xs, float(max(t.max() for t in times)) * xs) if times else None
+        finite = np.concatenate([time[np.isfinite(time)] for _, time, _, _, _ in records])
+        span = None if finite.size == 0 else (float(finite.min()), float(finite.max()))
+        if span is not None and span[1] == span[0]:
+            span = (span[0] - _D_R_SEP_POINT_SPAN_S, span[1] + _D_R_SEP_POINT_SPAN_S)
     references: list[Series] = []
-    if span is not None and span[1] > span[0]:
+    if span is not None:
+        span = (span[0] * xs, span[1] * xs)
         if tolerance is not None:
+            # The limits of the band as lines, not a fill: a fill drawn
+            # through the uncertainty machinery would follow uncertainty=.
             half = tolerance * ys
-            references.append(Series(
-                x=np.array(span), y=np.zeros(2), yerr=np.full(2, half),
-                style={"color": "emphasis:lower", "linewidth": 0.0},
-            ))
             references.append(Series(
                 x=np.array([span[0], span[1], np.nan, span[0], span[1]]),
                 y=np.array([half, half, np.nan, -half, -half]),
@@ -18307,7 +18332,7 @@ def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> L
         x_label="Time", x_unit=x_display.unit,
         y_label="dRsep = R_L - R_U", y_unit=y_display.unit,
         title=options.get("title") or _decorated_title(heading, y_display.unit, entries),
-        x_limits=options.get("x_limits") or (span if span is not None and span[1] > span[0] else None),
+        x_limits=options.get("x_limits") or span,
         display=y_display,
     )
 

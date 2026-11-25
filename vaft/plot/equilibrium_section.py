@@ -214,6 +214,8 @@ def build_equilibrium_section(
     adds the layers of :func:`separatrix_balance_layers` for the chosen slice:
     the primary and secondary separatrices with their X-point roles, the common
     outboard reference height and the R_U/R_L crossings dRsep is formed from.
+    It is an explicit request, so a slice whose boundary analysis fails raises
+    rather than returning a section without them.
     """
     from vaft.plot.backend.recipes import _element_outlines
 
