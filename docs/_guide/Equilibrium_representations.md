@@ -293,6 +293,10 @@ saddle in flux is taken, so a resolved secondary null stays secondary. In that c
 coarse g-file of a diverted plasma came out limited (#2324). When it applies,
 `topology_evidence["caveat"]` records it, so the numerical caveat stays
 separate from the physical classification.
+A diverted boundary yields upper single-null, lower single-null, or
+double-null topology. A wall-contacting LCFS without an active X-point is
+limited; a clipped region, missing wall, or indeterminate boundary is
+`AMBIGUOUS` with a reason.
 
 **Double null is a declared tolerance, not a grid effect.** When a diverted
 boundary has both an upper and a lower X-point, its class comes from the
