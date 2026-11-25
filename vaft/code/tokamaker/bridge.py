@@ -21,7 +21,7 @@ from scipy.optimize import lsq_linear
 from vaft.data.equilibrium import EquilibriumData
 from vaft.process._equilibrium_coil_fit import _coil_sources, _response
 
-from ._oft import get_oft_env, import_oft, setup_model
+from ._oft import get_oft_env, import_oft, require_negative_f0_support, setup_model
 from .config import TokaMakerConfig
 from .runner import _apply_profiles, _json_safe
 
@@ -297,8 +297,9 @@ def fit_free_boundary_coils_vfixed(
             solver.settings.urf = float(cfg.urf)
         if cfg.nl_tol is not None:
             solver.settings.nl_tol = float(cfg.nl_tol)
-        setup_model(solver, pts, cells, regions, order=cfg.order,
-                    F0=float(cfg.f0 if cfg.f0 is not None else eq.r0 * eq.bt0))
+        f0 = float(cfg.f0 if cfg.f0 is not None else eq.r0 * eq.bt0)
+        require_negative_f0_support(f0)
+        setup_model(solver, pts, cells, regions, order=cfg.order, F0=f0)
         solver.set_targets(**profile_targets(profiles, {"Ip": float(eq.ip)}))
         _apply_profiles(oft, solver, cfg, profiles)
         radius = .5 * (float(np.max(contour[:, 0])) - float(np.min(contour[:, 0])))

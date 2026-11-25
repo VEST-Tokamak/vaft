@@ -132,9 +132,12 @@ def test_import_oft_error_message_is_actionable(monkeypatch):
         import_oft()
 
     message = str(excinfo.value)
-    assert "pip install -e" in message
-    assert "OFT_LIBRARY_DIR" in message
+    # The upstream wheel is the supported install; a source build goes through OFT_ROOTPATH.
+    assert "pip install 'vaft[tokamaker]'" in message
+    assert "openfusiontoolkit>=26.9" in message
     assert "OFT_ROOTPATH" in message
+    # OFT_LIBRARY_DIR / OFT_INSTALL_DIR were read only by a local OFT fork, not upstream.
+    assert "OFT_LIBRARY_DIR" not in message
 
 
 def test_reused_workdir_never_yields_a_stale_gfile(tmp_path, monkeypatch):

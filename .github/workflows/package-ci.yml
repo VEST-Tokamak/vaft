@@ -137,6 +137,38 @@ jobs:
         # a time with nobody watching.
         run: python -m pytest -q -m "core and not perf" --durations=25
 
+  # vaft.code.tokamaker against the upstream OpenFUSIONToolkit wheel, the one
+  # supported way to get TokaMaker (install/README.md, "TokaMaker"). Everything
+  # else in CI exercises it through test/tokamaker_fakes.py only, so this is the
+  # job that notices an upstream API change (the settings object of 26.6, the
+  # setup_model of #350) or a wrong-sign F(psi) (OFT #321) before a user does.
+  # Advisory: not in merge-gate's needs, because it depends on PyPI and on an
+  # upstream release vaft does not control.
+  tokamaker-wheel:
+    name: tokamaker (upstream wheel, advisory)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Install vaft with the tokamaker extra
+        run: python -m pip install -e ".[dev,tokamaker]"
+
+      - name: Report the toolkit version
+        run: python -c "import OpenFUSIONToolkit as o; print(o.__version__, o.__file__)"
+
+      - name: Run the TokaMaker tests on the real solver
+        # The adapter suite (fakes) plus the two real-solver checks: the VEST
+        # inboard-limited state and the reversed-field (F0 < 0) consistency.
+        run: >-
+          python -m pytest -q test/test_tokamaker_*.py
+          test/test_inboard_limited_integration.py
+          test/test_tokamaker_negative_f0_integration.py
+
   # The develop ruleset requires one commit status, `merge-gate`, rather than
   # the two jobs above, so that the lab cluster can satisfy it too:
   # .github/scripts/tdst_gate.sh runs the same core-test + package steps under

@@ -23,7 +23,7 @@ from typing import Any
 
 import numpy as np
 
-from ._oft import get_oft_env, import_oft, setup_model
+from ._oft import get_oft_env, import_oft, require_negative_f0_support, setup_model
 from .config import TokaMakerConfig, TokaMakerInputs, TokaMakerResult
 from .mesh import build_tokamaker_mesh
 from .outputs import _parse_gfile, collect_tokamaker_outputs
@@ -94,6 +94,7 @@ def _configure_tokamaker(oft, mygs, inputs, config: TokaMakerConfig) -> dict[str
                 c_path = mygs._oft_env.path2c(str(path))
             _write_limiter_points(path, points)
             mygs.settings.limiter_file = _limiter_file_setting(mygs.settings, path, c_path)
+    require_negative_f0_support(inputs.f0)
     setup_model(mygs, pts, lc, reg, cond_dict=cond_dict, coil_dict=coil_dict, order=config.order, F0=inputs.f0)
     return cond_regions
 
