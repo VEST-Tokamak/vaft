@@ -110,10 +110,12 @@ from ._solvers import (
     Solver,
     SolverContext,
     _check_nc_variable,
+    dcon_zero_crossing,
     free_boundary_stable,
     missing_companion_outputs,
     required_outputs,
     stage_dcon_products,
+    zero_crossing_reason,
 )
 from ._types import (
     DEFAULT_MODES,
@@ -576,6 +578,15 @@ def _run_module(
 
     if module == "gpec":
         dcon_dir = _dcon_run_dir(inputs, mode, Path(inputs.geqdsk))
+        # An ideally unstable DCON is a physics verdict, not a missing
+        # prerequisite, so it is a skip under every policy.  Checked before the
+        # products: DCON may have written part of `euler.bin` before stopping,
+        # and without `verify_outputs` that part would pass for a result.
+        crossing = dcon_zero_crossing(dcon_dir)
+        if crossing is not None:
+            return GPECModuleRun(
+                module, mode, run_dir, status="skipped", reason=zero_crossing_reason(crossing)
+            )
         problems = validate_dcon_result(dcon_dir, mode, verify_outputs=config.verify_outputs)
         if problems:
             reason = (
@@ -734,12 +745,24 @@ def _run_module(
                 status = "failed"
                 reason = check_reason
 
+        # DCON stopping at a zero crossing (`termbycross_flag`) exits 0 without
+        # `dcon_output_n<n>.nc`, which reads as a broken run.  It is a finding:
+        # the equilibrium is ideally unstable to this n.  Classified from DCON's
+        # own stop message, and only for a run that otherwise exited cleanly.
+        if module == "dcon" and returncode == 0 and status in ("completed", "failed"):
+            crossing = dcon_zero_crossing(run_dir)
+            if crossing is not None:
+                status = "unstable"
+                reason = zero_crossing_reason(crossing)
+
         if status == "completed" and stable:
             status = "stable"
         outputs = tuple(path for pattern in solver.output_patterns(mode) if (path := run_dir / pattern).exists())
         missing_optional = missing_companion_outputs(solver, run_dir, mode)
         if status in ("completed", "stable"):
             reason = _completion_reason(reason, missing_optional)
+        elif status == "unstable":
+            outputs = ()
         return GPECModuleRun(
             module=module,
             mode=mode,

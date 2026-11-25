@@ -332,7 +332,7 @@ for path in outputs["dcon"]:
 The result is a dict keyed by module name (`dcon`, `rdcon`, `stride`, `gpec`).
 
 `GPECSuiteResult.records` is a tuple of `GPECModuleRun`, one per module/mode, each carrying `status`
-(`prepared`, `completed`, `stable`, `failed`, `skipped`), `returncode`, `reason`, `logs` and
+(`prepared`, `completed`, `stable`, `unstable`, `failed`, `skipped`), `returncode`, `reason`, `logs` and
 `outputs`. The `ok` property is true when `status` is `completed` or `stable` **and**
 `returncode == 0`, so inspect it per module rather than trusting the suite-level return code alone:
 
@@ -347,6 +347,14 @@ no unstable-mode output and so cannot be told from a broken run by what it wrote
 from the solver's own free-boundary energy -- `Re(total1)`, which DCON, RDCON and STRIDE all write
 into their netCDF -- so a companion such as `rmatch` exiting badly with nothing to analyse does not
 make the cell a failure. A run that produced no usable output is still `failed`, stable or not.
+
+`unstable` is DCON stopped by `termbycross_flag` (on in the packaged `dcon.in`) at a zero crossing
+of the energy determinant: it prints `PROGRAM STOP => Terminated by zero crossing.` and exits 0
+without writing `dcon_output_n<n>.nc`. The equilibrium is ideally unstable to that `n`, which is a
+finding, so the suite's return code does not count it as a failure; the reason names the last
+rational surface DCON passed (`psi_n`, `q`). It is not `ok` -- the cell holds no usable products,
+possibly a partial `euler.bin` -- and ideal GPEC for the same mode is `skipped` with the same reason
+under every `run_mode`, `strict` included, instead of being refused as an invalid DCON result.
 
 ## GEQDSK headers
 

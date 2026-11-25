@@ -710,11 +710,18 @@ class GPECModuleRun:
     mode: int
     workdir: Path
     returncode: Optional[int] = None
-    #: ``prepared`` | ``completed`` | ``stable`` | ``skipped`` | ``failed``.
+    #: ``prepared`` | ``completed`` | ``stable`` | ``unstable`` | ``skipped`` |
+    #: ``failed``.
     #:
     #: ``stable`` is a *successful* outcome, kept apart from ``completed``
     #: because a stable equilibrium produces no unstable-mode output and so
     #: cannot be told from a broken run by what it wrote.
+    #:
+    #: ``unstable`` is DCON stopped by ``termbycross_flag`` at a zero crossing:
+    #: a physics verdict (ideally unstable to this n), not a failure, so the
+    #: suite's return code does not count it.  It is not :attr:`ok` either --
+    #: the cell holds no usable DCON products -- and ideal GPEC for the same
+    #: mode is skipped with the same reason.
     status: str = "prepared"
     reason: str = ""
     logs: tuple[Path, ...] = ()
