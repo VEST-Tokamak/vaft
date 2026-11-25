@@ -566,7 +566,7 @@
       "call": "vaft.omas.plot_equilibrium_time_d_r_sep(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "bc77e1fe9e738fba94db3f943ddec2b8908c7d6d8b9cacb53b1a963a5a8cb9c9",
       "png_sha256": "be6884c7da009d12966c59cc83fa846f12bda65e6d85a9c2335b7b51353317b8",
-      "renderer_sha256": "167aff27b01b0a4cbe1afcd5fa898f342c17a660cb4c0338d4d7039d9dab546b",
+      "renderer_sha256": "c0cb695a59b13bc886c5c1306c4e566e7d42b7b8fe593ea52f91687fa1483465",
       "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
       "shot": 39915,
       "status": "rendered"
