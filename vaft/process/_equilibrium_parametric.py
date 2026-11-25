@@ -3083,31 +3083,49 @@ BOUNDARY_FLUX_OFFSET_LIMIT = 1e-2
 
 
 def _lcfs_anchored_saddles(
-    eq: EquilibriumData, saddles: Sequence[StationaryPoint], already_active: Sequence[StationaryPoint],
-    spacing: float, scale: float, minor_radius: float,
-    contact: tuple[float, tuple[float, float]] | None, touching: float,
+    eq: EquilibriumData, saddles: Sequence[StationaryPoint], flux_tolerance: float | None,
+    spacing: float, scale: float, minor_radius: float, touching: float,
 ) -> tuple[list[StationaryPoint], list[dict[str, Any]]]:
     """Saddles the LCFS runs into although their flux misses ``psi_boundary`` by a small offset.
 
-    A boundary traced a flux offset ``dpsi`` inside the separatrix passes the
-    X-point at the quadratic retreat ``sqrt(2*dpsi/curvature)``; a saddle the
-    source LCFS approaches that closely is the boundary's X-point whatever the
-    grid resolves of its flux.  The wall decides the one case this cannot: if
-    the LCFS also rests on the wall *away* from the saddle, the wall sets the
-    boundary and the plasma is a limited near-null, not diverted.  An apparent
-    contact in the saddle's own neighbourhood is its divertor legs reaching the
-    wall on a coarse grid and does not count against it.
+    Used only when no saddle passes the flux-window test, i.e. when the
+    boundary has no X-point by flux alone.  A boundary traced a flux offset
+    ``dpsi`` inside the separatrix passes the X-point at the quadratic retreat
+    ``sqrt(2*dpsi/curvature)``; a vacuum-side saddle the source LCFS
+    approaches that closely is the boundary's X-point whatever the grid
+    resolves of its flux.  Only the saddle with the smallest offset is taken,
+    together with any other whose offset the grid cannot tell from it, so a
+    resolved secondary null a little further out stays secondary.
+
+    The wall decides the case this cannot: if the LCFS rests on the wall
+    anywhere away from the saddle, the wall sets the boundary and the plasma is
+    a limited near-null.  An apparent contact in the saddle's own
+    neighbourhood is its divertor legs reaching the wall on a coarse grid and
+    does not count against it.  Without any wall contour, a saddle the LCFS
+    runs into is the only thing that can bound it.
+
+    The offset is capped by ``flux_tolerance`` when the caller gives one, and
+    by :data:`BOUNDARY_FLUX_OFFSET_LIMIT` otherwise.
     """
     if eq.lcfs is None or eq.lcfs.r.size < 3:
         return [], []
-    known = {(point.r, point.z) for point in already_active}
-    anchored: list[StationaryPoint] = []
+    limit = BOUNDARY_FLUX_OFFSET_LIMIT if flux_tolerance is None else float(flux_tolerance)
+    touching_points = np.empty((0, 2))
+    if eq.limiter is not None and eq.limiter.r.size >= 2:
+        try:
+            wall = _resample_contour(eq.limiter, max(512, 8 * eq.limiter.r.size))
+            distances = cKDTree(wall.points).query(eq.lcfs.points)[0]
+            touching_points = eq.lcfs.points[distances <= touching]
+        except ValueError:
+            pass
+    passing: list[tuple[StationaryPoint, float]] = []
     notes: list[dict[str, Any]] = []
     for point in saddles:
-        if (point.r, point.z) in known or not np.isfinite(point.psi_n):
+        if not np.isfinite(point.psi_n) or point.curvature <= 0:
             continue
-        offset = abs(point.psi_n - 1.0)
-        if offset > BOUNDARY_FLUX_OFFSET_LIMIT or point.curvature <= 0:
+        offset = point.psi_n - 1.0
+        # Vacuum side only: an interior saddle never bounds the plasma.
+        if offset < 0.0 or offset > limit:
             continue
         retreat = np.sqrt(2.0 * max(offset, BOUNDARY_FLUX_PRECISION) * scale / point.curvature)
         reach = min(max(2.0 * retreat, spacing), 0.25 * minor_radius)
@@ -3115,15 +3133,25 @@ def _lcfs_anchored_saddles(
         if separation > reach:
             continue
         note = {"r": point.r, "z": point.z, "psi_n": point.psi_n, "lcfs_separation_m": separation, "reach_m": reach}
-        if contact is not None and contact[0] <= touching:
-            away = float(np.hypot(contact[1][0] - point.r, contact[1][1] - point.z))
-            note["wall_contact_from_saddle_m"] = away
-            if away > max(2.0 * reach, 2.0 * touching):
+        if touching_points.size:
+            away = np.hypot(touching_points[:, 0] - point.r, touching_points[:, 1] - point.z)
+            note["farthest_wall_contact_m"] = float(np.max(away))
+            if np.any(away > max(2.0 * reach, touching)):
                 note["rejected"] = "the LCFS rests on the wall away from this saddle, so the wall sets the boundary"
                 notes.append(note)
                 continue
-        anchored.append(point)
+        passing.append((point, offset))
         notes.append(note)
+    if not passing:
+        return [], notes
+    smallest = min(offset for _, offset in passing)
+    anchored = [
+        point for point, offset in passing
+        if offset - smallest <= _saddle_flux_window(point, flux_tolerance, spacing, scale)
+    ]
+    for note in notes:
+        if "rejected" not in note and not any((p.r, p.z) == (note["r"], note["z"]) for p in anchored):
+            note["rejected"] = "a saddle nearer in flux already bounds the plasma"
     return anchored, notes
 
 
@@ -3952,8 +3980,7 @@ def derive_boundary_representation(
     stationary = _stationary_points(eq)
     saddles = [point for point in stationary if point.kind == "x"]
     # Computed once: the classification tests it and the report publishes it.
-    contact_info = _wall_contact(eq)
-    contact = None if contact_info is None else contact_info[0]
+    contact = _wall_contact_distance(eq)
     touching = max(3.0 * spacing, 0.02 * minor_radius) if spacing is not None else 0.02 * minor_radius
     evidence: dict[str, Any] = {"wall_contact_m": contact, "wall_contact_tolerance_m": touching}
 
@@ -3965,9 +3992,9 @@ def derive_boundary_representation(
     else:
         active, indeterminate = _boundary_relevant_saddles(eq, saddles, flux_tolerance, resolution, minor_radius)
         evidence["flux_window_active"] = [(point.r, point.z, point.psi_n) for point in active]
-        if indeterminate is None:
+        if indeterminate is None and not active:
             anchored, notes = _lcfs_anchored_saddles(
-                eq, saddles, active, spacing, abs(eq.psi_boundary - eq.psi_axis), minor_radius, contact_info, touching,
+                eq, saddles, flux_tolerance, spacing, abs(eq.psi_boundary - eq.psi_axis), minor_radius, touching,
             )
             if notes:
                 evidence["lcfs_anchored"] = notes
@@ -4014,14 +4041,14 @@ def derive_boundary_representation(
         )
         evidence.update(selection_evidence)
     if topology == Topology.DOUBLE_NULL and {"upper", "lower"} <= selected.keys():
-        # Both nulls pass the flux window, so the grid cannot tell this double
-        # null from a near-double null whose fluxes differ by less than it.
+        # A double null whose X-point fluxes differ by no more than the window
+        # cannot be told by this grid from a near-double null inside it.
         scale_flux = abs(eq.psi_boundary - eq.psi_axis)
         upper_x, lower_x = selected["upper"], selected["lower"]
         separation = abs(upper_x.psi_n - lower_x.psi_n)
         window = max(_saddle_flux_window(point, flux_tolerance, spacing, scale_flux) for point in (upper_x, lower_x))
         evidence["double_null_flux_separation_psi_n"] = float(separation)
-        evidence["double_null_resolution_limited"] = bool(separation > 0.1 * window)
+        evidence["double_null_resolution_limited"] = bool(separation <= window)
     roles = {
         (point.r, point.z): ("primary" if (point.r, point.z) in active_keys else "secondary", side)
         for side, point in selected.items()

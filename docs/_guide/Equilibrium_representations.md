@@ -284,10 +284,12 @@ saddle becomes an active X-point only if its flux matches the boundary within
 a curvature- and grid-dependent window and the confined region reaches it.
 Irrelevant numerical saddles remain in `x_points` with `active=False`.
 A reconstruction often traces its boundary a fraction of a percent inside the
-separatrix. A saddle that the source LCFS itself runs into, with a flux
-offset of at most `BOUNDARY_FLUX_OFFSET_LIMIT` (1 % of the axis-to-boundary
-flux), is therefore also active, unless the LCFS rests on the wall away from
-that saddle. In that case the wall sets the boundary. Without this rule a
+separatrix. When no saddle passes the flux window, a vacuum-side saddle that
+the source LCFS itself runs into, with a flux offset of at most
+`BOUNDARY_FLUX_OFFSET_LIMIT` (1 % of the axis-to-boundary flux, or the
+caller's `flux_tolerance`), is therefore active. The exception is when the
+LCFS rests on the wall anywhere away from that saddle. Only the nearest such
+saddle in flux is taken, so a resolved secondary null stays secondary. In that case the wall sets the boundary. Without this rule a
 coarse g-file of a diverted plasma came out limited (#2324). When it applies,
 `topology_evidence["caveat"]` records it, so the numerical caveat stays
 separate from the physical classification. A double null whose two X-point

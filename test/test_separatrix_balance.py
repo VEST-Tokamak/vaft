@@ -255,16 +255,25 @@ def test_missing_axis_gives_no_geometric_centre_fallback():
 # -- scan consistency ----------------------------------------------------------------
 
 
-@pytest.mark.parametrize("inset", [0.0, 3e-3])
-def test_scan_classification_follows_the_canonical_active_flags(inset):
-    from vaft.code.tokamaker.topology import ScanTopology, classify_boundary
+@pytest.mark.parametrize("inset, tolerance, expected", [
+    (0.0, 2e-3, "lower_single_null"),
+    (1.5e-3, 2e-3, "lower_single_null"),
+    # Outside the scan's own active tolerance: its near-null band, by policy.
+    (3e-3, 2e-3, "near_null"),
+    (3e-3, 5e-3, "lower_single_null"),
+])
+def test_scan_classification_follows_the_canonical_active_flags(inset, tolerance, expected):
+    from vaft.code.tokamaker.topology import classify_boundary
 
     eq, _, _ = _equilibrium(0.01, 65, inset=inset)
-    report = classify_boundary(eq)
+    report = classify_boundary(eq, active_tolerance=tolerance)
     canonical = report.representation
     assert [xp["active"] for xp in report.x_points] == [xp.active for xp in canonical.x_points]
-    assert report.topology == ScanTopology.LOWER_SINGLE_NULL
-    assert report.d_r_sep is not None and report.d_r_sep < 0
+    assert report.topology.value == expected
+    if expected == "lower_single_null":
+        assert report.d_r_sep is not None and report.d_r_sep < 0
+    else:
+        assert report.d_r_sep is None
 
 
 def test_an_unrelated_midplane_saddle_is_not_a_divertor_x_point():
@@ -286,3 +295,39 @@ def test_an_unrelated_midplane_saddle_is_not_a_divertor_x_point():
         eq, [*saddles, decoy], active, None, resolution, spacing, minor)
     assert chosen["upper"].psi_n > 1.1
     assert any("divertor sector" in note for note in evidence["upper_rejected"])
+
+
+@pytest.mark.parametrize("skew", [0.002, 0.005])
+@pytest.mark.parametrize("inset", [0.0, 3e-3])
+def test_a_resolved_secondary_within_one_percent_stays_secondary(skew, inset):
+    """The LCFS-anchored rule must not promote a secondary X-point that the
+    grid resolves from the primary into a second primary (cold review of
+    #2325): a near-double null is a single null with a signed dRsep."""
+    eq, psi_l, psi_u = _equilibrium(skew, 201, inset=inset)
+    rep = derive_boundary_representation(eq)
+    assert rep.topology == Topology.LOWER_SINGLE_NULL
+    assert rep.separatrix_x_points["upper"].role == "secondary"
+    assert rep.d_r_sep.value == pytest.approx(_exact(psi_l, psi_u), abs=2e-4)
+    assert rep.d_r_sep.value < -rep.d_r_sep.quality["resolution_m"]
+
+
+def test_an_explicit_flux_tolerance_caps_the_anchored_offset():
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3)
+    assert derive_boundary_representation(eq, flux_tolerance=5e-3).topology == Topology.LOWER_SINGLE_NULL
+    strict = derive_boundary_representation(eq, flux_tolerance=1e-4)
+    assert not strict.topology.is_diverted
+    assert not any(point.active for point in strict.x_points)
+
+
+def test_a_wall_contact_away_from_the_saddle_keeps_the_plasma_limited():
+    """An inset boundary that also rests on an outboard limiter is limited by
+    that limiter, however close its X-point."""
+    eq, _, _ = _equilibrium(0.01, 201, inset=3e-3)
+    r_touch = float(np.max(eq.lcfs.r))
+    theta = np.linspace(0.0, 2.0 * np.pi, 240, endpoint=False)
+    wall = Contour(r_touch + 0.3 * (np.cos(theta) - 1.0), 0.75 * np.sin(theta))
+    limited, _, _ = _equilibrium(0.01, 201, inset=3e-3, wall=wall)
+    rep = derive_boundary_representation(limited)
+    assert rep.topology == Topology.LIMITED
+    assert any("rejected" in note for note in rep.topology_evidence["lcfs_anchored"])
+    assert not rep.d_r_sep.available
