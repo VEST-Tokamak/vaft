@@ -134,14 +134,14 @@ def cache_dir(override: str | os.PathLike[str] | None = None) -> Path:
         on Windows, ``$XDG_CACHE_HOME/vaft/public`` elsewhere). An existing
         per-user cache keeps being used while ``$VAFT_CACHE_DIR/public`` does not
         exist, so setting ``VAFT_CACHE_DIR`` never re-downloads
-        (:func:`vaft.storage.namespace_path`) [path].
+        (:func:`vaft.data.storage.namespace_path`) [path].
 
     Returns
     -------
     pathlib.Path
         The directory; it is not created here [path].
     """
-    from vaft import storage
+    from vaft.data import storage
 
     return storage.namespace_path("public", override)
 

@@ -8,7 +8,7 @@ than ``--older-than``; ``clear`` removes cached domains (all of them only with
 ``--yes``); ``set-limit`` persists the cap in the user config file.
 
 ``--type`` selects another namespace of the shared cache root
-(:mod:`vaft.storage`): ``public`` (registered public-database downloads),
+(:mod:`vaft.data.storage`): ``public`` (registered public-database downloads),
 ``references`` (Release copies of reference samples and the EFIT baseline),
 ``generated`` (EFUND tables), or ``all`` for ``info``/``list``. These hold no
 size cap: ``prune --type X`` needs ``--older-than``, and ``clear --type X``
@@ -26,7 +26,7 @@ import json
 import os
 import sys
 
-from vaft import storage
+from vaft.data import storage
 from vaft.database import hsds_cache
 
 #: ``--type`` value -> namespaces it covers.

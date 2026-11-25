@@ -449,7 +449,7 @@ The same operations are available from Python in `vaft.database.hsds_cache` (`in
 ### The shared cache root and its namespaces
 
 The HSDS cache is one *namespace* under a shared cache root, `$VAFT_CACHE_DIR`
-(`vaft.storage`, #2317). With nothing set, `hsds` keeps its historical location while the other
+(`vaft.data.storage`, #2317). With nothing set, `hsds` keeps its historical location while the other
 namespaces use the platform cache root, so on macOS they sit in two different directories. The root holds only disposable copies, things VAFT can
 fetch or generate again. FileDB (`VAFT_FILEDB_DIR`) stays the persistent store,
 and the MCP artifact root (`VAFT_ARTIFACT_DIR`) stays an access boundary for the
@@ -500,7 +500,7 @@ vaft cache clear --type public --yes                # only registered, checksum-
   reported. In `public`, only files
   named in the public-source registry whose SHA-256 matches are removed. A mismatching file is kept
   for inspection, as `fetch` already does.
-- **Atomic writes.** Providers write entries through `vaft.storage.publish_entry`, which builds
+- **Atomic writes.** Providers write entries through `vaft.data.storage.publish_entry`, which builds
   the entry in a private `.part` directory, writes its record last and renames it into place. A
   reader never sees a half-written entry. The download or generation runs without the namespace
   lock; only the final rename holds it, so `vaft cache` is not blocked by a long download.

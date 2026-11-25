@@ -94,8 +94,8 @@ CACHE_DIR_ENV = "VAFT_CACHE_DIR"
 CONFIG_SECTION = "hsds"
 CONFIG_KEY = "cache_max"
 LOCK_NAME = ".lock"
-#: Kept for compatibility only: the lock primitive is :func:`vaft.storage.file_lock`,
-#: and :data:`vaft.storage.LOCK_WAIT_S` is the wait that applies.
+#: Kept for compatibility only: the lock primitive is :func:`vaft.data.storage.file_lock`,
+#: and :data:`vaft.data.storage.LOCK_WAIT_S` is the wait that applies.
 LOCK_WAIT_S = 60.0
 MARKER_NAME = ".vaft-hsds-cache"
 #: An interrupted write's temporary older than this is debris.
@@ -166,10 +166,10 @@ def parse_age(value: str | float | int) -> float:
 def cache_base(cache: str | os.PathLike = "auto") -> Path:
     """The cache base directory for ``cache`` ("auto" or a path).
 
-    Resolved by :func:`vaft.storage.namespace_path` for the ``hsds`` namespace,
+    Resolved by :func:`vaft.data.storage.namespace_path` for the ``hsds`` namespace,
     which keeps this module's historical precedence.
     """
-    from vaft import storage
+    from vaft.data import storage
 
     return storage.namespace_path("hsds", None if cache == "auto" else cache)
 
@@ -366,10 +366,10 @@ def set_cache_max(value: int | str, path: Path | None = None) -> Path:
 def cache_lock(base: Path, *, exclusive: bool) -> Iterator[None]:
     """Hold ``<base>/.lock`` shared (copying files) or exclusive (removing them).
 
-    The primitive is :func:`vaft.storage.file_lock`, shared with the other
+    The primitive is :func:`vaft.data.storage.file_lock`, shared with the other
     cache namespaces: on Windows every holder is exclusive.
     """
-    from vaft import storage
+    from vaft.data import storage
 
     with storage.file_lock(base, exclusive=exclusive, name=LOCK_NAME):
         yield

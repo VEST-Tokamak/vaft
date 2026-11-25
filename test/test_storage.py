@@ -11,7 +11,7 @@ import threading
 
 import pytest
 
-from vaft import storage
+from vaft.data import storage
 from vaft.cli import cache as cache_cli
 from vaft.data.public import _fetch
 from vaft.database import hsds_cache
@@ -354,7 +354,7 @@ def test_populate_runs_without_the_namespace_lock(tmp_path):
 def _publish_in_process(root: str, tag: int) -> str:
     from pathlib import Path as _Path
 
-    from vaft import storage as _storage
+    from vaft.data import storage as _storage
 
     return str(
         _storage.publish_entry(
