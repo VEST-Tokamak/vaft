@@ -1170,7 +1170,9 @@ def equilibrium_time_d_r_sep(
     balanced double null.  A diverted slice without a resolvable secondary
     separatrix, an ambiguous classification, a slice without plasma and a
     failed analysis are gaps, and no line joins across them.  The DN tolerance
-    band (``dn_tolerance=``, metres) appears only when requested;
+    band appears only when requested: ``dn_tolerance=`` a half-width in
+    metres, or ``"declared"`` for each slice's eps_DN = 0.005 a, the width
+    that separates a double null from a single null in the classification;
     ``native_overlay=True`` overlays EFIT's own ``DRSEP`` where it is a signed
     separation (its 40 cm default and unsigned configurations are gaps).
 

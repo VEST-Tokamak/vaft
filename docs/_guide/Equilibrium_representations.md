@@ -330,8 +330,9 @@ keeps its own time base, and the usual `label=`, `time_range=` and
 its signed value. A confirmed limited slice is an `x` at zero with its own
 legend entry: it is a category, not a balanced double null. An unavailable,
 ambiguous, failed or no-plasma slice is a gap, and no line joins across it. A
-zero line is always drawn. `dn_tolerance=` (metres) adds a band about zero
-only when you pass it. `native_overlay=True` adds EFIT's own `DRSEP` where it
+zero line is always drawn. `dn_tolerance=` adds a band about zero only when
+you pass it: a half-width in metres, or `"declared"` for each slice's own
+`eps_DN`, the width the classification uses. `native_overlay=True` adds EFIT's own `DRSEP` where it
 is a signed separation. To inspect one slice, use the flux map with
 `overlay=["d_r_sep"]` (`vaft.omas.plot_equilibrium_field_psi(ods,
 time_slice=i, overlay=["boundary", "d_r_sep"])`) or call

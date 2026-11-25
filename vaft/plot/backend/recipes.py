@@ -18200,11 +18200,21 @@ def _d_r_sep_available(ods: Any) -> str | None:
     return "needs an equilibrium slice with profiles_2d.0.psi"
 
 
-def _dn_tolerance_option(options: Mapping[str, Any]) -> float | None:
-    """The requested DN tolerance half-width in metres, validated, or ``None``."""
+#: ``dn_tolerance=`` value that draws each slice's declared eps_DN
+#: (:attr:`SeparatrixBalanceSeries.double_null_tolerance`) instead of one width.
+DN_TOLERANCE_DECLARED = "declared"
+
+
+def _dn_tolerance_option(options: Mapping[str, Any]) -> float | str | None:
+    """The requested DN band: a half-width in metres, ``"declared"``, or ``None``."""
     value = options.get("dn_tolerance")
     if value is None:
         return None
+    if isinstance(value, str):
+        if value != DN_TOLERANCE_DECLARED:
+            raise ValueError(
+                f"dn_tolerance must be a distance in metres or {DN_TOLERANCE_DECLARED!r}; got {value!r}")
+        return value
     if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
         raise ValueError(f"dn_tolerance must be a distance in metres; got {value!r}")
     tolerance = float(value)
@@ -18219,7 +18229,7 @@ _D_R_SEP_POINT_SPAN_S = 1e-3
 
 
 def _d_r_sep_slices(record: Any, window: tuple[float, float] | None) -> tuple[np.ndarray, ...]:
-    """``(time, state, d_r_sep, native)`` of one record, in drawing order.
+    """``(time, state, d_r_sep, native, eps_DN)`` of one record, in drawing order.
 
     Slices stay in stored order when their finite times already increase, so
     a slice without a time remains in the trace as a NaN sample and still
@@ -18245,7 +18255,8 @@ def _d_r_sep_slices(record: Any, window: tuple[float, float] | None) -> tuple[np
     # The record already holds NaN for every state but valid; the plot does
     # not rely on that staying so.
     values = np.where(state == "valid", np.asarray(record.d_r_sep, dtype=float)[order], np.nan)
-    return time[order], state, values, np.asarray(record.native_d_r_sep, dtype=float)[order]
+    return (time[order], state, values, np.asarray(record.native_d_r_sep, dtype=float)[order],
+            np.asarray(record.double_null_tolerance, dtype=float)[order])
 
 
 def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> LineSeries:
@@ -18259,7 +18270,9 @@ def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> L
     other state is a NaN in the trace, so no line joins across it.  The zero
     line is drawn whenever there is a time to draw it over.
     ``native_overlay=True`` adds the aligned EFIT ``DRSEP``; ``dn_tolerance=``
-    (metres) draws the band's limits about zero only when asked for.
+    draws the band's limits about zero only when asked for: one half-width in
+    metres, or ``"declared"`` for each slice's own eps_DN = 0.005 a (the
+    width the topology classification uses).
     """
     from vaft.process.equilibrium import separatrix_balance_series
 
@@ -18273,15 +18286,15 @@ def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> L
     records = [(str(label), *_d_r_sep_slices(separatrix_balance_series(ods), window)) for label, ods in entries]
     x_display = _resolve_axis_display(
         "s", unit=options.get("xunit"), subject="equilibrium",
-        series_values=[time[np.isfinite(time)] for _, time, _, _, _ in records],
+        series_values=[time[np.isfinite(time)] for _, time, *_ in records],
     )
     y_display = _resolve_axis_display(
         "m", unit=options.get("yunit"), subject="equilibrium",
-        series_values=[values[np.isfinite(values)] for _, _, _, values, _ in records],
+        series_values=[values[np.isfinite(values)] for _, _, _, values, *_ in records],
     )
     xs, ys = x_display.scale, y_display.scale
     series: list[Series] = []
-    for position, (label, time, state, values, native_values) in enumerate(records):
+    for position, (label, time, state, values, native_values, declared) in enumerate(records):
         color = palette(position)
         if np.isfinite(values).any():
             series.append(Series(
@@ -18303,17 +18316,27 @@ def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> L
                 x=time * xs, y=native_values * ys, entry=label, channel=D_R_SEP_NATIVE_CHANNEL,
                 style={"color": color, "linestyle": "--", "marker": "+", "linewidth": 1.0, "alpha": 0.8},
             ))
+        if tolerance == DN_TOLERANCE_DECLARED and np.isfinite(declared).any():
+            # eps_DN = 0.005 a changes with the minor radius, so the declared
+            # band follows its slices and has a gap where none was declared.
+            half = declared * ys
+            series.append(Series(
+                x=np.r_[time, np.nan, time] * xs, y=np.r_[half, np.nan, -half],
+                entry=label, channel="DN tolerance ±eps_DN (declared)",
+                # A tick at every slice keeps a lone declared value visible.
+                style={"color": color, "linestyle": ":", "linewidth": 1.0, "marker": "_", "markersize": 8},
+            ))
     if window is not None:
         span = (window[0], window[1])
     else:
-        finite = np.concatenate([time[np.isfinite(time)] for _, time, _, _, _ in records])
+        finite = np.concatenate([time[np.isfinite(time)] for _, time, *_ in records])
         span = None if finite.size == 0 else (float(finite.min()), float(finite.max()))
         if span is not None and span[1] == span[0]:
             span = (span[0] - _D_R_SEP_POINT_SPAN_S, span[1] + _D_R_SEP_POINT_SPAN_S)
     references: list[Series] = []
     if span is not None:
         span = (span[0] * xs, span[1] * xs)
-        if tolerance is not None:
+        if tolerance is not None and tolerance != DN_TOLERANCE_DECLARED:
             # The limits of the band as lines, not a fill: a fill drawn
             # through the uncertainty machinery would follow uncertainty=.
             half = tolerance * ys

@@ -9,6 +9,8 @@ analytic family of ``test_separatrix_balance`` written into ODSs.
 
 from __future__ import annotations
 
+import dataclasses
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -186,6 +188,22 @@ def test_the_dn_band_appears_only_when_requested(stubbed):
     for bad in (0.0, -1e-3, np.nan, "wide"):
         with pytest.raises(ValueError, match="dn_tolerance"):
             vaft_omas.extract_equilibrium_time_d_r_sep(_stub_ods(1), dn_tolerance=bad)
+
+
+def test_the_declared_dn_band_follows_each_slices_eps_dn(stubbed):
+    eps = np.array([0.002, 0.002, 0.003, np.nan])
+    stubbed[1] = dataclasses.replace(
+        _series([0.30, 0.31, 0.32, 0.33], ["valid", "limited", "valid", "failed"], [0.001, 0, -0.004, 0]),
+        double_null_tolerance=eps)
+    model = vaft_omas.extract_equilibrium_time_d_r_sep(_stub_ods(1), yunit="mm", dn_tolerance="declared")
+    band = next(series for series in model.series if series.channel.startswith("DN tolerance"))
+    np.testing.assert_allclose(band.y, np.r_[eps, np.nan, -eps] * 1e3, equal_nan=True)
+    np.testing.assert_allclose(band.x, np.r_[0.30, 0.31, 0.32, 0.33, np.nan, 0.30, 0.31, 0.32, 0.33],
+                               equal_nan=True)
+    # No single-width band beside it.
+    assert not any(series.label.startswith("DN tolerance") for series in model.series)
+    with pytest.raises(ValueError, match="declared"):
+        vaft_omas.extract_equilibrium_time_d_r_sep(_stub_ods(1), dn_tolerance="resolution")
 
 
 def test_native_overlay_is_optional_and_kept_apart(stubbed):
