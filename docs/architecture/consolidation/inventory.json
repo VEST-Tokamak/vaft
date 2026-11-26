@@ -4697,6 +4697,7 @@
     "vaft.formula.utils.fit_profile",
     "vaft.process.profile._fit_charge_exchange",
     "vaft.process.profile._fit_thomson",
+    "vaft.process.profile._fit_thomson._ne_fit",
     "vaft.process.profile._pedestal_top_legacy"
    ],
    "classification": "canonical",
@@ -13569,13 +13570,11 @@
    "call_sites": [
     {
      "call": "numpy.interp",
-     "snippet": "np.interp(psi_norm[finite], x[order], y[order])"
+     "snippet": "np.interp(psi_norm[keep], x[order], y[order])"
     }
    ],
    "callers": [
-    "vaft.process.profile.equilibrium_mapping_charge_exchange",
-    "vaft.process.profile.equilibrium_mapping_points",
-    "vaft.process.profile.equilibrium_mapping_thomson_scattering"
+    "vaft.process.profile._map_points"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -13608,15 +13607,14 @@
     }
    ],
    "callers": [
-    "vaft.process.profile.equilibrium_mapping_charge_exchange",
-    "vaft.process.profile.equilibrium_mapping_points",
-    "vaft.process.profile.equilibrium_mapping_thomson_scattering"
+    "vaft.process.profile._edge_preserving_mapping",
+    "vaft.process.profile._psi_norm_from_equilibrium_points"
    ],
    "classification": "unverified",
    "configuration_source": "caller arguments / module literals (not curated)",
    "curated": false,
    "evidence": "",
-   "implementation": "vaft.process.profile._psi_norm_from_equilibrium_points",
+   "implementation": "vaft.process.profile._raw_psi_norm_from_equilibrium_points",
    "operation": [
     "resampling"
    ],

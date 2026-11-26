@@ -52,7 +52,7 @@ Provenance
 
 import os
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import NamedTuple
 
 import numpy as np
@@ -83,11 +83,15 @@ except ImportError:  # direct ``spec_from_file_location`` loading
 
 __all__ = [
     "COORDINATES",
+    "CHANNEL_VALIDITY_MODES",
     "CORE_GRID_COORDINATES",
     "CoordinateUnavailableError",
+    "EDGE_MAPPINGS",
+    "FIT_STATUSES",
     "FitReport",
     "FittedProfile",
     "LEGACY_COORDINATE",
+    "MAPPING_REGIONS",
     "MappedPositions",
     "NE_DYNAMIC_RANGE_MAX",
     "PEDESTAL_FALLBACK_PSI_NORM",
@@ -152,6 +156,33 @@ COORDINATES = ("rho_tor_norm", "rho_pol_norm", "psi_norm")
 LEGACY_COORDINATE = "psi_norm"
 
 
+#: How a mapper treats points outside the last closed flux surface.
+#: ``"closed_flux"`` is the legacy behaviour: such a point becomes ``NaN`` in
+#: every coordinate and ``psi_norm`` is clipped to ``[0, 1]``.  ``"preserve"``
+#: keeps each point's actual ``psi_norm`` (above 1 in the SOL), labels its
+#: topological region, and leaves ``rho_tor_norm`` undefined (``NaN``) wherever
+#: the closed-flux toroidal-flux table does not reach.
+EDGE_MAPPINGS = ("closed_flux", "preserve")
+
+#: The region labels an edge-preserving mapping assigns, one per point.
+#: ``closed_flux`` -- inside the LCFS; ``sol`` -- ``psi_norm > 1``;
+#: ``private_flux`` -- ``psi_norm <= 1`` but outside the LCFS outline (below
+#: an X-point); ``unmapped`` -- off the equilibrium grid, or outside the
+#: traced surfaces of a legacy mapping that carries no flux value there.
+MAPPING_REGIONS = ("closed_flux", "sol", "private_flux", "unmapped")
+
+#: What the physicality guard concluded about a fitted profile.
+#: ``accepted`` -- physical at the requested order; ``fallback`` -- physical
+#: only after an order reduction (an accepted, but changed, model);
+#: ``legacy_nonphysical`` -- no attempt passed and the last attempt was kept
+#: anyway, as the guard has always done, so the caller still gets a profile;
+#: ``nonphysical`` -- the guard was disabled (``enforce_physical=False``) and
+#: the profile fails it; ``unchecked`` -- no guard applies (charge exchange).
+#: Only ``accepted`` and ``fallback`` are accepted evidence.
+FIT_STATUSES = ("accepted", "fallback", "legacy_nonphysical", "nonphysical", "unchecked")
+_ACCEPTED_STATUSES = frozenset({"accepted", "fallback"})
+
+
 class CoordinateUnavailableError(ValueError):
     """The requested radial coordinate cannot be derived from this equilibrium.
 
@@ -172,6 +203,15 @@ class MappedPositions:
     ``rho_tor_norm`` is ``None`` when the equilibrium cannot supply it, and
     ``rho_tor_norm_unavailable`` then says why.  :meth:`select` is how a fitter
     asks for one coordinate and is refused with that reason.
+
+    ``r``, ``z`` and ``channel`` keep each point's measured position [m] and
+    its index in the diagnostic, so the measurement survives the mapping.
+    With ``edge_mapping="preserve"`` ``region`` labels every point (see
+    :data:`MAPPING_REGIONS`), ``psi_norm`` is the actual normalized flux
+    (above 1 in the SOL, never pinned to the LCFS), ``rho_pol_norm`` is its
+    square root in closed flux and SOL, and ``rho_tor_norm`` is ``NaN``
+    outside closed flux; ``region_basis`` says what the labels rest on.  With
+    the legacy ``edge_mapping="closed_flux"`` ``region`` is ``None``.
     """
 
     psi_norm: np.ndarray
@@ -179,6 +219,19 @@ class MappedPositions:
     rho_tor_norm: np.ndarray | None
     rho_tor_norm_unavailable: str | None
     source: str
+    region: np.ndarray | None = None
+    r: np.ndarray | None = None
+    z: np.ndarray | None = None
+    channel: np.ndarray | None = None
+    edge_mapping: str = "closed_flux"
+    region_basis: str | None = None
+
+    @property
+    def closed_flux(self) -> np.ndarray:
+        """Which points are inside closed flux: by ``region`` when labelled, else a finite ``psi_norm``."""
+        if self.region is not None:
+            return np.asarray(self.region) == "closed_flux"
+        return np.isfinite(np.asarray(self.psi_norm, dtype=float).reshape(-1))
 
     @property
     def n_channels(self) -> int:
@@ -248,6 +301,12 @@ class FittedProfile:
     reads to evaluate it on the matching equilibrium-grid array and to record
     the fit's provenance.  ``coefficients`` is ``None`` for methods without a
     closed form (Gaussian process, linear interpolation).
+
+    ``unit`` is the unit the callable returns; ``coefficient_scale`` is what
+    the model behind ``coefficients`` must be multiplied by to give that unit
+    (``1e18`` for a Thomson ``n_e`` fit, which is made on ``n_e / 1e18``).
+    ``status`` is the physicality guard's verdict (:data:`FIT_STATUSES`);
+    ``None`` where the producer recorded none.
     """
 
     function: object
@@ -256,6 +315,9 @@ class FittedProfile:
     order: int | None
     coefficients: object = None
     span: tuple[float, float] | None = None
+    unit: str | None = None
+    coefficient_scale: float | None = None
+    status: str | None = None
 
     def __call__(self, x):
         return self.function(x)
@@ -294,6 +356,17 @@ class FitReport:
     hyperparameters and ``J / m`` the sample mean the GP is fitted about (the
     two hyperparameters are not counted).  ``parameter_count_definition`` states which applies.
     ``notes`` records the order decisions of the physicality guard.
+
+    The evidence fields default to "not recorded": ``status`` is the guard's
+    verdict (:data:`FIT_STATUSES`; :attr:`accepted` is true only for
+    ``accepted`` and ``fallback``); ``region`` is each channel's mapping region
+    when the mapping was edge-preserving; ``sigma_treatment`` says, per
+    channel, whether the fit used the measured sigma or a substitute;
+    ``assumptions`` lists what the fit imposed that no channel measured (an
+    edge-zero basis, a synthetic separatrix anchor, a coefficient scale);
+    ``domains`` separates the measurement, fitting and evaluation spans in
+    the fit coordinate and names where the curve is extrapolated, held or
+    clipped.
     """
 
     quantity: str
@@ -322,6 +395,16 @@ class FitReport:
     curve: np.ndarray
     curve_std: np.ndarray | None = None
     notes: tuple[str, ...] = ()
+    status: str | None = None
+    region: tuple[str, ...] | None = None
+    sigma_treatment: tuple[str, ...] = ()
+    assumptions: tuple[str, ...] = ()
+    domains: dict = field(default_factory=dict)
+
+    @property
+    def accepted(self) -> bool:
+        """True when the guard accepted the fit (``accepted`` or ``fallback``)."""
+        return self.status in _ACCEPTED_STATUSES
 
     @property
     def coefficients(self):
@@ -531,12 +614,17 @@ def _outermost_surface_path(geq):
     return _MplPath(np.column_stack([R, Z]))
 
 
-def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
-    """Map R/Z points to normalized poloidal flux; returns ``(psi_norm, source)``.
+def _raw_psi_norm_from_equilibrium_points(geq, r_points, z_points):
+    """Unclipped normalized flux at R/Z points: ``(psi_norm, source, inside, outline, tol)``.
 
-    Points outside the last closed flux surface are returned as NaN rather than
-    pinned to the edge psi_N level.  ``source`` names which kind of equilibrium
-    answered: ``legacy_flux_surfaces``, ``geqdsk`` or ``omas``.
+    ``psi_norm`` is the interpolated ``(psi - psi_axis)/(psi_boundary -
+    psi_axis)`` with nothing clipped or replaced (``NaN`` only off the grid).
+    For a legacy ``fluxSurfaces`` mapping it is the nearest traced level, and
+    ``NaN`` outside the outermost surface, where the mapping holds no flux.
+    ``inside`` is the legacy mapping's containment test (``None`` for the
+    psi-grid branch); ``outline`` the LCFS polygon ``(R, Z)`` when the
+    equilibrium carries one, else ``None``; ``tol`` the distance [m] within
+    which a point is treated as on that polygon (two grid cells).
     """
     # Compatibility with legacy precomputed flux-surface dictionaries. This is
     # keyed on the mapping actually carrying 'fluxSurfaces' rather than on a
@@ -546,10 +634,13 @@ def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
         flux_levels = geq['fluxSurfaces']['levels']
         boundary = _outermost_surface_path(geq)
         mapped = []
+        inside = []
         for r_dot, z_dot in zip(r_points, z_points):
             if not boundary.contains_point((float(r_dot), float(z_dot))):
                 mapped.append(np.nan)
+                inside.append(False)
                 continue
+            inside.append(True)
             min_dist = float('inf')
             closest_rho = None
             for i in range(len(geq['fluxSurfaces']['flux'])):
@@ -561,9 +652,11 @@ def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
                     min_dist = min_flux_dist
                     closest_rho = flux_levels[i]
             mapped.append(closest_rho)
-        return np.clip(np.asarray(mapped, dtype=float), 0.0, 1.0), "legacy_flux_surfaces"
+        return (np.asarray(mapped, dtype=float), "legacy_flux_surfaces",
+                np.asarray(inside, dtype=bool), None, 0.0)
 
     source = "geqdsk"
+    outline = None
     try:
         nw = int(geq['NW'])
         nh = int(geq['NH'])
@@ -572,6 +665,11 @@ def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
         psi = np.asarray(geq['PSIRZ'], dtype=float).reshape(nw, nh)
         psi_axis = float(geq['SIMAG'])
         psi_boundary = float(geq['SIBRY'])
+        try:
+            outline = (np.asarray(geq['RBBBS'], dtype=float).reshape(-1),
+                       np.asarray(geq['ZBBBS'], dtype=float).reshape(-1))
+        except Exception:  # noqa: BLE001 -- the outline is optional
+            outline = None
     except Exception:
         source = "omas"
         try:
@@ -591,17 +689,95 @@ def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
             psi_boundary = float(ts['global_quantities.psi_boundary'])
         except Exception as exc:
             raise ValueError("geq must be a VAFT GEQDSK, OMAS equilibrium ODS, or legacy fluxSurfaces mapping") from exc
+        # Check before reading: indexing a missing ODS path creates it.
+        if 'boundary.outline.r' in ts and 'boundary.outline.z' in ts:
+            outline = (np.asarray(ts['boundary.outline.r'], dtype=float).reshape(-1),
+                       np.asarray(ts['boundary.outline.z'], dtype=float).reshape(-1))
 
     interp = RegularGridInterpolator((r_grid, z_grid), psi, bounds_error=False, fill_value=np.nan)
     points = np.column_stack([np.asarray(r_points, dtype=float), np.asarray(z_points, dtype=float)])
     psi_points = interp(points)
     rho = (psi_points - psi_axis) / (psi_boundary - psi_axis) if psi_boundary != psi_axis else np.zeros_like(psi_points)
+    if outline is not None and (outline[0].size < 3 or outline[0].size != outline[1].size
+                                or not np.all(np.isfinite(outline[0])) or not np.all(np.isfinite(outline[1]))):
+        outline = None
+    cell = max(float(np.max(np.abs(np.diff(r_grid)))) if r_grid.size > 1 else 0.0,
+               float(np.max(np.abs(np.diff(z_grid)))) if z_grid.size > 1 else 0.0)
+    return rho, source, None, outline, 2.0 * cell
+
+
+def _psi_norm_from_equilibrium_points(geq, r_points, z_points):
+    """Map R/Z points to normalized poloidal flux; returns ``(psi_norm, source)``.
+
+    Points outside the last closed flux surface are returned as NaN rather than
+    pinned to the edge psi_N level.  ``source`` names which kind of equilibrium
+    answered: ``legacy_flux_surfaces``, ``geqdsk`` or ``omas``.  This is the
+    legacy closed-flux mapping; :func:`_edge_preserving_mapping` is the
+    opt-in alternative that keeps SOL points.
+    """
+    rho, source, _, _, _ = _raw_psi_norm_from_equilibrium_points(geq, r_points, z_points)
+    if source == "legacy_flux_surfaces":
+        return np.clip(rho, 0.0, 1.0), source
     # Outside the LCFS (rho > 1) -> NaN rather than pinning to the edge psi_N level.
     rho = np.where(rho > 1.0, np.nan, rho)
     return np.clip(rho, 0.0, 1.0), source
 
 
-def _coordinates_from_psi_norm(geq, psi_norm, source):
+def _distance_to_polyline(r, z, outline):
+    """Shortest distance [m] from each point to the closed polygon ``outline``."""
+    pr, pz = outline
+    ar, az = pr, pz
+    br, bz = np.roll(pr, -1), np.roll(pz, -1)
+    dr, dz = br - ar, bz - az
+    length2 = np.where(dr * dr + dz * dz > 0, dr * dr + dz * dz, 1.0)
+    t = ((r[:, None] - ar) * dr + (z[:, None] - az) * dz) / length2
+    t = np.clip(t, 0.0, 1.0)
+    cr, cz = ar + t * dr, az + t * dz
+    return np.min(np.hypot(r[:, None] - cr, z[:, None] - cz), axis=1)
+
+
+def _mapping_regions(psi_raw, source, inside, outline, tol, r, z):
+    """Region label per point and what the labels rest on (see :data:`MAPPING_REGIONS`)."""
+    psi_raw = np.asarray(psi_raw, dtype=float).reshape(-1)
+    region = np.full(psi_raw.shape, "unmapped", dtype=object)
+    if source == "legacy_flux_surfaces":
+        region[np.asarray(inside, dtype=bool) & np.isfinite(psi_raw)] = "closed_flux"
+        basis = ("containment in the outermost traced flux surface; a legacy mapping holds "
+                 "no flux outside it, so SOL and private-flux points are 'unmapped'")
+        return region.astype(str), basis
+    finite = np.isfinite(psi_raw)
+    region[finite & (psi_raw > 1.0)] = "sol"
+    closed = finite & (psi_raw <= 1.0)
+    region[closed] = "closed_flux"
+    if outline is None:
+        basis = ("psi_norm only: the equilibrium carries no LCFS outline, so a private-flux "
+                 "point (psi_norm <= 1 below an X-point) cannot be told from closed flux")
+        return region.astype(str), basis
+    from matplotlib.path import Path as _MplPath
+
+    r = np.asarray(r, dtype=float).reshape(-1)
+    z = np.asarray(z, dtype=float).reshape(-1)
+    contained = _MplPath(np.column_stack(outline)).contains_points(np.column_stack([r, z]))
+    candidates = closed & ~contained
+    if np.any(candidates):
+        far = np.zeros(psi_raw.shape, dtype=bool)
+        far[candidates] = _distance_to_polyline(r[candidates], z[candidates], outline) > tol
+        region[candidates & far] = "private_flux"
+    basis = (f"psi_norm and the LCFS outline: psi_norm <= 1 outside the outline by more than "
+             f"{tol:.3g} m (two grid cells) is private flux")
+    return region.astype(str), basis
+
+
+def _edge_preserving_mapping(geq, r_points, z_points):
+    """``(psi_norm, source, region, basis)`` with the actual flux of every point kept."""
+    psi_raw, source, inside, outline, tol = _raw_psi_norm_from_equilibrium_points(geq, r_points, z_points)
+    region, basis = _mapping_regions(psi_raw, source, inside, outline, tol, r_points, z_points)
+    psi = np.where(region == "unmapped", np.nan, psi_raw)
+    return psi, source, region, basis
+
+
+def _coordinates_from_psi_norm(geq, psi_norm, source, *, region=None, geometry=None,
+                               region_basis=None):
     """Every radial coordinate for channel ``psi_norm`` values, from the same equilibrium.
 
     ``rho_pol_norm = sqrt(psi_norm)`` by definition.  ``rho_tor_norm`` is
@@ -610,10 +786,24 @@ def _coordinates_from_psi_norm(geq, psi_norm, source):
     from the ``q`` profile (``Phi = int q dpsi``); when that derivation cannot
     be made the record says why instead of substituting ``sqrt(psi_norm)``,
     which is a different coordinate.
+
+    With ``region`` (the edge-preserving mapping) nothing is clipped:
+    ``rho_pol_norm`` is ``sqrt(psi_norm)`` in closed flux and the SOL and
+    ``NaN`` in private flux, whose ``psi_norm <= 1`` does not label a closed
+    surface; ``rho_tor_norm`` is ``NaN`` everywhere but closed flux, because
+    the toroidal-flux table ends at the LCFS and holding its end value would
+    pin a SOL point to ``rho_tor_norm = 1``.
     """
     psi_norm = np.asarray(psi_norm, dtype=float).reshape(-1)
-    rho_pol = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
-    rho_pol = np.where(np.isfinite(psi_norm), rho_pol, np.nan)
+    if region is None:
+        rho_pol = np.sqrt(np.clip(psi_norm, 0.0, 1.0))
+        rho_pol = np.where(np.isfinite(psi_norm), rho_pol, np.nan)
+        keep = np.isfinite(psi_norm)
+    else:
+        region = np.asarray(region).reshape(-1)
+        open_or_closed = (region == "closed_flux") | (region == "sol")
+        rho_pol = np.where(open_or_closed, np.sqrt(np.clip(psi_norm, 0.0, None)), np.nan)
+        keep = (region == "closed_flux") & np.isfinite(psi_norm)
     rho_tor = None
     reason = None
     if source == "legacy_flux_surfaces":
@@ -633,10 +823,30 @@ def _coordinates_from_psi_norm(geq, psi_norm, source):
                 x = np.asarray(derived["psi_n"].value, dtype=float).reshape(-1)
                 y = np.asarray(table.value, dtype=float).reshape(-1)
                 order = np.argsort(x)
-                finite = np.isfinite(psi_norm)
                 rho_tor = np.full(psi_norm.shape, np.nan)
-                rho_tor[finite] = np.interp(psi_norm[finite], x[order], y[order])
-    return MappedPositions(psi_norm, rho_pol, rho_tor, reason, source)
+                rho_tor[keep] = np.interp(psi_norm[keep], x[order], y[order])
+    r, z, channel = (None, None, None) if geometry is None else geometry
+    return MappedPositions(
+        psi_norm, rho_pol, rho_tor, reason, source,
+        region=region, r=r, z=z, channel=channel,
+        edge_mapping="closed_flux" if region is None else "preserve",
+        region_basis=region_basis,
+    )
+
+
+def _map_points(geq, r_points, z_points, edge_mapping):
+    """Map R/Z points in the requested :data:`EDGE_MAPPINGS` mode, keeping their geometry."""
+    if edge_mapping not in EDGE_MAPPINGS:
+        raise ValueError(f"edge_mapping must be one of {EDGE_MAPPINGS}, got {edge_mapping!r}")
+    r = np.asarray(r_points, dtype=float).reshape(-1)
+    z = np.asarray(z_points, dtype=float).reshape(-1)
+    geometry = (r.copy(), z.copy(), np.arange(r.size))
+    if edge_mapping == "closed_flux":
+        psi_norm, source = _psi_norm_from_equilibrium_points(geq, r, z)
+        return _coordinates_from_psi_norm(geq, psi_norm, source, geometry=geometry)
+    psi_norm, source, region, basis = _edge_preserving_mapping(geq, r, z)
+    return _coordinates_from_psi_norm(geq, psi_norm, source, region=region,
+                                      geometry=geometry, region_basis=basis)
 
 
 def _equilibrium_slice_at_time(geq, time):
@@ -715,7 +925,7 @@ def _single_slice_ods(ods, index):
     return out
 
 
-def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None):
+def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None, edge_mapping="closed_flux"):
     """Map Thomson scattering channel positions into the equilibrium's radial coordinates.
 
     Parameters
@@ -729,23 +939,32 @@ def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None):
         For an ODS, map through the equilibrium slice nearest this time
         (paired by time, not by index); ``None`` keeps the first slice.
         Ignored for a GEQDSK or mapping, which is one instant [s].
+    edge_mapping : str, optional
+        ``"closed_flux"`` (legacy) or ``"preserve"``, see
+        :data:`EDGE_MAPPINGS` [-].
 
     Returns
     -------
     MappedPositions
         ``psi_norm``, ``rho_pol_norm`` and, when the equilibrium carries a
         usable ``q``, ``rho_tor_norm`` for every channel; NaN outside the LCFS
-        [-].
+        unless ``edge_mapping="preserve"`` [-].
 
     Processing steps
     ----------------
     1. Interpolate ``psi(R, Z)`` at each channel and normalize to
-       ``psi_norm = (psi - psi_axis)/(psi_boundary - psi_axis)``; a channel
-       with ``psi_norm > 1`` is outside the plasma and becomes NaN.
-    2. ``rho_pol_norm = sqrt(psi_norm)``.
+       ``psi_norm = (psi - psi_axis)/(psi_boundary - psi_axis)``; with
+       ``edge_mapping="closed_flux"`` a channel with ``psi_norm > 1`` is
+       outside the plasma and becomes NaN and the rest are clipped to
+       ``[0, 1]``.  With ``"preserve"`` the value is kept and the channel is
+       labelled ``closed_flux``, ``sol``, ``private_flux`` (``psi_norm <= 1``
+       outside the LCFS outline, when the equilibrium carries one) or
+       ``unmapped`` (off the grid).
+    2. ``rho_pol_norm = sqrt(psi_norm)`` (``NaN`` in private flux).
     3. ``rho_tor_norm`` from the equilibrium's ``rho_tor_norm(psi_norm)``
-       table (``Phi = int q dpsi``), interpolated at each channel; recorded
-       as unavailable, with the reason, when ``q`` cannot supply it.
+       table (``Phi = int q dpsi``), interpolated at each closed-flux
+       channel and never extrapolated beyond the LCFS; recorded as
+       unavailable, with the reason, when ``q`` cannot supply it.
 
     Input semantics
     ---------------
@@ -754,6 +973,12 @@ def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None):
     Output semantics
     ----------------
     Equilibrium-mapped, in three coordinates at once; the fitter selects one.
+    The measured ``(R, Z)`` and the channel index travel with the record.
+
+    Defaults
+    --------
+    ``edge_mapping = "closed_flux"`` is a legacy compatibility value: it
+    reproduces the mapping every VEST reconstruction used, bit for bit.
 
     Convention
     ----------
@@ -773,16 +998,20 @@ def equilibrium_mapping_thomson_scattering(ods, geq, *, time=None):
     non-monotonic toroidal flux; a fit requested in that coordinate then
     raises :class:`CoordinateUnavailableError` rather than falling back.
     One equilibrium time slice of an ODS is used: the first, unless ``time``
-    names another.
+    names another.  The legacy ``"closed_flux"`` mode labels a private-flux
+    channel (``psi_norm <= 1`` below an X-point) as closed flux; only
+    ``"preserve"`` with an LCFS outline tells them apart; without an
+    outline every on-grid point with ``psi_norm <= 1`` is labelled closed
+    flux (``region_basis`` says so).  Equilibrium
+    (separatrix) uncertainty is not propagated into the mapped positions.
     """
     geq, _, _ = _equilibrium_slice_at_time(geq, time)
     r_t = ods['thomson_scattering.channel.:.position.r']
     z_t = ods['thomson_scattering.channel.:.position.z']
-    psi_norm, source = _psi_norm_from_equilibrium_points(geq, r_t, z_t)
-    return _coordinates_from_psi_norm(geq, psi_norm, source)
+    return _map_points(geq, r_t, z_t, edge_mapping)
 
 
-def equilibrium_mapping_points(geq, r, z, *, time=None):
+def equilibrium_mapping_points(geq, r, z, *, time=None, edge_mapping="closed_flux"):
     """Map arbitrary ``(R, Z)`` points into the equilibrium's radial coordinates.
 
     The mapping :func:`equilibrium_mapping_thomson_scattering` applies to the
@@ -801,17 +1030,26 @@ def equilibrium_mapping_points(geq, r, z, *, time=None):
     time : float, optional
         As :func:`equilibrium_mapping_thomson_scattering`: the ODS slice
         nearest this time; ``None`` keeps the first [s].
+    edge_mapping : str, optional
+        ``"closed_flux"`` (legacy) or ``"preserve"``, as
+        :func:`equilibrium_mapping_thomson_scattering` [-].
 
     Returns
     -------
     MappedPositions
         ``psi_norm``, ``rho_pol_norm`` and, when derivable, ``rho_tor_norm`` of
-        every point; NaN outside the LCFS [-].
+        every point; NaN outside the LCFS unless ``edge_mapping="preserve"``
+        [-].
 
     Raises
     ------
     ValueError
-        ``geq`` is not an equilibrium the mapper can read.
+        ``geq`` is not an equilibrium the mapper can read; an unknown
+        ``edge_mapping``.
+
+    Defaults
+    --------
+    ``edge_mapping = "closed_flux"`` is a legacy compatibility value.
 
     Applicability
     -------------
@@ -828,10 +1066,7 @@ def equilibrium_mapping_points(geq, r, z, *, time=None):
        :func:`equilibrium_mapping_thomson_scattering`.
     """
     geq, _, _ = _equilibrium_slice_at_time(geq, time)
-    r = np.asarray(r, dtype=float).reshape(-1)
-    z = np.asarray(z, dtype=float).reshape(-1)
-    psi_norm, source = _psi_norm_from_equilibrium_points(geq, r, z)
-    return _coordinates_from_psi_norm(geq, psi_norm, source)
+    return _map_points(geq, r, z, edge_mapping)
 
 
 def profile_fitting_thomson_scattering(
@@ -849,6 +1084,8 @@ def profile_fitting_thomson_scattering(
     *,
     coordinate="rho_tor_norm",
     mapped_rho_position=None,
+    channel_validity="joint",
+    ne_separatrix="legacy",
     ):
     """Fit Thomson-scattering ``T_e`` and ``n_e`` profiles in a chosen radial coordinate.
 
@@ -892,6 +1129,15 @@ def profile_fitting_thomson_scattering(
         ``rho_pol_norm`` or ``psi_norm`` [-].
     mapped_rho_position : MappedPositions or np.ndarray, optional
         Deprecated name for ``mapped_positions`` [-].
+    channel_validity : str, optional
+        ``"joint"`` (legacy: a channel either quantity refuses is refused for
+        both) or ``"independent"`` (each quantity keeps every channel its own
+        value and sigma allow; the position flag stays common) [-].
+    ne_separatrix : str or tuple, optional
+        ``"legacy"`` (the GP's synthetic ``n_e(1) = 0`` anchor; nothing for
+        other models), ``"none"`` (no synthetic anchor), or ``(value,
+        sigma)`` in m^-3, a Gaussian pseudo-observation at ``x = 1`` --
+        refused for a model that is zero there by construction [-].
 
     Returns
     -------
@@ -911,7 +1157,9 @@ def profile_fitting_thomson_scattering(
     Raises
     ------
     ValueError
-        No Thomson sample within tolerance; an unknown ``coordinate``.
+        No Thomson sample within tolerance; an unknown ``coordinate``,
+        ``channel_validity`` or ``ne_separatrix``; a separatrix prior the
+        ``n_e`` model cannot represent.
     TypeError
         A bare position array without ``coordinate="psi_norm"``.
     CoordinateUnavailableError
@@ -921,16 +1169,21 @@ def profile_fitting_thomson_scattering(
     ----------------
     1. Select the channel positions in ``coordinate`` from the mapping.
     2. Read ``T_e``, ``n_e`` and their uncertainties at the nearest time.
-    3. Drop channels with a non-finite value, a non-finite or zero sigma, or an
-       unmapped (NaN) position; floor the surviving sigmas at ``1e-3`` of the
-       largest value.
+    3. Drop channels with an unmapped (NaN) position -- or, from an
+       edge-preserving mapping, a position outside closed flux -- and, per
+       ``channel_validity``, those with a non-finite value or a non-finite or
+       zero sigma; floor the surviving sigmas at ``1e-3`` of the largest
+       value.  Positions are clipped to ``[0, 1]``.
     4. Fit ``T_e(x)`` with ``fitting_function_te``; with ``enforce_physical``,
        reduce the order until ``T_e > 0`` for ``x < PHYSICAL_EDGE_MAX``.
-    5. Fit ``n_e(x)`` on ``n_e / 1e18``; with ``enforce_physical``, reduce the
-       order until ``n_e > 0`` and its dynamic range inside the LCFS is below
-       ``NE_DYNAMIC_RANGE_MAX``.
-    6. Wrap both as :class:`FittedProfile` carrying ``coordinate``, method and
-       the order actually used.
+    5. Fit ``n_e(x)`` on ``n_e / 1e18``, with the ``ne_separatrix``
+       treatment; with ``enforce_physical``, reduce the order until
+       ``n_e > 0`` and its dynamic range inside the LCFS is below
+       ``NE_DYNAMIC_RANGE_MAX``.  A method whose order does not change the
+       model (``gp``, ``linear``, ``eped_tanh``) is fitted once.
+    6. Wrap both as :class:`FittedProfile` carrying ``coordinate``, method,
+       the order actually used, unit, coefficient scale and the guard's
+       status (:data:`FIT_STATUSES`).
 
     Input semantics
     ---------------
@@ -953,6 +1206,10 @@ def profile_fitting_thomson_scattering(
     channels inside ``psi_N <= 0.27`` crossed zero at ``psi_N = 0.87`` and
     collapsed ``n_e`` by ``5e6``.  ``rho_points = 100`` and
     ``time_tolerance_ms = 1.0`` are numerical conveniences.
+    ``channel_validity = "joint"`` and ``ne_separatrix = "legacy"`` are legacy
+    compatibility values: they reproduce every VEST reconstruction's fits.
+    The legacy GP anchor is ``n_e(1) = 0`` with sigma 1% of the median
+    measured ``n_e``, an assumption rather than a measurement (#2144).
 
     Convention
     ----------
@@ -980,7 +1237,16 @@ def profile_fitting_thomson_scattering(
     ``'gp'`` imports scikit-learn on first use.  A slice with fewer
     channels than the order plus one cannot be fitted at that order and the
     guard steps down; with ``enforce_physical=False`` it raises from the
-    kernel.
+    kernel.  When no order passes the guard the last attempt is returned
+    anyway, with status ``legacy_nonphysical`` -- not accepted evidence.
+    The ``n_e`` coefficients describe ``n_e / 1e18``, not m^-3
+    (``coefficient_scale``).  IMAS ``validity`` flags are not read, and
+    correlated channel errors are not used.  A separatrix prior on a
+    least-squares model enters as one weighted extra point, so it also moves
+    the ``eped_tanh`` / ``core_poly_edge_exp`` initial guess; a model with
+    more parameters than real channels is refused at that order.  With
+    ``channel_validity="independent"`` a quantity with no valid channel still
+    fails the whole call.
 
     Provenance
     ----------
@@ -991,7 +1257,7 @@ def profile_fitting_thomson_scattering(
     run = _fit_thomson(
         ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty_option,
         rho_points, fitting_function_te, fitting_function_ne, time_tolerance_ms,
-        enforce_physical, coordinate,
+        enforce_physical, coordinate, channel_validity, ne_separatrix,
     )
     return (
         run["n_e_fit"], run["T_e_fit"], run["coeffs_ne"], run["coeffs_te"],
@@ -1023,11 +1289,174 @@ def _thomson_points(ods, time_ms, time_tolerance_ms):
     return points
 
 
+#: The ways the Thomson fitter can decide which channels a quantity uses.
+CHANNEL_VALIDITY_MODES = ("joint", "independent")
+
+
+def _region_of(mapped, n):
+    """The mapping's region labels, or ``None`` for a legacy (closed-flux) mapping."""
+    region = getattr(mapped, "region", None)
+    if region is None:
+        if isinstance(mapped, MappedPositions) or mapped is None:
+            return None
+        positions = np.asarray(mapped, dtype=float).reshape(-1)
+        if np.any(np.isfinite(positions) & (positions > 1.0)):
+            warnings.warn(
+                "a bare position array carries values above 1 and no region labels; they are "
+                "clipped to the LCFS as they always were. Pass the MappedPositions record of an "
+                "edge_mapping='preserve' mapping to keep SOL channels out of the fit.",
+                UserWarning, stacklevel=4,
+            )
+        return None
+    region = np.asarray(region).reshape(-1)
+    if region.size != n:
+        raise ValueError(f"the mapping labels {region.size} regions for {n} channel positions")
+    return region
+
+
+def _position_usable(position, region):
+    """Common (quantity-independent) flag: a finite position inside closed flux."""
+    ok = np.isfinite(np.asarray(position, dtype=float).reshape(-1))
+    if region is not None:
+        ok &= region == "closed_flux"
+    return ok
+
+
+def _position_reasons(position, region):
+    """Why each channel's position keeps it out of the fitting domain, ``""`` if it does not."""
+    position = np.asarray(position, dtype=float).reshape(-1)
+    reasons = []
+    for i, x in enumerate(position):
+        where = None if region is None else str(region[i])
+        if where is None:
+            reasons.append("" if np.isfinite(x) else
+                           "outside the LCFS or the equilibrium grid (unmapped position)")
+        elif where == "closed_flux":
+            reasons.append("" if np.isfinite(x) else "unmapped position in the fit coordinate")
+        elif where == "sol":
+            reasons.append("in the SOL (psi_norm > 1): measured, but outside the closed-flux fitting domain")
+        elif where == "private_flux":
+            reasons.append("in the private-flux region: measured, but outside the closed-flux fitting domain")
+        else:
+            reasons.append("outside the equilibrium grid (unmapped position)")
+    return reasons
+
+
+def _sigma_treatment(sigma, sigma_used, used, unit, floor_text):
+    """Per channel: did the fit weight with the measured sigma or a substitute."""
+    out = []
+    for s_meas, s_used, ok in zip(np.asarray(sigma, dtype=float), np.asarray(sigma_used, dtype=float), used):
+        if not ok:
+            out.append("")
+        elif np.isfinite(s_meas) and s_meas > 0 and np.isclose(s_used, s_meas, rtol=1e-12, atol=0.0):
+            # (a normalized-unit round trip, as for n_e, is not a substitution)
+            out.append("measured")
+        elif np.isfinite(s_meas) and s_meas > 0 and s_used > s_meas:
+            out.append(f"floored to {s_used:.4g} {unit} ({floor_text})")
+        else:
+            out.append(f"substituted {s_used:.4g} {unit} (measured sigma unusable)")
+    return tuple(out)
+
+
+def _intervals(grid, mask):
+    """Contiguous runs of ``mask`` on ``grid`` as ``((lo, hi), ...)``."""
+    grid = np.asarray(grid, dtype=float)
+    mask = np.asarray(mask, dtype=bool)
+    runs, start = [], None
+    for i, m in enumerate(mask):
+        if m and start is None:
+            start = i
+        if (not m or i == mask.size - 1) and start is not None:
+            stop = i if m else i - 1
+            runs.append((float(grid[start]), float(grid[stop])))
+            start = None
+    return tuple(runs)
+
+
+def _domains(position_all, region, used_position, grid, raw_curve, extrapolation, clipped_positions):
+    """Measurement, fitting and evaluation spans, and where the curve is not data."""
+    finite = np.asarray(position_all, dtype=float)
+    finite = finite[np.isfinite(finite)]
+    used_position = np.asarray(used_position, dtype=float).reshape(-1)
+    fit_lo, fit_hi = (float(np.min(used_position)), float(np.max(used_position))) if used_position.size else (np.nan, np.nan)
+    grid = np.asarray(grid, dtype=float)
+    out = {
+        "measurement": (float(np.min(finite)), float(np.max(finite))) if finite.size else None,
+        "fitting": (fit_lo, fit_hi),
+        "evaluation": (float(grid[0]), float(grid[-1])),
+        "extrapolation": extrapolation,
+        "extrapolated": _intervals(grid, (grid < fit_lo) | (grid > fit_hi)),
+        "positions_clipped_to_unit_interval": int(clipped_positions),
+    }
+    if region is not None:
+        out["measured_outside_closed_flux"] = int(np.count_nonzero(np.asarray(region) != "closed_flux"))
+    if raw_curve is not None:
+        raw_curve = np.asarray(raw_curve, dtype=float)
+        out["clipped_nonnegative"] = _intervals(grid, np.isfinite(raw_curve) & (raw_curve < 0.0))
+    return out
+
+
+def _resolve_ne_separatrix(ne_separatrix, method, uncertainty_option, n_e_norm, n_e_scale):
+    """``(gp_anchor, pseudo_point, assumptions)`` for the requested separatrix treatment.
+
+    ``gp_anchor`` and ``pseudo_point`` are in the fit's normalized units; at
+    most one is set.  Raises for a prior the model cannot represent.
+    """
+    name = str(method).lower()
+    assumptions = []
+    if name in _EDGE_ZERO_METHODS:
+        assumptions.append(f"n_e(1) = 0 exactly: the {method!r} basis carries a (1 - x) factor (assumed, not measured)")
+    if isinstance(ne_separatrix, str):
+        if ne_separatrix == "legacy":
+            if name == "gp":
+                ne_typ = np.nanmedian(n_e_norm[n_e_norm > 0]) if np.any(n_e_norm > 0) else 1.0
+                sigma = max(0.01 * ne_typ, 1e-4)
+                assumptions.append(
+                    f"synthetic GP anchor n_e(1) = 0 +/- {sigma * n_e_scale:.3g} m^-3 (assumed; legacy "
+                    "zero-edge target, sigma 1% of the median measured n_e; not a channel)")
+                return (np.array([1.0]), np.array([0.0]), np.array([sigma])), None, assumptions
+            return None, None, assumptions
+        if ne_separatrix == "none":
+            if name == "gp":
+                assumptions.append("no synthetic separatrix anchor: the GP edge is unconstrained by any prior")
+            return None, None, assumptions
+        raise ValueError(f"ne_separatrix must be 'legacy', 'none' or (value, sigma) in m^-3, got {ne_separatrix!r}")
+    try:
+        target, sigma = (float(v) for v in ne_separatrix)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"ne_separatrix must be 'legacy', 'none' or (value, sigma) in m^-3, got {ne_separatrix!r}") from exc
+    if not (np.isfinite(target) and target >= 0.0 and np.isfinite(sigma) and sigma > 0.0):
+        raise ValueError("ne_separatrix=(value, sigma) needs a finite value >= 0 and a finite sigma > 0 [m^-3]")
+    if name in _EDGE_ZERO_METHODS and target > 0.0:
+        raise ValueError(
+            f"fitting_function_ne={method!r} is zero at x = 1 by construction and cannot honour a nonzero "
+            "separatrix prior; use 'free_exponential', 'free_polynomial', 'core_poly_edge_exp', "
+            "'eped_tanh' or 'gp'")
+    text = (f"separatrix prior n_e(1) = {target:.3g} +/- {sigma:.3g} m^-3 (assumed, Gaussian pseudo-observation "
+            "at x = 1; not a channel, excluded from chi-square)")
+    point = (np.array([1.0]), np.array([target / n_e_scale]), np.array([sigma / n_e_scale]))
+    if name == "gp":
+        assumptions.append(text)
+        return point, None, assumptions
+    if name in _EDGE_ZERO_METHODS:   # target == 0: the basis already enforces it exactly
+        assumptions.append(text.replace("Gaussian pseudo-observation", "satisfied exactly by the basis; no pseudo-observation"))
+        return None, None, assumptions
+    if name in _PSEUDO_POINT_METHODS:
+        if uncertainty_option != 1:
+            raise ValueError("a separatrix prior needs uncertainty_option=1: its weight is its sigma")
+        assumptions.append(text)
+        return None, point, assumptions
+    raise ValueError(f"fitting_function_ne={method!r} cannot take a separatrix prior")
+
+
 def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty_option,
                  rho_points, fitting_function_te, fitting_function_ne, time_tolerance_ms,
-                 enforce_physical, coordinate):
+                 enforce_physical, coordinate, channel_validity="joint", ne_separatrix="legacy"):
     """The Thomson fit, with everything a :class:`FitReport` needs kept beside it."""
+    if channel_validity not in CHANNEL_VALIDITY_MODES:
+        raise ValueError(f"channel_validity must be one of {CHANNEL_VALIDITY_MODES}, got {channel_validity!r}")
     rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
+    region = _region_of(mapped_positions, rho_flat.size)
 
     # --- Extract Thomson data (nearest time within tolerance) ---
     points = _thomson_points(ods, time_ms, time_tolerance_ms)
@@ -1035,31 +1464,43 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
     t_e_std, n_e_std = points["t_e_std"], points["n_e_std"]
     raw = {"x": rho_flat.copy(), "t_e": t_e.copy(), "n_e": n_e.copy(),
            "t_e_std": t_e_std.copy(), "n_e_std": n_e_std.copy()}
-    # --- drop invalid channels: non-finite values/sigmas, zero sigma, unmapped rho ---
-    valid = (
-        np.isfinite(rho_flat)
-        & np.isfinite(t_e) & np.isfinite(n_e)
-        & np.isfinite(t_e_std) & (t_e_std > 0)
-        & np.isfinite(n_e_std) & (n_e_std > 0)
-    )
+    # --- channel validity: a common flag (the channel's mapped position, and
+    # with an edge-preserving mapping its closed-flux region) and one flag per
+    # quantity (finite value, finite positive sigma).  "joint" is the legacy
+    # rule: a channel any quantity refuses is refused for both. ---
+    common = _position_usable(rho_flat, region)
+    own_te = np.isfinite(t_e) & np.isfinite(t_e_std) & (t_e_std > 0)
+    own_ne = np.isfinite(n_e) & np.isfinite(n_e_std) & (n_e_std > 0)
+    if channel_validity == "joint":
+        valid = common & own_te & own_ne
+        valid_te = valid_ne = valid
+    else:
+        valid_te = common & own_te
+        valid_ne = common & own_ne
+        valid = valid_te & valid_ne
     if not np.all(valid):
         print(
             f"[INFO] dropped {int(np.sum(~valid))} invalid TS channel(s) "
             f"at {time_ms:.3f} ms (non-finite value/sigma or unmapped position)"
         )
-    t_e, n_e = t_e[valid], n_e[valid]
-    t_e_std, n_e_std = t_e_std[valid], n_e_std[valid]
-    rho = np.clip(rho_flat[valid].reshape(-1, 1), 0, 1)
+    t_e_v, t_e_std_v = t_e[valid_te], t_e_std[valid_te]
+    n_e_v, n_e_std_v = n_e[valid_ne], n_e_std[valid_ne]
+    rho = np.clip(rho_flat[valid_te].reshape(-1, 1), 0, 1)
+    rho_ne = np.clip(rho_flat[valid_ne].reshape(-1, 1), 0, 1)
+    clipped_te = int(np.count_nonzero((rho_flat[valid_te] < 0) | (rho_flat[valid_te] > 1)))
+    clipped_ne = int(np.count_nonzero((rho_flat[valid_ne] < 0) | (rho_flat[valid_ne] > 1)))
 
     # relative sigma floors (in fit space) so tiny-but-valid sigmas cannot
     # dominate the weighted fit
-    t_e_std = np.maximum(t_e_std, 1e-3 * np.max(np.abs(t_e)))
-    t_e_std_used = t_e_std
+    te_floor = 1e-3 * np.max(np.abs(t_e_v))
+    t_e_std_v = np.maximum(t_e_std_v, te_floor)
+    t_e_std_used = t_e_std_v
 
     # density normalization (floor applied AFTER normalization)
     n_e_scale = 1e18
-    n_e_norm = n_e / n_e_scale
-    n_e_std_norm = np.maximum(n_e_std / n_e_scale, 1e-3 * np.max(np.abs(n_e_norm)))
+    n_e_norm = n_e_v / n_e_scale
+    ne_floor_norm = 1e-3 * np.max(np.abs(n_e_norm))
+    n_e_std_norm = np.maximum(n_e_std_v / n_e_scale, ne_floor_norm)
     rho_eval = np.linspace(0, 1, rho_points)
 
     # --- Te / Ne FITS ---
@@ -1086,10 +1527,12 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
 
     te_notes: list = []
     ne_notes: list = []
+    te_outcome: dict = {}
+    ne_outcome: dict = {}
     T_e_rho, T_e_std, T_e_function_raw, coeffs_te, Te_order_used = (
         _fit_profile_until_physical(
             lambda o: fit_profile(
-                rho, t_e, t_e_std, rho_eval,
+                rho, t_e_v, t_e_std_v, rho_eval,
                 order=o,
                 uncertainty_option=uncertainty_option,
                 fitting_function=fitting_function_te,
@@ -1097,27 +1540,33 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
                 extrapolate=True,
             ),
             Te_order, _te_unphysical, "Te", time_ms, notes=te_notes,
+            method=fitting_function_te, outcome=te_outcome,
         )
         if enforce_physical else
         (*fit_profile(
-            rho, t_e, t_e_std, rho_eval,
+            rho, t_e_v, t_e_std_v, rho_eval,
             order=Te_order, uncertainty_option=uncertainty_option,
             fitting_function=fitting_function_te, gp_anchor=te_anchor,
             extrapolate=True,
         ), Te_order)
     )
+    if not enforce_physical:
+        te_outcome["status"] = "nonphysical" if _te_unphysical(T_e_function_raw) else "accepted"
 
-    T_e_rho = np.maximum(np.asarray(T_e_rho, dtype=float), 0.0)
+    T_e_raw_eval = np.asarray(T_e_rho, dtype=float)
+    T_e_rho = np.maximum(T_e_raw_eval, 0.0)
 
     def T_e_function(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0, 1)
         return np.maximum(T_e_function_raw(x), 0.0)
 
-    ne_anchor = None
-    if fitting_function_ne.lower() == 'gp':
-        ne_typ = np.nanmedian(n_e_norm[n_e_norm > 0]) if np.any(n_e_norm > 0) else 1.0
-        ne_anchor_sigma_norm = max(0.01 * ne_typ, 1e-4)
-        ne_anchor = (np.array([1.0]), np.array([0.0]), np.array([ne_anchor_sigma_norm]))
+    ne_anchor, ne_pseudo, ne_assumptions = _resolve_ne_separatrix(
+        ne_separatrix, fitting_function_ne, uncertainty_option, n_e_norm, n_e_scale)
+    rho_ne_fit, n_e_norm_fit, n_e_std_norm_fit_in = rho_ne, n_e_norm, n_e_std_norm
+    if ne_pseudo is not None:
+        rho_ne_fit = np.vstack([rho_ne, ne_pseudo[0].reshape(-1, 1)])
+        n_e_norm_fit = np.append(n_e_norm, ne_pseudo[1])
+        n_e_std_norm_fit_in = np.append(n_e_std_norm, ne_pseudo[2])
 
     def _ne_unphysical(fn):
         y = np.asarray(fn(guard_grid), dtype=float)
@@ -1131,38 +1580,46 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
             return f"ne dynamic range {hi / lo:.1e} inside the LCFS"
         return None
 
+    def _ne_fit(o):
+        result = fit_profile(
+            rho_ne_fit, n_e_norm_fit, n_e_std_norm_fit_in, rho_eval,
+            order=o,
+            uncertainty_option=uncertainty_option,
+            fitting_function=fitting_function_ne,
+            gp_anchor=ne_anchor,
+            extrapolate=True,
+        )
+        # The separatrix pseudo-observation is a prior, not a channel: it must
+        # not make an otherwise under-determined model identifiable.
+        if ne_pseudo is not None and result[3] is not None and np.size(result[3]) > n_e_norm.size:
+            raise ValueError(f"{np.size(result[3])} parameters but only {n_e_norm.size} n_e channels "
+                             "(the separatrix prior does not count as one)")
+        return result
+
     n_e_rho_norm, n_e_std_norm_fit, n_e_function_raw, coeffs_ne, Ne_order_used = (
         _fit_profile_until_physical(
-            lambda o: fit_profile(
-                rho, n_e_norm, n_e_std_norm, rho_eval,
-                order=o,
-                uncertainty_option=uncertainty_option,
-                fitting_function=fitting_function_ne,
-                gp_anchor=ne_anchor,
-                extrapolate=True,
-            ),
+            _ne_fit,
             Ne_order, _ne_unphysical, "ne", time_ms, notes=ne_notes,
+            method=fitting_function_ne, outcome=ne_outcome,
         )
         if enforce_physical else
-        (*fit_profile(
-            rho, n_e_norm, n_e_std_norm, rho_eval,
-            order=Ne_order, uncertainty_option=uncertainty_option,
-            fitting_function=fitting_function_ne, gp_anchor=ne_anchor,
-            extrapolate=True,
-        ), Ne_order)
+        (*_ne_fit(Ne_order), Ne_order)
     )
+    if not enforce_physical:
+        ne_outcome["status"] = "nonphysical" if _ne_unphysical(n_e_function_raw) else "accepted"
 
     # The linear mode's end-value hold is opted into above; record it so a
     # report reader sees which part of the grid is not data.
-    span_lo, span_hi = float(np.min(rho)), float(np.max(rho))
-    if span_lo > 0.0 or span_hi < 1.0:
-        held = (f"linear: values outside the channels' span [{span_lo:.3g}, {span_hi:.3g}] "
-                "hold the end channel (extrapolate=True)")
-        if fitting_function_te.lower() == "linear":
-            te_notes.append(held)
-        if fitting_function_ne.lower() == "linear":
-            ne_notes.append(held)
+    for name, x_used, notes in (("te", rho, te_notes), ("ne", rho_ne, ne_notes)):
+        method = (fitting_function_te if name == "te" else fitting_function_ne).lower()
+        if method != "linear" or not x_used.size:
+            continue
+        span_lo, span_hi = float(np.min(x_used)), float(np.max(x_used))
+        if span_lo > 0.0 or span_hi < 1.0:
+            notes.append(f"linear: values outside the channels' span [{span_lo:.3g}, {span_hi:.3g}] "
+                         "hold the end channel (extrapolate=True)")
 
+    n_e_raw_eval = np.asarray(n_e_rho_norm, dtype=float) * n_e_scale
     n_e_rho = np.maximum(n_e_rho_norm, 0.0) * n_e_scale
     n_e_std = n_e_std_norm_fit * n_e_scale
 
@@ -1171,24 +1628,73 @@ def _fit_thomson(ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty
         y_norm = n_e_function_raw(x)
         return np.maximum(y_norm, 0.0) * n_e_scale
 
-    n_e_fit = FittedProfile(n_e_function, coordinate, str(fitting_function_ne), int(Ne_order_used), coeffs_ne)
-    T_e_fit = FittedProfile(T_e_function, coordinate, str(fitting_function_te), int(Te_order_used), coeffs_te)
+    te_status = te_outcome.get("status")
+    ne_status = ne_outcome.get("status")
+    n_e_fit = FittedProfile(n_e_function, coordinate, str(fitting_function_ne), int(Ne_order_used), coeffs_ne,
+                            unit="m^-3", coefficient_scale=n_e_scale, status=ne_status)
+    T_e_fit = FittedProfile(T_e_function, coordinate, str(fitting_function_te), int(Te_order_used), coeffs_te,
+                            unit="eV", coefficient_scale=1.0, status=te_status)
+
+    # --- evidence kept beside the fit ---
+    te_sigma_full = np.full(rho_flat.shape, np.nan)
+    te_sigma_full[valid_te] = t_e_std_used
+    ne_sigma_full = np.full(rho_flat.shape, np.nan)
+    ne_sigma_full[valid_ne] = n_e_std_norm * n_e_scale
+
+    def _extrapolation(method):
+        return ("held at the end channel" if str(method).lower() == "linear"
+                else "model evaluated beyond the channels (extrapolated)")
+
+    te_assumptions = []
+    if str(fitting_function_te).lower() in _EDGE_ZERO_METHODS:
+        te_assumptions.append(f"T_e(1) = 0 exactly: the {fitting_function_te!r} basis carries a (1 - x) factor "
+                              "(assumed, not measured)")
+    ne_assumptions = list(ne_assumptions) + [
+        "n_e coefficients describe n_e / 1e18 (coefficient_scale = 1e18); the callable and sampled "
+        "values are in m^-3"]
+    evidence = {
+        "t_e": {
+            "status": te_status, "valid": valid_te,
+            "sigma_treatment": _sigma_treatment(raw["t_e_std"], te_sigma_full, valid_te, "eV",
+                                                "1e-3 of the largest used T_e"),
+            "assumptions": tuple(te_assumptions),
+            "domains": _domains(rho_flat, region, rho, rho_eval, T_e_raw_eval,
+                                _extrapolation(fitting_function_te), clipped_te),
+        },
+        "n_e": {
+            "status": ne_status, "valid": valid_ne,
+            "sigma_treatment": _sigma_treatment(raw["n_e_std"], ne_sigma_full, valid_ne, "m^-3",
+                                                "1e-3 of the largest used n_e"),
+            "assumptions": tuple(ne_assumptions),
+            "domains": _domains(rho_flat, region, rho_ne, rho_eval, n_e_raw_eval,
+                                _extrapolation(fitting_function_ne), clipped_ne),
+        },
+    }
+    prior_point = ne_pseudo if ne_pseudo is not None else (
+        ne_anchor if not (isinstance(ne_separatrix, str)) else None)
+    if prior_point is not None:
+        target = float(prior_point[1][0])
+        sigma = float(prior_point[2][0])
+        at_edge = float(np.asarray(n_e_function_raw(np.array([1.0])), dtype=float).reshape(-1)[0])
+        evidence["n_e"]["domains"]["separatrix_prior_penalty"] = float(((at_edge - target) / sigma) ** 2)
     return {
         "n_e_fit": n_e_fit, "T_e_fit": T_e_fit, "coeffs_ne": coeffs_ne, "coeffs_te": coeffs_te,
         "n_e_rho": n_e_rho, "T_e_rho": T_e_rho, "rho_eval": rho_eval,
         "T_e_std_eval": np.asarray(T_e_std, dtype=float),
         "n_e_std_eval": np.asarray(n_e_std, dtype=float),
-        "raw": raw, "valid": valid, "coordinate": coordinate,
+        "raw": raw, "valid": valid, "coordinate": coordinate, "region": region,
+        "channel_validity": channel_validity, "common": common,
         "time": points["time"], "time_index": points["time_index"],
         "t_e_sigma_used": t_e_std_used, "n_e_sigma_used": n_e_std_norm * n_e_scale,
         "te_notes": tuple(te_notes), "ne_notes": tuple(ne_notes),
         "Te_order_used": int(Te_order_used), "Ne_order_used": int(Ne_order_used),
-        "te_gp": (rho, t_e, t_e_std_used, te_anchor, 1.0),
-        "ne_gp": (rho, n_e_norm, n_e_std_norm, ne_anchor, n_e_scale),
+        "te_gp": (rho, t_e_v, t_e_std_used, te_anchor, 1.0),
+        "ne_gp": (rho_ne, n_e_norm, n_e_std_norm, ne_anchor, n_e_scale),
+        "evidence": evidence,
     }
 
 
-def equilibrium_mapping_charge_exchange(ods, geq, *, time=None):
+def equilibrium_mapping_charge_exchange(ods, geq, *, time=None, edge_mapping="closed_flux"):
     """Map charge-exchange channel positions into the equilibrium's radial coordinates.
 
     The charge-exchange twin of :func:`equilibrium_mapping_thomson_scattering`:
@@ -1205,12 +1711,16 @@ def equilibrium_mapping_charge_exchange(ods, geq, *, time=None):
     time : float, optional
         As :func:`equilibrium_mapping_thomson_scattering`: the ODS slice
         nearest this time; ``None`` keeps the first [s].
+    edge_mapping : str, optional
+        ``"closed_flux"`` (legacy) or ``"preserve"``, as
+        :func:`equilibrium_mapping_thomson_scattering` [-].
 
     Returns
     -------
     MappedPositions
         ``psi_norm``, ``rho_pol_norm`` and, when derivable, ``rho_tor_norm``
-        per channel; NaN outside the LCFS [-].
+        per channel; NaN outside the LCFS unless ``edge_mapping="preserve"``
+        [-].
 
     Processing steps
     ----------------
@@ -1225,6 +1735,10 @@ def equilibrium_mapping_charge_exchange(ods, geq, *, time=None):
     Output semantics
     ----------------
     Equilibrium-mapped, in three coordinates at once.
+
+    Defaults
+    --------
+    ``edge_mapping = "closed_flux"`` is a legacy compatibility value.
 
     Convention
     ----------
@@ -1271,8 +1785,7 @@ def equilibrium_mapping_charge_exchange(ods, geq, *, time=None):
     geq, _, _ = _equilibrium_slice_at_time(geq, time)
     r_vals = [_to_float_scalar(value) for value in R_ce]
     z_vals = [_to_float_scalar(value) for value in Z_ce]
-    psi_norm, source = _psi_norm_from_equilibrium_points(geq, r_vals, z_vals)
-    return _coordinates_from_psi_norm(geq, psi_norm, source)
+    return _map_points(geq, r_vals, z_vals, edge_mapping)
 
 
 #: A fitted electron profile is rejected when it goes non-positive, or when the
@@ -1312,21 +1825,51 @@ def _legacy_keyword(value, legacy_value, legacy_name):
     return legacy_value
 
 
+#: Methods whose ``order`` changes the model.  Reducing the order of any other
+#: method (Gaussian process, interpolation, the EPED tanh) repeats the same fit.
+_ORDER_DEPENDENT_METHODS = frozenset({
+    "polynomial", "free_polynomial", "polynomial_unconstrained", "unconstrained_polynomial",
+    "exponential", "free_exponential", "exp_free", "exponential_unconstrained",
+    "core_poly_edge_exp", "core_poly_edge_exponential",
+    "sqrt", "sqrt_poly", "sqrt_polynomial", "sqrt_exponential", "sqrt_exp",
+})
+
+#: Methods whose basis is zero at ``x = 1`` by construction (the ``(1 - x)`` factor).
+_EDGE_ZERO_METHODS = frozenset({
+    "polynomial", "exponential", "sqrt", "sqrt_poly", "sqrt_polynomial", "sqrt_exponential", "sqrt_exp",
+})
+
+#: Methods that take a separatrix pseudo-observation as an extra weighted point
+#: of the least-squares fit, which is exactly a Gaussian prior term.
+_PSEUDO_POINT_METHODS = frozenset({
+    "free_polynomial", "polynomial_unconstrained", "unconstrained_polynomial",
+    "free_exponential", "exp_free", "exponential_unconstrained",
+    "core_poly_edge_exp", "core_poly_edge_exponential", "eped_tanh", "eped",
+})
+
+
 def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
-                                min_order=1, notes=None):
+                                min_order=1, notes=None, *, method=None, outcome=None):
     """Call ``fit_call(order)`` reducing the order until the profile is physical.
 
     A low-order fit that stays physical is far more trustworthy than a
     high-order one that has to be extrapolated over most of the profile, so on
     rejection the order is reduced by one and the fit retried. If no order
     passes, the lowest-order attempt is returned with a warning (never raises --
-    the caller still gets a usable profile).
+    the caller still gets a usable profile) and ``outcome["status"]`` is
+    ``"legacy_nonphysical"``: the result is kept for compatibility, not
+    accepted.
 
     ``min_order`` goes down to 1 because order 1 is the guaranteed-physical
     fallback: with the ``(1 - psi_N)`` bases it is a single coefficient, i.e. a
     monotonically decreasing non-negative profile that cannot cross zero inside
     the LCFS. Callers that already request order 2 (the electron-only pipeline
     branch) would otherwise have no room to reduce at all.
+
+    When ``method`` names a model whose ``order`` does not change it (``gp``,
+    ``linear``, ``eped_tanh``), there is nothing to reduce: the fit is made
+    once and reported at the requested order -- the old loop repeated the same
+    fit at every lower order and then labelled it with ``min_order``.
 
     Args:
         fit_call: ``order -> (y_eval, y_std, function, coeffs)`` (a fit_profile call).
@@ -1336,12 +1879,21 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
         min_order: lowest order to try.
         notes: optional list the order decisions are appended to, so a
             :class:`FitReport` can say why the order it reports was used.
+        method: the fitting method; ``None`` (legacy callers) assumes it is
+            order-dependent.
+        outcome: optional dict that receives ``"status"``
+            (``accepted``, ``fallback`` or ``legacy_nonphysical``) and
+            ``"reason"`` (the guard's last objection, or ``None``).
 
     Returns:
         ``(y_eval, y_std, function, coeffs, order_used)``
     """
+    order_dependent = method is None or str(method).lower() in _ORDER_DEPENDENT_METHODS
+    lowest_order = int(min_order) if order_dependent else int(order)
+    if not order_dependent and notes is not None:
+        notes.append(f"method {method!r} does not depend on the order; fitted once, no order reduction")
     lowest = None
-    for candidate in range(int(order), int(min_order) - 1, -1):
+    for candidate in range(int(order), lowest_order - 1, -1):
         try:
             result = fit_call(candidate)
         except Exception as exc:  # noqa: BLE001 -- try a lower order before giving up
@@ -1357,6 +1909,9 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
                     f"[INFO] {label} at {time_ms:.3f} ms: order {order} rejected, "
                     f"using order {candidate} (few/narrow measurement points)"
                 )
+            if outcome is not None:
+                outcome["status"] = "accepted" if candidate == int(order) else "fallback"
+                outcome["reason"] = None
             return (*result, candidate)
         if notes is not None:
             notes.append(f"order {candidate} rejected by the physicality guard: {reason}")
@@ -1365,25 +1920,30 @@ def _fit_profile_until_physical(fit_call, order, is_unphysical, label, time_ms,
     result, candidate, reason = lowest
     print(
         f"[WARNING] {label} at {time_ms:.3f} ms: no order in "
-        f"[{min_order}, {order}] gave a physical profile ({reason}); "
+        f"[{lowest_order}, {order}] gave a physical profile ({reason}); "
         f"keeping order {candidate}"
     )
     if notes is not None:
-        notes.append(f"no order in [{min_order}, {order}] was physical; kept order {candidate} anyway")
+        notes.append(f"no order in [{lowest_order}, {order}] was physical; kept order {candidate} anyway "
+                     "(status legacy_nonphysical: not accepted evidence)")
+    if outcome is not None:
+        outcome["status"] = "legacy_nonphysical"
+        outcome["reason"] = reason
     return (*result, candidate)
 
 
-def _channel_fit_mask(values, sigmas, rho):
+def _channel_fit_mask(values, sigmas, rho, region=None):
     """Which channels a charge-exchange fit keeps, and whether any sigma is usable.
 
-    A channel needs a finite value and position; it also needs a finite,
+    A channel needs a finite value and position (inside closed flux, when an
+    edge-preserving mapping labelled it); it also needs a finite,
     positive sigma unless *no* channel has one, in which case the sigmas are
     all replaced (see :func:`_filter_channels_for_fit`).
     """
     values = np.asarray(values, dtype=float)
     sigmas = np.asarray(sigmas, dtype=float)
     rho = np.asarray(rho, dtype=float).reshape(-1)
-    valid = np.isfinite(rho) & np.isfinite(values)
+    valid = _position_usable(rho, region) & np.isfinite(values)
     sigma_ok = np.isfinite(sigmas) & (sigmas > 0)
     usable = bool(np.any(valid & sigma_ok))
     if usable:
@@ -1391,7 +1951,7 @@ def _channel_fit_mask(values, sigmas, rho):
     return valid, usable
 
 
-def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
+def _filter_channels_for_fit(values, sigmas, rho, label, time_ms, region=None):
     """Drop channels with non-finite values/rho; handle invalid sigmas.
 
     Channels whose sigma is non-finite or <= 0 are dropped, unless NO channel
@@ -1404,7 +1964,7 @@ def _filter_channels_for_fit(values, sigmas, rho, label, time_ms):
     sigmas = np.asarray(sigmas, dtype=float)
     rho = np.asarray(rho, dtype=float).reshape(-1)
 
-    valid, sigmas_usable = _channel_fit_mask(values, sigmas, rho)
+    valid, sigmas_usable = _channel_fit_mask(values, sigmas, rho, region)
     if not sigmas_usable:
         sigmas = np.full_like(values, np.nan)  # replaced by the floor below
 
@@ -1581,7 +2141,9 @@ def profile_fitting_charge_exchange(
        explodes.
     4. Fit each with its model; clip ``T_i`` non-negative.
     5. With ``clamp_to_measured_span``, hold each fit at its value on the
-       nearest measured end outside the span the channels cover.
+       nearest measured end outside the span the channels cover.  A channel
+       an edge-preserving mapping places outside closed flux is measured but
+       not fitted.
 
     Input semantics
     ---------------
@@ -1646,6 +2208,7 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
                          clamp_to_measured_span, coordinate):
     """The charge-exchange fit, with everything a :class:`FitReport` needs beside it."""
     rho_flat, coordinate = _positions_for_fit(mapped_positions, coordinate)
+    region = _region_of(mapped_positions, rho_flat.size)
     # --- time index ---
     times = np.asarray(ods['charge_exchange.time'], dtype=float)
     if times.ndim != 1:
@@ -1681,10 +2244,10 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
            "t_i_std": np.asarray(Ti_std, dtype=float),
            "velocity_tor": np.asarray(Vtor, dtype=float),
            "velocity_tor_std": np.asarray(Vtor_std, dtype=float)}
-    ti_valid, _ = _channel_fit_mask(Ti, Ti_std, rho_flat)
-    v_valid, _ = _channel_fit_mask(Vtor, Vtor_std, rho_flat)
-    Ti, Ti_std, rho_ti = _filter_channels_for_fit(Ti, Ti_std, rho_flat, "CES T_i", time_ms)
-    Vtor, Vtor_std, rho_v = _filter_channels_for_fit(Vtor, Vtor_std, rho_flat, "CES V_tor", time_ms)
+    ti_valid, _ = _channel_fit_mask(Ti, Ti_std, rho_flat, region)
+    v_valid, _ = _channel_fit_mask(Vtor, Vtor_std, rho_flat, region)
+    Ti, Ti_std, rho_ti = _filter_channels_for_fit(Ti, Ti_std, rho_flat, "CES T_i", time_ms, region)
+    Vtor, Vtor_std, rho_v = _filter_channels_for_fit(Vtor, Vtor_std, rho_flat, "CES V_tor", time_ms, region)
 
     # Replace any residual 0/NaN sigma (from OMAS-split leaves) with the
     # valid-error median so a single near-zero sigma cannot blow up its
@@ -1726,11 +2289,14 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
     ti_lo, ti_hi = float(np.min(rho_ti)), float(np.max(rho_ti))
     v_lo, v_hi = float(np.min(rho_v)), float(np.max(rho_v))
 
-    def Ti_function(rho_input):
+    def _ti_held(rho_input):
         x = np.clip(np.asarray(rho_input, float), 0.0, 1.0)
         if clamp_to_measured_span:
             x = np.clip(x, ti_lo, ti_hi)
-        return np.maximum(Ti_function_raw(x), 0.0)
+        return Ti_function_raw(x)
+
+    def Ti_function(rho_input):
+        return np.maximum(_ti_held(rho_input), 0.0)
 
     # --- Fit V_tor(ρ) ---
     Vtor_rho, Vtor_std_fit, Vtor_function_raw, coeffs_vtor = fit_profile(
@@ -1760,14 +2326,43 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
 
     ti_span = (ti_lo, ti_hi) if clamp_to_measured_span else None
     v_span = (v_lo, v_hi) if clamp_to_measured_span else None
-    Vtor_fit = FittedProfile(Vtor_function, coordinate, str(fitting_function_vtor), int(Vtor_order), coeffs_vtor, v_span)
-    Ti_fit = FittedProfile(Ti_function, coordinate, str(fitting_function_ti), int(Ti_order), coeffs_ti, ti_span)
+    Vtor_fit = FittedProfile(Vtor_function, coordinate, str(fitting_function_vtor), int(Vtor_order), coeffs_vtor, v_span,
+                             unit="m/s", coefficient_scale=1.0, status="unchecked")
+    Ti_fit = FittedProfile(Ti_function, coordinate, str(fitting_function_ti), int(Ti_order), coeffs_ti, ti_span,
+                           unit="eV", coefficient_scale=1.0, status="unchecked")
+
+    # --- evidence: measured support, extrapolation and physicality clipping ---
+    def _extrapolation(method):
+        if clamp_to_measured_span:
+            return "held at the fit's value on the nearest measured end (clamp_to_measured_span)"
+        if str(method).lower() == "linear":
+            return "held at the end channel"
+        return "model evaluated beyond the channels (extrapolated)"
+
+    clipped_ti = int(np.count_nonzero((rho_ti < 0) | (rho_ti > 1)))
+    clipped_v = int(np.count_nonzero((rho_v < 0) | (rho_v > 1)))
+    evidence = {
+        "t_i": {
+            "sigma_treatment": _sigma_treatment(raw["t_i_std"], ti_sigma_used, ti_valid, "eV",
+                                                "1e-3 of the largest used T_i"),
+            "domains": _domains(rho_flat, region, rho_ti, rho_eval,
+                                np.asarray(_ti_held(rho_eval), dtype=float),
+                                _extrapolation(fitting_function_ti), clipped_ti),
+        },
+        "velocity_tor": {
+            "sigma_treatment": _sigma_treatment(raw["velocity_tor_std"], v_sigma_used, v_valid, "m/s",
+                                                "1e-3 of the largest used |V_tor|"),
+            "domains": _domains(rho_flat, region, rho_v, rho_eval, None,
+                                _extrapolation(fitting_function_vtor), clipped_v),
+        },
+    }
     return {
         "Vtor_fit": Vtor_fit, "Ti_fit": Ti_fit, "coeffs_vtor": coeffs_vtor, "coeffs_ti": coeffs_ti,
         "Vtor_rho": Vtor_rho, "Ti_rho": Ti_rho, "rho_eval": rho_eval,
         "Ti_std_eval": np.asarray(Ti_std_fit, dtype=float),
         "Vtor_std_eval": np.asarray(Vtor_std_fit, dtype=float),
         "raw": raw, "ti_valid": ti_valid, "v_valid": v_valid, "coordinate": coordinate,
+        "region": region, "evidence": evidence,
         "time": float(times[time_index]), "time_index": time_index,
         "t_i_sigma_used": ti_sigma_used, "velocity_tor_sigma_used": v_sigma_used,
         "ti_gp": (rho, Ti, Ti_std, None, 1.0), "v_gp": (rho_vtor, Vtor, Vtor_std, None, 1.0),
@@ -1779,10 +2374,16 @@ def _fit_charge_exchange(ods, time_ms, mapped_positions, Ti_order, Vtor_order,
 _REPORT_UNITS = {"t_e": "eV", "n_e": "m^-3", "t_i": "eV", "velocity_tor": "m/s"}
 
 
-def _own_rejections(value, sigma, position, *, sigma_required=True):
-    """Why each channel cannot enter a fit on its own measurement, ``""`` if it can."""
+def _own_rejections(value, sigma, position, *, sigma_required=True, region=None):
+    """Why each channel cannot enter a fit on its own measurement, ``""`` if it can.
+
+    ``region`` (an edge-preserving mapping's labels) turns the position reason
+    into the region's: a SOL channel is measured but outside the closed-flux
+    fitting domain, not "unmapped".
+    """
+    where = _position_reasons(position, region)
     reasons = []
-    for v, s, x in zip(value, sigma, position):
+    for v, s, why_x in zip(value, sigma, where):
         why = []
         if not np.isfinite(v):
             why.append("non-finite value")
@@ -1791,8 +2392,8 @@ def _own_rejections(value, sigma, position, *, sigma_required=True):
                 why.append("non-finite sigma")
             elif s <= 0:
                 why.append("non-positive sigma")
-        if not np.isfinite(x):
-            why.append("outside the LCFS or the equilibrium grid (unmapped position)")
+        if why_x:
+            why.append(why_x)
         reasons.append("; ".join(why))
     return reasons
 
@@ -1847,12 +2448,17 @@ def _parameter_count(method, coefficients, n_used, gp_inputs):
 
 def _make_report(quantity, *, coordinate, fit, order_requested, time, time_index,
                  position, value, sigma, sigma_used, used, reasons, gp_inputs,
-                 grid, curve, curve_std, notes):
+                 grid, curve, curve_std, notes, status=None, region=None,
+                 sigma_treatment=(), assumptions=(), domains=None):
     position = np.asarray(position, dtype=float)
     value = np.asarray(value, dtype=float)
     used = np.asarray(used, dtype=bool)
     fitted = np.full(position.shape, np.nan)
     finite = np.isfinite(position)
+    if region is not None:
+        # The fit is a closed-flux function: evaluating it at a SOL channel
+        # would read the clipped edge value back as a "prediction" there.
+        finite &= np.asarray(region) == "closed_flux"
     if finite.any():
         fitted[finite] = np.asarray(fit(position[finite]), dtype=float).reshape(-1)
     sigma_used = np.where(used, np.asarray(sigma_used, dtype=float), np.nan)
@@ -1879,6 +2485,10 @@ def _make_report(quantity, *, coordinate, fit, order_requested, time, time_index
         function=fit, grid=np.asarray(grid, dtype=float),
         curve=np.asarray(fit(np.asarray(grid, dtype=float)), dtype=float),
         curve_std=curve_std, notes=tuple(notes),
+        status=status if status is not None else getattr(fit, "status", None),
+        region=None if region is None else tuple(str(r) for r in region),
+        sigma_treatment=tuple(sigma_treatment), assumptions=tuple(assumptions),
+        domains=dict(domains or {}),
     )
 
 
@@ -1896,6 +2506,8 @@ def profile_fit_report_thomson_scattering(
     enforce_physical=True,
     *,
     coordinate="rho_tor_norm",
+    channel_validity="joint",
+    ne_separatrix="legacy",
 ):
     """Fit Thomson ``T_e`` and ``n_e`` and report how well each fit reproduces its channels.
 
@@ -1933,6 +2545,12 @@ def profile_fit_report_thomson_scattering(
         Reduce the order until the profile is physical inside the LCFS [-].
     coordinate : str, optional
         ``rho_tor_norm``, ``rho_pol_norm`` or ``psi_norm`` [-].
+    channel_validity : str, optional
+        ``"joint"`` or ``"independent"``, as
+        :func:`profile_fitting_thomson_scattering` [-].
+    ne_separatrix : str or tuple, optional
+        ``"legacy"``, ``"none"`` or ``(value, sigma)`` in m^-3, as
+        :func:`profile_fitting_thomson_scattering` [-].
 
     Returns
     -------
@@ -1943,7 +2561,8 @@ def profile_fit_report_thomson_scattering(
     Raises
     ------
     ValueError
-        No Thomson sample within tolerance; an unknown ``coordinate``.
+        No Thomson sample within tolerance; an unknown ``coordinate``,
+        ``channel_validity`` or ``ne_separatrix``.
     CoordinateUnavailableError
         The mapping cannot supply ``coordinate``.
 
@@ -1952,11 +2571,24 @@ def profile_fit_report_thomson_scattering(
     1. Fit exactly as :func:`profile_fitting_thomson_scattering` does.
     2. For each channel record why it was refused: a non-finite value, a
        non-finite or non-positive sigma, an unmapped position (outside the LCFS
-       or the equilibrium grid), or -- Thomson measures both quantities on one
-       channel -- the other quantity's refusal.
+       or the equilibrium grid; from an edge-preserving mapping, its SOL or
+       private-flux region), or -- with ``channel_validity="joint"``, since
+       Thomson measures both quantities on one channel -- the other
+       quantity's refusal.
     3. ``r_i = (y_i - f(x_i)) / sigma_i`` at every used channel, with the sigma
        the fit was weighted with (after its floors); ``chi2 = sum r_i^2``;
-       ``nu = N - k`` (see :class:`FitReport` for ``k``).
+       ``nu = N - k`` (see :class:`FitReport` for ``k``).  A separatrix
+       pseudo-observation is not a channel: its penalty is recorded apart, in
+       ``domains["separatrix_prior_penalty"]``.
+    4. Record the guard's status, each channel's sigma treatment, the
+       imposed assumptions and the measurement / fitting / evaluation
+       domains (:class:`FitReport`).
+
+    Defaults
+    --------
+    ``channel_validity = "joint"`` and ``ne_separatrix = "legacy"`` are
+    legacy compatibility values, as in
+    :func:`profile_fitting_thomson_scattering`.
 
     Assumptions
     -----------
@@ -1983,13 +2615,14 @@ def profile_fit_report_thomson_scattering(
     run = _fit_thomson(
         ods, time_ms, mapped_positions, Te_order, Ne_order, uncertainty_option,
         rho_points, fitting_function_te, fitting_function_ne, time_tolerance_ms,
-        enforce_physical, coordinate,
+        enforce_physical, coordinate, channel_validity, ne_separatrix,
     )
-    raw, valid = run["raw"], run["valid"]
+    raw, region = run["raw"], run["region"]
     own = {
-        name: _own_rejections(raw[name], raw[f"{name}_std"], raw["x"])
+        name: _own_rejections(raw[name], raw[f"{name}_std"], raw["x"], region=region)
         for name in ("t_e", "n_e")
     }
+    joint = run["channel_validity"] == "joint"
     reports = {}
     for name, other, fit, order, sigma_key, notes, gp, std in (
         ("t_e", "n_e", run["T_e_fit"], Te_order, "t_e_sigma_used", run["te_notes"],
@@ -1997,10 +2630,15 @@ def profile_fit_report_thomson_scattering(
         ("n_e", "t_e", run["n_e_fit"], Ne_order, "n_e_sigma_used", run["ne_notes"],
          run["ne_gp"], run["n_e_std_eval"]),
     ):
-        reasons = [
-            mine or (f"refused with the channel's {other} ({theirs})" if theirs else "")
-            for mine, theirs in zip(own[name], own[other])
-        ]
+        evidence = run["evidence"][name]
+        valid = evidence["valid"]
+        if joint:
+            reasons = [
+                mine or (f"refused with the channel's {other} ({theirs})" if theirs else "")
+                for mine, theirs in zip(own[name], own[other])
+            ]
+        else:
+            reasons = own[name]
         sigma_used = np.full(valid.shape, np.nan)
         sigma_used[valid] = run[sigma_key]
         reports[name] = _make_report(
@@ -2008,7 +2646,9 @@ def profile_fit_report_thomson_scattering(
             time=run["time"], time_index=run["time_index"], position=raw["x"],
             value=raw[name], sigma=raw[f"{name}_std"], sigma_used=sigma_used,
             used=valid, reasons=reasons, gp_inputs=gp, grid=run["rho_eval"],
-            curve=None, curve_std=std, notes=notes,
+            curve=None, curve_std=std, notes=notes, status=evidence["status"],
+            region=region, sigma_treatment=evidence["sigma_treatment"],
+            assumptions=evidence["assumptions"], domains=evidence["domains"],
         )
     return reports
 
@@ -2086,6 +2726,11 @@ def profile_fit_report_charge_exchange(
        gives all of them a uniform one, and the report notes it.
     3. Residuals, chi-square and ``nu = N - k`` as in :class:`FitReport`, with
        the sigmas the fit was weighted with.
+    4. Record the evidence: status ``unchecked`` (no physicality guard runs
+       on charge exchange), each channel's sigma treatment and region, and
+       ``domains`` -- the measured span, the fitted span, the evaluation grid,
+       the intervals outside the fitted span and whether they are held or
+       extrapolated, and where ``T_i`` is clipped at zero.
 
     Assumptions
     -----------
@@ -2110,21 +2755,24 @@ def profile_fit_report_charge_exchange(
         rho_points, fitting_function_ti, fitting_function_vtor, ion_index,
         time_tolerance_ms, clamp_to_measured_span, coordinate,
     )
-    raw = run["raw"]
+    raw, region = run["raw"], run["region"]
     reports = {}
     for name, fit, order, valid_key, gp, std in (
         ("t_i", run["Ti_fit"], Ti_order, "ti_valid", run["ti_gp"], run["Ti_std_eval"]),
         ("velocity_tor", run["Vtor_fit"], Vtor_order, "v_valid", run["v_gp"], run["Vtor_std_eval"]),
     ):
-        _, sigma_usable = _channel_fit_mask(raw[name], raw[f"{name}_std"], raw["x"])
-        reasons = _own_rejections(raw[name], raw[f"{name}_std"], raw["x"], sigma_required=sigma_usable)
+        _, sigma_usable = _channel_fit_mask(raw[name], raw[f"{name}_std"], raw["x"], region)
+        reasons = _own_rejections(raw[name], raw[f"{name}_std"], raw["x"], sigma_required=sigma_usable,
+                                  region=region)
         notes = () if sigma_usable else ("no channel carried a usable sigma; a uniform sigma was used",)
+        evidence = run["evidence"][name]
         reports[name] = _make_report(
             name, coordinate=run["coordinate"], fit=fit, order_requested=int(order),
             time=run["time"], time_index=run["time_index"], position=raw["x"],
             value=raw[name], sigma=raw[f"{name}_std"],
             sigma_used=run[f"{name}_sigma_used"], used=run[valid_key], reasons=reasons,
             gp_inputs=gp, grid=run["rho_eval"], curve=None, curve_std=std, notes=notes,
+            region=region, sigma_treatment=evidence["sigma_treatment"], domains=evidence["domains"],
         )
     return reports
 
