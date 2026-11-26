@@ -1,0 +1,1009 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VAFT data-asset audit · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/" />
+        
+
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.design-principles" data-path="/vaft/develop/reference/design-principles/">
+                    
+                        <a href="/vaft/develop/reference/design-principles/" onclick="pageScrollToTop(this)">Design principles and foundations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >VAFT data-asset audit</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>6f8b47e</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="">VAFT data-asset audit</h1>
+                    
+<h1 id="vaft-data-asset-audit-2307">VAFT data-asset audit (#2307)</h1>
+
+<p>This folder holds the evidence and the policy that the data-distribution work under #2304 builds on.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Contents</th>
+      <th>#2307 deliverable</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="inventory.yaml"><code class="language-plaintext highlighter-rouge">inventory.yaml</code></a></td>
+      <td>Asset groups with tree size, LFS and wheel membership, consumers and proposed placement. One row per registered reference sample, with every SHA-256 its manifest pins checked against the stored file.</td>
+      <td>A</td>
+    </tr>
+    <tr>
+      <td><a href="storage_policy.md"><code class="language-plaintext highlighter-rouge">storage_policy.md</code></a></td>
+      <td>Categories, placement and retention rules, the EFUND baseline contract, historical references, conflicts with earlier decisions.</td>
+      <td>B</td>
+    </tr>
+    <tr>
+      <td><a href="migration_matrix.md"><code class="language-plaintext highlighter-rouge">migration_matrix.md</code></a></td>
+      <td>Each asset group: where it is, where it goes, who depends on it, which issue moves it, and what must pass first.</td>
+      <td>C</td>
+    </tr>
+    <tr>
+      <td><a href="measurements/2026-11-25.json"><code class="language-plaintext highlighter-rouge">measurements/2026-11-25.json</code></a></td>
+      <td>Dated tree, history, LFS, sample-version, package and GitHub sizes.</td>
+      <td>D</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Everything here is produced by <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/workflow/data_asset_audit/audit_assets.py"><code class="language-plaintext highlighter-rouge">workflow/data_asset_audit/audit_assets.py</code></a>. The script only runs Git plumbing against a ref and never touches the working tree, so it also works in a sparse checkout. It does not import <code class="language-plaintext highlighter-rouge">vaft</code>.</p>
+
+<h2 id="rerunning">Rerunning</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># Deterministic inventory of a tree (default HEAD); --check exits 1 on drift.</span>
+python workflow/data_asset_audit/audit_assets.py inventory
+python workflow/data_asset_audit/audit_assets.py inventory <span class="nt">--check</span>
+
+<span class="c"># Dated measurement. Fetch first so the history scope equals what a clone gets.</span>
+git fetch <span class="nt">--prune</span> <span class="nt">--tags</span> origin
+python workflow/data_asset_audit/audit_assets.py measure <span class="se">\</span>
+    <span class="nt">--ref</span> origin/develop <span class="nt">--ref</span> origin/main <span class="se">\</span>
+    <span class="nt">--output</span> docs/architecture/data_assets/measurements/<span class="si">$(</span><span class="nb">date</span> +%F<span class="si">)</span>.json
+</code></pre></div></div>
+
+<ul>
+  <li><strong>Reads the committed ref.</strong> The script reads the ref, not the working tree. After changing it or its groups, commit first, then regenerate and commit the inventory.</li>
+  <li><strong>Ignores its own files.</strong> The audit leaves its own files (this folder, the script, its test) out of every count, so a regenerated inventory does not depend on itself.</li>
+  <li><strong>Not a CI gate.</strong> <code class="language-plaintext highlighter-rouge">inventory --check</code> is a review aid. The consumer lists change whenever a test starts or stops naming a sample, so a CI gate would fail unrelated pull requests.</li>
+</ul>
+
+<h2 id="baseline-measurement-2026-11-25">Baseline measurement (2026-11-25)</h2>
+
+<p>Refs: <code class="language-plaintext highlighter-rouge">origin/develop</code> f878d31ae, <code class="language-plaintext highlighter-rouge">origin/main</code> 548d12d2e. History scope: the 30 origin branches and tags a full clone downloads.</p>
+
+<p>These numbers measure different things. Do not compare them with each other:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Metric</th>
+      <th>Value</th>
+      <th>Method</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Current tree, develop</td>
+      <td><strong>941 MB</strong>, 3,497 files (629 MB packed locally)</td>
+      <td><code class="language-plaintext highlighter-rouge">git ls-tree -r -l</code>, LFS files count as pointers; packed = <code class="language-plaintext highlighter-rouge">objectsize:disk</code> of the tree’s blobs</td>
+    </tr>
+    <tr>
+      <td>Current tree, main</td>
+      <td>907 MB, 3,314 files (603 MB packed)</td>
+      <td>same</td>
+    </tr>
+    <tr>
+      <td>History, clone scope</td>
+      <td><strong>3.01 GB packed</strong> (14.58 GB raw, 75,801 blobs)</td>
+      <td><code class="language-plaintext highlighter-rouge">rev-list --objects</code> + <code class="language-plaintext highlighter-rouge">cat-file --batch-check</code>, local packing</td>
+    </tr>
+    <tr>
+      <td>GitHub repository size</td>
+      <td>3.18 GB (3,103,164 KiB = 2.96 GiB)</td>
+      <td><code class="language-plaintext highlighter-rouge">gh api repos/VEST-Tokamak/vaft .size</code></td>
+    </tr>
+    <tr>
+      <td>Git LFS objects, current tree</td>
+      <td>165.1 MB (4 EFIT tables)</td>
+      <td>sizes recorded in the pointers</td>
+    </tr>
+    <tr>
+      <td>Git LFS objects, all history</td>
+      <td>482.5 MB (11 objects, 3 table generations); 317.4 MB in the 7 not in today’s trees</td>
+      <td>every pointer in history</td>
+    </tr>
+    <tr>
+      <td>PyPI 0.9.0 wheel / sdist</td>
+      <td>18.1 MB / 28.0 MB</td>
+      <td>PyPI JSON API</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="where-the-clones-bytes-are">Where the clone’s bytes are</h3>
+
+<p>These are the history sizes by asset group, packed. “Raw” is the uncompressed size of every stored version.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Group</th>
+      <th style="text-align: right">Blobs</th>
+      <th style="text-align: right">Packed</th>
+      <th style="text-align: right">Raw</th>
+      <th style="text-align: right">Share of packed</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">samples.shot.sources</code> (pre-EFIT source products, DAQ raw)</td>
+      <td style="text-align: right">43</td>
+      <td style="text-align: right">977 MB</td>
+      <td style="text-align: right">1,003 MB</td>
+      <td style="text-align: right">32 %</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">samples.shot.representations</code> (<code class="language-plaintext highlighter-rouge">omas.json.gz</code>, <code class="language-plaintext highlighter-rouge">imas.nc</code>)</td>
+      <td style="text-align: right">88</td>
+      <td style="text-align: right">899 MB</td>
+      <td style="text-align: right">1,920 MB</td>
+      <td style="text-align: right">30 %</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">notebooks.outputs</code></td>
+      <td style="text-align: right">849</td>
+      <td style="text-align: right">279 MB</td>
+      <td style="text-align: right">1,006 MB</td>
+      <td style="text-align: right">9 %</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">history.retired_layouts</code> (no longer in the tree)</td>
+      <td style="text-align: right">46</td>
+      <td style="text-align: right">261 MB</td>
+      <td style="text-align: right">939 MB</td>
+      <td style="text-align: right">9 %</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">history.gh_pages_backups</code> (only on <code class="language-plaintext highlighter-rouge">backup/gh-pages-20261021</code> and tag <code class="language-plaintext highlighter-rouge">archive/gh-pages-develop</code>)</td>
+      <td style="text-align: right">53,336</td>
+      <td style="text-align: right">245 MB</td>
+      <td style="text-align: right">8,137 MB</td>
+      <td style="text-align: right">8 %</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">legacy.raw_fixtures</code></td>
+      <td style="text-align: right">90</td>
+      <td style="text-align: right">120 MB</td>
+      <td style="text-align: right">218 MB</td>
+      <td style="text-align: right">4 %</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">samples.wheel_projection</code></td>
+      <td style="text-align: right">28</td>
+      <td style="text-align: right">62 MB</td>
+      <td style="text-align: right">189 MB</td>
+      <td style="text-align: right">2 %</td>
+    </tr>
+    <tr>
+      <td>everything else</td>
+      <td style="text-align: right">21,321</td>
+      <td style="text-align: right">169 MB</td>
+      <td style="text-align: right">1,171 MB</td>
+      <td style="text-align: right">6 %</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Reference samples take <strong>2.2 GB of the 3.0 GB</strong> a clone downloads. That counts every sample group plus the retired layouts. Compressed sample files barely delta against their earlier versions: the source products pack at 97 % of their raw size. So every regeneration adds roughly the full file size to history again.</p>
+
+<p>The current <code class="language-plaintext highlighter-rouge">origin/gh-pages</code> is already a single commit. Only 5 MB of it is not shared with a code branch. The 245 MB lives on a backup branch and an archive tag.</p>
+
+<h3 id="current-tree-develop">Current tree (develop)</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Group</th>
+      <th style="text-align: right">Files</th>
+      <th style="text-align: right">Bytes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">samples.shot.representations</code></td>
+      <td style="text-align: right">11</td>
+      <td style="text-align: right">298.7 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">legacy.raw_fixtures</code></td>
+      <td style="text-align: right">83</td>
+      <td style="text-align: right">193.5 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">samples.shot.sources</code></td>
+      <td style="text-align: right">20</td>
+      <td style="text-align: right">179.2 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">notebooks.outputs</code></td>
+      <td style="text-align: right">61</td>
+      <td style="text-align: right">53.5 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">docs.media</code></td>
+      <td style="text-align: right">566</td>
+      <td style="text-align: right">51.6 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">samples.wheel_projection</code></td>
+      <td style="text-align: right">3</td>
+      <td style="text-align: right">20.8 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">workflow.results</code></td>
+      <td style="text-align: right">24</td>
+      <td style="text-align: right">20.4 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">efit.gfile_fixtures</code></td>
+      <td style="text-align: right">6</td>
+      <td style="text-align: right">14.7 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">test.fixtures</code></td>
+      <td style="text-align: right">308</td>
+      <td style="text-align: right">13.5 MB</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">samples.shot.stage_products</code></td>
+      <td style="text-align: right">15</td>
+      <td style="text-align: right">12.5 MB</td>
+    </tr>
+    <tr>
+      <td>other groups</td>
+      <td style="text-align: right">170</td>
+      <td style="text-align: right">43.0 MB</td>
+    </tr>
+    <tr>
+      <td>source code and other small unclaimed files</td>
+      <td style="text-align: right">2,230</td>
+      <td style="text-align: right">39.4 MB</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="history-that-has-no-retention-rule-today">History that has no retention rule today</h3>
+
+<ul>
+  <li><strong>Reference samples.</strong> 24 sample <code class="language-plaintext highlighter-rouge">reference_id</code>s have been registered over time: 7 current, 17 superseded. This counts repository and wheel manifests, including the retired <code class="language-plaintext highlighter-rouge">packaging/wheel_samples</code>. Their manifests record 120 distinct representation byte versions, and all 120 are still somewhere in history. Some survive only under a retired path such as <code class="language-plaintext highlighter-rouge">packaging/wheel_samples/39915</code>. History is today the only copy of the superseded ones.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">reference_id</code> reused for changed bytes.</strong> Ten <code class="language-plaintext highlighter-rouge">reference_id</code>s name more than one version of a representation, four of them current:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">vest-39915-until-efit-v1</code> to <code class="language-plaintext highlighter-rouge">v5</code>. From v1 to today, the compact wheel copy (<code class="language-plaintext highlighter-rouge">wheel_samples/39915</code>) has carried the same <code class="language-plaintext highlighter-rouge">reference_id</code> as the repository sample but different bytes. A wheel install and a repository checkout therefore deliver different data under one name (<code class="language-plaintext highlighter-rouge">inventory.yaml</code> → <code class="language-plaintext highlighter-rouge">reference_ids_shared_by_different_bytes</code>).</li>
+      <li><code class="language-plaintext highlighter-rouge">vest-41524/41672-pipeline-full-imas-v2</code> and <code class="language-plaintext highlighter-rouge">-v6</code>, and <code class="language-plaintext highlighter-rouge">vest-48224-kinetic-300ms-v2</code>: bytes changed without a new id.</li>
+    </ul>
+
+    <p>A <code class="language-plaintext highlighter-rouge">reference_id</code> alone has therefore not identified bytes.</p>
+  </li>
+  <li><strong>EFIT Green tables.</strong> Three generations are in LFS history: the 2026-07 packaged table (be3be688b), the #695 regeneration (4d22d4484) and the current #708 all-circuits table (e2f73cea8). <code class="language-plaintext highlighter-rouge">ep129129.ddd</code> has not changed since #695, so it belongs to the current baseline. The other 7 objects, 317.4 MB, exist only in history. They are in this machine’s LFS store; whether the LFS server still has them was not checked.</li>
+  <li><strong>Retired layouts.</strong> <code class="language-plaintext highlighter-rouge">history.retired_layouts</code> (261 MB) holds files for shots with no registered sample, such as <code class="language-plaintext highlighter-rouge">vaft/data/39916.json</code>, <code class="language-plaintext highlighter-rouge">39917.json</code> and <code class="language-plaintext highlighter-rouge">44740_imas_equilibrium.h5</code>.</li>
+</ul>
+
+<p>The <a href="storage_policy.md#4-historical-references">policy</a> treats all of these as historical references: each is archived before #207 may purge it, or retired by a recorded decision.</p>
+
+<h3 id="what-a-migration-could-remove-estimate">What a migration could remove (estimate)</h3>
+
+<p>This is an estimate from the packed sizes above, not a measured rewrite. Repacking after a purge changes the deltas. Every step requires the archive step above first.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Step</th>
+      <th style="text-align: right">Removes (packed)</th>
+      <th style="text-align: right">Clone after</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Now</td>
+      <td style="text-align: right"> </td>
+      <td style="text-align: right">~3.0 GB</td>
+    </tr>
+    <tr>
+      <td>#2328 + #207: sample representations, sources and retired layouts (archived to Releases first)</td>
+      <td style="text-align: right">~2.14 GB</td>
+      <td style="text-align: right">~0.87 GB</td>
+    </tr>
+    <tr>
+      <td>+ #2117 retention decision: delete <code class="language-plaintext highlighter-rouge">backup/gh-pages-20261021</code> and <code class="language-plaintext highlighter-rouge">archive/gh-pages-develop</code></td>
+      <td style="text-align: right">~0.24 GB</td>
+      <td style="text-align: right">~0.63 GB</td>
+    </tr>
+    <tr>
+      <td>+ decision on <code class="language-plaintext highlighter-rouge">legacy.raw_fixtures</code></td>
+      <td style="text-align: right">up to ~0.12 GB</td>
+      <td style="text-align: right">~0.51 GB</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Notebook outputs (0.28 GB) stay in the estimate because no issue owns them yet (see the <a href="storage_policy.md#8-unresolved-decisions">policy</a>).</p>
+
+<h3 id="available-now-without-a-history-rewrite">Available now, without a history rewrite</h3>
+
+<ul>
+  <li><strong>Partial clone.</strong> <code class="language-plaintext highlighter-rouge">git clone --filter=blob:none</code> downloads blobs only for the checked-out commit. The develop tree’s blobs take 629 MB packed locally (941 MB raw). An actual partial clone was not timed. The audit runs git with lazy fetching disabled, so in such a clone it counts absent blobs as missing rather than downloading them, and its sizes are then incomplete.</li>
+  <li><strong>CI.</strong> Three jobs clone the full history with <code class="language-plaintext highlighter-rouge">fetch-depth: 0</code>: <code class="language-plaintext highlighter-rouge">docs.yml</code> (two jobs) and <code class="language-plaintext highlighter-rouge">bootstrap-ci.yml</code>. They need commit history and refs, not old blobs. <code class="language-plaintext highlighter-rouge">actions/checkout</code>’s <code class="language-plaintext highlighter-rouge">filter: blob:none</code> would cut each of these from ~3 GB to the trees they actually read: <code class="language-plaintext highlighter-rouge">docs/build.py</code> archives both <code class="language-plaintext highlighter-rouge">origin/main</code> and <code class="language-plaintext highlighter-rouge">origin/develop</code>, so about two trees for the docs jobs. This belongs to #2331; check it against <code class="language-plaintext highlighter-rouge">docs/build.py</code>, which reads <code class="language-plaintext highlighter-rouge">origin/main</code> and <code class="language-plaintext highlighter-rouge">origin/develop</code> itself.</li>
+</ul>
+
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VAFT">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#rerunning" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Rerunning</a></li><li class="page-toc-item page-toc-level-2"><a href="#baseline-measurement-2026-11-25" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Baseline measurement (2026-11-25)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#where-the-clones-bytes-are" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where the clone’s bytes are</a></li><li class="page-toc-item page-toc-level-3"><a href="#current-tree-develop" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current tree (develop)</a></li><li class="page-toc-item page-toc-level-3"><a href="#history-that-has-no-retention-rule-today" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">History that has no retention rule today</a></li><li class="page-toc-item page-toc-level-3"><a href="#what-a-migration-could-remove-estimate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What a migration could remove (estimate)</a></li><li class="page-toc-item page-toc-level-3"><a href="#available-now-without-a-history-rewrite" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Available now, without a history rewrite</a></li></ul></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "architecture/data_assets/README.md",
+        "mtime": "",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-11-26 18:17:53 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

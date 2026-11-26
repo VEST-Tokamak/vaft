@@ -1,0 +1,1110 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Design principles and methodological foundations · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+<link rel="stylesheet" href="/vaft/develop/assets/animations/player.css">
+
+            <link rel="prev" href="/vaft/develop/reference/formula/transport/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/formula/units/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="getting-started">Getting started</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.getting-started.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="architecture">Framework and scientific architecture</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.architecture.design-principles" data-path="/vaft/develop/reference/design-principles/">
+                    
+                        <a href="/vaft/develop/reference/design-principles/" onclick="pageScrollToTop(this)">Design principles and foundations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.scientific-contracts" data-path="/vaft/develop/reference/scientific-contracts/">
+                    
+                        <a href="/vaft/develop/reference/scientific-contracts/" onclick="pageScrollToTop(this)">Scientific contracts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.architecture.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="plasma-physics">Plasma physics and models</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.particle-motion" data-path="/vaft/develop/guide/particle-motion/">
+                    
+                        <a href="/vaft/develop/guide/particle-motion/" onclick="pageScrollToTop(this)">Particle motion and invariants</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.gyrokinetic-results" data-path="/vaft/develop/reference/gyrokinetic-results/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-results/" onclick="pageScrollToTop(this)">Gyrokinetic scientific results</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.plasma-physics.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="vest-imas-data">VEST and IMAS data</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.vest-imas-data.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="apis-visualization">APIs and visualization</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.animation-reference" data-path="/vaft/develop/reference/animation/">
+                    
+                        <a href="/vaft/develop/reference/animation/" onclick="pageScrollToTop(this)">Animation gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.apis-visualization.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="software-integrations">Software and integrations</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.software-integrations.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="resources">Resources and support</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.resources.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Design principles and methodological foundations</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>6f8b47e</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Design_principles">Design principles and methodological foundations</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Research and methodological foundations of VAFT, their distinct relationships, and evidence-backed mappings to current code and documentation.</dd>
+    <dt>Prerequisites / inputs</dt><dd>Scientific architecture; no running database or solver required.</dd>
+    <dt>Expected result</dt><dd>Understand which ideas inform VAFT, which mechanisms exist, and which standards or research-publication capabilities are not claimed.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>VAFT integrates experimental records, physical models, computation and research practice.
+Its design is informed by <strong>several complementary traditions</strong>, not derived from a
+single FAIR standard. This page explains those traditions and maps them to
+<a href="/vaft/develop/reference/scientific-architecture/">scientific architecture</a>,
+<a href="/vaft/develop/reference/computational-layers/">computational layers</a>,
+<a href="/vaft/develop/reference/credibility-applicability/">scientific credibility</a>
+and inspectable implementations. It is an explanatory guide, <strong>not a certificate of
+compliance</strong>, an evidence of universal portability, or a claim of scientific correctness.</p>
+
+<p>The original
+<a href="/vaft/develop/reference/diagrams/#the-vaft-framework-pillars-research-cycle-managed-pipeline-provenance">scientific infrastructure principles</a>
+diagram deliberately provides a compact two-sided overview: cross-disciplinary FAIR /
+PROV / TRUST principles and fusion-community methodological requirements. The first
+diagram below is its <strong>expanded documentary interpretation</strong>, not a silent replacement
+for the versioned <code class="language-plaintext highlighter-rouge">vaft.diagram.scientific_infrastructure_principles()</code> asset.</p>
+
+<h2 id="reading-the-relationships">Reading the relationships</h2>
+
+<p>Four relationships must not be conflated:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Relation</th>
+      <th>Meaning</th>
+      <th>Appropriate example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Extends / adapts</strong></td>
+      <td>One published framework explicitly develops another</td>
+      <td>FAIR4RS adapts FAIR for research software; workflow FAIR guidance adapts FAIR to executable workflows</td>
+    </tr>
+    <tr>
+      <td><strong>Complements</strong></td>
+      <td>Independent frameworks address different scientific concerns</td>
+      <td>FAIR access does not establish numerical validity; V&amp;V addresses different questions</td>
+    </tr>
+    <tr>
+      <td><strong>Informs</strong></td>
+      <td>An intellectual or methodological precedent motivates a VAFT choice</td>
+      <td>OMFIT’s integration practice informs composition of codes and data, without implying common software architecture</td>
+    </tr>
+    <tr>
+      <td><strong>Implemented through</strong></td>
+      <td>A specific VAFT component realizes a design mechanism</td>
+      <td>Registry-defined relations are rendered by the scientific ontology explorer</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A conceptual similarity is not evidence of historical derivation or implementation of
+a formal standard. In particular, recording provenance is not the same as serializing
+W3C PROV, and making a result machine-readable does not prove its physical validity.</p>
+
+<h2 id="expanded-scientific-infrastructure-principles">Expanded scientific-infrastructure principles</h2>
+
+<p>The following <strong>documentation-level revision</strong> supplements the compact principles
+diagram. Its branches are <em>complementary concerns</em>, not a hierarchy of standards;
+the convergence on VAFT denotes design influence, not complete compliance.</p>
+
+<pre><code class="language-mermaid">flowchart TB
+  subgraph Stewardship["Research resource stewardship"]
+    FAIR["FAIR data (Wilkinson 2016)"]
+    RS["FAIR4RS: research software (Barker 2022)"]
+    WF["FAIR workflows (Goble 2020; Wilkinson 2025)"]
+    TRUST["TRUST: repository stewardship (Lin 2020)"]
+  end
+  subgraph Meaning["Scientific meaning and interpretation"]
+    SEM["Semantic interoperability (Vogt 2025)"]
+    BORN["Born-readable findings (Stocker 2025)"]
+    KNOW["Longitudinal knowledge and context"]
+  end
+  subgraph Execution["Computational and scientific practice"]
+    PROV["W3C PROV: provenance concepts"]
+    MODEL["Integrated modelling (OMFIT; IMAS)"]
+    VV["Verification, validation and applicability"]
+    MULTI["Cross-shot / cross-machine comparison"]
+  end
+  Stewardship --&gt; VAFT["VAFT: qualified, interpretable and reusable scientific workflows"]
+  Meaning --&gt; VAFT
+  Execution --&gt; VAFT
+</code></pre>
+
+<p>The expanded view makes <strong>semantic meaning, structured knowledge production, and
+long-term contextual recovery</strong> visible rather than treating them as automatic
+consequences of FAIRness. See the <a href="/vaft/develop/reference/diagrams/">four pillars</a>
+for architectural capabilities and the <a href="/vaft/develop/reference/research-domains/">research domains</a>
+for the modes of scientific use.</p>
+
+<h2 id="intellectual-and-methodological-lineages">Intellectual and methodological lineages</h2>
+
+<p>This second, distinct diagram records only <strong>defensible named relationships</strong>.
+Three edge kinds are used. Solid labelled edges between published frameworks denote
+published extensions or adaptations. Dotted edges mean complementary design influences,
+not ancestry or asserted standards compliance. Thick edges into VAFT point to a
+design concern whose concrete mechanisms, and their limits, are listed row by row in
+the evidence map below; they do not assert conformance with the originating framework.</p>
+
+<pre><code class="language-mermaid">flowchart LR
+  FAIR["FAIR (2016)"] --&gt;|adapted for software| FAIR4RS["FAIR4RS (2022)"]
+  FAIR --&gt;|applied to workflows| FAIRWF["FAIR workflows (2020, 2025)"]
+  FAIR -.-&gt;|complements| SEM["Semantic interoperability (Vogt 2025)"]
+  PROV["W3C PROV (2013)"] -.-&gt;|informs| TRACE["Traceable computations"]
+  TRUST["TRUST (2020)"] -.-&gt;|informs| ARCHIVE["Sustained records"]
+  OMFIT["OMFIT integrated modelling (2013, 2015)"] -.-&gt;|informs| COMPOSE["Reusable code/data composition"]
+  STOCKER["Born-readable findings (Stocker 2025)"] -.-&gt;|informs| BORN["Structured scientific results"]
+  VVUQ["Fusion V&amp;V and physical model applicability"] -.-&gt;|informs| VALID["Scientific qualification"]
+  FAIR4RS -.-&gt;|informs| VAFT["VAFT design choices"]
+  FAIRWF -.-&gt;|informs| VAFT
+  SEM -.-&gt;|informs| VAFT
+  TRACE ==&gt;|native records, see evidence map| VAFT
+  ARCHIVE ==&gt;|partially addressed| VAFT
+  COMPOSE ==&gt;|see evidence map| VAFT
+  BORN ==&gt;|partially realized| VAFT
+  VALID ==&gt;|see evidence map| VAFT
+</code></pre>
+
+<p>The diagrams are authored in this Jekyll page using Mermaid so they can be edited
+and reviewed with the associated scientific argument. They are <strong>not</strong> generated
+<code class="language-plaintext highlighter-rouge">vaft.diagram</code> API assets, which require a separate builder/renderer and asset
+freshness checks. This division avoids altering a canonical generated SVG without
+regenerating it.</p>
+
+<h2 id="principle-to-implementation-evidence-map">Principle-to-implementation evidence map</h2>
+
+<p>Statuses refer to <strong>named mechanisms</strong>, never to overall FAIR / PROV / TRUST
+certification. <em>Implemented</em> means the linked source or guide explicitly documents
+a concrete mechanism; it does not mean it has been independently evaluated for
+scientific effectiveness. <em>Partial</em> denotes a narrower realization than the
+referenced methodological programme. <em>Context</em> denotes influence rather than a
+software feature.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Lineage or concern</th>
+      <th>Design requirement</th>
+      <th>Implementation evidence</th>
+      <th>Assessment</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>FAIR (Wilkinson et al., 2016)</td>
+      <td>Discoverable, accessible, interoperable and reusable research data</td>
+      <td><a href="/vaft/develop/workflows/data-access-imas/">Data access and IMAS</a>; <a href="/vaft/develop/reference/database-data-sources/">database sources</a></td>
+      <td>Implemented mechanisms; no complete FAIR audit claimed</td>
+    </tr>
+    <tr>
+      <td>FAIR4RS (Barker et al., 2022)</td>
+      <td>Reusable, versioned and documented research software</td>
+      <td><a href="/vaft/develop/reference/api/">Generated API catalog</a>; <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/docs/README.md">documentation build</a>; <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/RELEASING.md">release process</a></td>
+      <td>Implemented documentation and release mechanisms; no principle-by-principle certification</td>
+    </tr>
+    <tr>
+      <td>FAIR computational workflows (Goble et al., 2020; Wilkinson et al., 2025)</td>
+      <td>Inspectable executable composition and workflow provenance</td>
+      <td><a href="/vaft/develop/workflows/automated-pipelines/">Automated pipelines</a>; <a href="/vaft/develop/reference/pipeline-graph/">pipeline lineage</a></td>
+      <td>Implemented workflows; FAIR publishing/discovery not fully assessed</td>
+    </tr>
+    <tr>
+      <td>Provenance (W3C PROV, 2013)</td>
+      <td>Distinguish inputs, activities, agents, versions and derived products</td>
+      <td><a href="/vaft/develop/reference/pipeline-graph/">Pipeline lineage</a>; <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/machine_mapping/provenance.py">machine mapping provenance</a></td>
+      <td>Implemented native records for pipeline stages and VEST shot-processing revisions; not enforced uniformly for every code; PROV exchange conformance unverified</td>
+    </tr>
+    <tr>
+      <td>TRUST (Lin et al., 2020)</td>
+      <td>Explain access, repository governance and long-term responsibility</td>
+      <td><a href="/vaft/develop/reference/database-data-sources/">Database and data sources</a>; <a href="/vaft/develop/reference/contacts/">contacts</a></td>
+      <td>Partial; trustworthy-repository certification not claimed</td>
+    </tr>
+    <tr>
+      <td>Semantic interoperability (Vogt et al., 2025)</td>
+      <td>Explicit concept identity, mapping, relations and unresolved ambiguity</td>
+      <td><a href="/vaft/develop/reference/ontology/">Ontology explorer</a>; <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/_ontology_graph.py">typed relation generator</a></td>
+      <td>Implemented typed semantics; no universal semantic equivalence</td>
+    </tr>
+    <tr>
+      <td>Born-readable scientific findings (Stocker et al., 2025)</td>
+      <td>Produce structured scientific resources <em>during</em> research, including context and evidence</td>
+      <td><a href="/vaft/develop/reference/ontology/">Ontology</a>; <a href="/vaft/develop/reference/credibility-applicability/">validation evidence</a>; <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/ml/_experiment_store.py">immutable study/run records</a></td>
+      <td>Partial: production-time structured registries and validation artifacts, and immutable study records for the ML workflow; publication-linked findings and external knowledge-graph aggregation unverified</td>
+    </tr>
+    <tr>
+      <td>Integrated modelling (Meneghini and Lao, 2013; IMAS)</td>
+      <td>Compose heterogeneous scientific codes and data without conflating methods</td>
+      <td><a href="/vaft/develop/reference/scientific-architecture/">Scientific architecture</a>; <a href="/vaft/develop/reference/computational-layers/">computational layers</a></td>
+      <td>Implemented design and code interfaces; portability depends on device mapping</td>
+    </tr>
+    <tr>
+      <td>Scientific credibility / V&amp;V</td>
+      <td>Separate source evidence, transformation, inference, applicability, numerical checks and independent validation</td>
+      <td><a href="/vaft/develop/reference/credibility-applicability/">Credibility and applicability</a>; <a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/validation/credibility.py">validation taxonomy</a></td>
+      <td>Implemented taxonomy and selected assessments; not a universal physical guarantee</td>
+    </tr>
+    <tr>
+      <td>Reproducible documentation (Ram, 2013)</td>
+      <td>Link generated descriptions to source revisions, catch broken relationships</td>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/develop/docs/README.md">Documentation build</a>; <a href="/vaft/develop/reference/diagrams/">diagram guide</a></td>
+      <td>Implemented for registered catalogs and assets</td>
+    </tr>
+    <tr>
+      <td>Longitudinal scientific knowledge recovery</td>
+      <td>Preserve period-dependent machine conventions and explain uncertainty rather than silently rewriting history</td>
+      <td><a href="/vaft/develop/reference/vest-diagnostics/">Diagnostics registry</a>; <a href="/vaft/develop/reference/imas-concepts/">machine mapping</a></td>
+      <td>Implemented selected VEST mappings; archive completeness is a separate measurement</td>
+    </tr>
+    <tr>
+      <td>Human-readable and machine-accessible interfaces</td>
+      <td>Expose the same scientific descriptions to people and software agents</td>
+      <td><a href="/vaft/develop/reference/api/">Documentation</a>; <a href="/vaft/develop/reference/mcp/">read-only MCP adapter</a></td>
+      <td>Implemented access mechanism; agent reasoning gains not evaluated</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="what-born-readable-does-and-does-not-mean-here">What “born-readable” does and does not mean here</h3>
+
+<p>Stocker et al.’s <strong>reborn</strong> research programme distinguishes (1) producing
+machine-readable expressions of findings while analysis is performed,
+(2) depositing the structured findings and connecting them to publications,
+and (3) collecting them in knowledge-graph aggregation systems.</p>
+
+<p>VAFT already supports a substantial part of <strong>stage 1</strong>: scientific quantities
+and relationships are described in source-controlled registries; analysis
+produces IMAS/OMAS data and machine-readable validation artifacts; individual
+study workflows can emit structured, content-addressed records. The
+<a href="/vaft/develop/reference/ontology/">ontology</a> encodes relations such as
+<code class="language-plaintext highlighter-rouge">measures</code>, <code class="language-plaintext highlighter-rouge">represented_by</code>, <code class="language-plaintext highlighter-rouge">consumes</code>, <code class="language-plaintext highlighter-rouge">produces</code>, <code class="language-plaintext highlighter-rouge">assumes</code> and
+<code class="language-plaintext highlighter-rouge">assessed_by</code>. The
+<a href="https://github.com/VEST-Tokamak/vaft/blob/develop/vaft/process/ml/_experiment_store.py">experiment store</a>
+records linked <code class="language-plaintext highlighter-rouge">study</code>, <code class="language-plaintext highlighter-rouge">run</code>, <code class="language-plaintext highlighter-rouge">evaluation</code>, <code class="language-plaintext highlighter-rouge">decision</code> and <code class="language-plaintext highlighter-rouge">manifest</code>
+objects for the ML research workflow; that <strong>specific implementation</strong> should
+not be generalized to every VAFT workflow.</p>
+
+<p>VAFT does <strong>not thereby demonstrate</strong> a single canonical repository-wide
+research-claim object that binds every numerical conclusion to its primary
+evidence, nor publication DOI linkage, deposited claims, or ORKG ingestion.
+These narrower gaps concern interoperability with the <em>full reborn publication
+lifecycle</em>, not absence of production-time machine-readable scientific work.</p>
+
+<h2 id="why-human-interpretation-still-matters">Why human interpretation still matters</h2>
+
+<p>Data-path compatibility, semantic identity, and physical interchangeability
+are distinct. A field in the IMAS equilibrium IDS can be numerically loadable
+without containing sufficient profile information for downstream MHD
+stability analysis. An inferred quantity is not a direct measurement; a
+converged calculation can violate its physical model’s validity conditions.
+Consequently:</p>
+
+<ul>
+  <li><strong>Data / numerical interoperability</strong> makes representations exchangeable.</li>
+  <li><strong>Semantic interoperability</strong> makes concept identities and relations explicit.</li>
+  <li><strong>Scientific qualification</strong> evaluates evidence, assumptions, scope and
+physical applicability for a particular use.</li>
+  <li><strong>Human and AI interpretability</strong> depends on exposing all three through
+documentation, diagrams, plots, notebooks and bounded agent interfaces.</li>
+</ul>
+
+<p>These are complementary design goals; no one entails the others. The
+<a href="/vaft/develop/reference/ontology/">ontology explorer</a>,
+<a href="/vaft/develop/reference/credibility-applicability/">credibility taxonomy</a>
+and <a href="/vaft/develop/reference/mcp/">MCP interface</a> expose different
+facets of that relationship. Expert review remains necessary when recovering
+historical calibration rules or resolving ambiguous scientific conventions.</p>
+
+<h2 id="scope-and-maintenance">Scope and maintenance</h2>
+
+<p>This page describes the code and documented behaviour on the branch used to
+build it. For a release or manuscript citation, use a <strong>fixed commit or
+release</strong>, not a mutable documentation URL alone. Prefer generated source links
+and registries over copying implementation details into narrative text. When
+a mechanism changes, update its evidence link and assessment here.</p>
+
+<p>The following are <strong>not established</strong> by this page: formal FAIR or TRUST
+certification; W3C PROV interchange compatibility; complete historical coverage;
+uniform enforcement of provenance for all codes; machine-to-machine portability
+without qualified mapping; or demonstrated improvement of agent accuracy or
+research productivity.</p>
+
+<h2 id="foundational-references">Foundational references</h2>
+
+<p>These are representative sources, not an asserted single historical genealogy.</p>
+
+<ul>
+  <li>Wilkinson, M. D. et al. (2016). <em>The FAIR Guiding Principles for scientific data management and stewardship</em>. <a href="https://doi.org/10.1038/sdata.2016.18">DOI:10.1038/sdata.2016.18</a>.</li>
+  <li>Barker, M. et al. (2022). <em>Introducing the FAIR Principles for research software</em>. <a href="https://doi.org/10.1038/s41597-022-01710-x">DOI:10.1038/s41597-022-01710-x</a>.</li>
+  <li>Goble, C. et al. (2020). <em>FAIR Computational Workflows</em>. <a href="https://doi.org/10.1162/dint_a_00033">DOI:10.1162/dint_a_00033</a>.</li>
+  <li>Wilkinson, S. R. et al. (2025). <em>Applying the FAIR Principles to computational workflows</em>. <a href="https://doi.org/10.1038/s41597-025-04451-9">DOI:10.1038/s41597-025-04451-9</a>.</li>
+  <li>W3C (2013). <em>PROV-DM: The PROV Data Model</em>. <a href="https://www.w3.org/TR/prov-dm/">Recommendation</a>.</li>
+  <li>Lin, D. et al. (2020). <em>The TRUST Principles for digital repositories</em>. <a href="https://doi.org/10.1038/s41597-020-0486-7">DOI:10.1038/s41597-020-0486-7</a>.</li>
+  <li>Dempsey, W. et al. (2022). <em>Sharing Begins at Home: How Continuous and Ubiquitous FAIRness Can Enhance Research Productivity and Data Reuse</em>. <a href="https://doi.org/10.1162/99608f92.44d21b86">DOI:10.1162/99608f92.44d21b86</a>.</li>
+  <li>Vogt, L. et al. (2025). <em>Suggestions for extending the FAIR Principles based on a linguistic perspective on semantic interoperability</em>. <a href="https://doi.org/10.1038/s41597-025-05011-x">DOI:10.1038/s41597-025-05011-x</a>.</li>
+  <li>Stocker, M. et al. (2025). <em>Rethinking the production and publication of machine-readable expressions of research findings</em>. <a href="https://doi.org/10.1038/s41597-025-04905-0">DOI:10.1038/s41597-025-04905-0</a>.</li>
+  <li>Meneghini, O. and Lao, L. (2013). <em>Integrated Modeling of Tokamak Experiments with OMFIT</em>. <a href="https://doi.org/10.1585/pfr.8.2403009">DOI:10.1585/pfr.8.2403009</a>.</li>
+  <li>Meneghini, O. et al. (2015). <em>Integrated modeling applications for tokamak experiments with OMFIT</em>. <a href="https://doi.org/10.1088/0029-5515/55/8/083008">DOI:10.1088/0029-5515/55/8/083008</a>.</li>
+  <li>Ram, K. (2013). <em>Git can facilitate greater reproducibility and increased transparency in science</em>. <a href="https://doi.org/10.1186/1751-0473-8-7">DOI:10.1186/1751-0473-8-7</a>.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/code/"><code>vaft.code</code></a></li>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/database/"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="validation"><a href="/vaft/develop/reference/api/validation/"><code>vaft.validation</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/machine-mapping/"><code>vaft.machine_mapping</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+    <script>
+    function prepare_mermaid_blocks() {
+        document.querySelectorAll('.language-mermaid').forEach(function (mermaidBlock) {
+            var pre = mermaidBlock.closest('pre');
+            if (!pre) {
+                return;
+            }
+
+            pre.classList.add('mermaid-diagram');
+
+            // The Copy plugin can run before Mermaid on an initial load or a
+            // GitBook AJAX page change. Restore diagrams to standalone blocks.
+            var wrapper = pre.closest('.code-block-wrapper');
+            if (!wrapper || !wrapper.parentNode) {
+                return;
+            }
+
+            var highlight = pre.closest('.highlight');
+            var diagram = highlight && wrapper.contains(highlight) ? highlight : pre;
+            wrapper.parentNode.insertBefore(diagram, wrapper);
+            wrapper.remove();
+        });
+    }
+
+    function render_mermaid() {
+        prepare_mermaid_blocks();
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: "default",
+        });
+        Promise.resolve(
+            window.mermaid.init(undefined, document.querySelectorAll('.language-mermaid'))
+        ).then(prepare_mermaid_blocks);
+    }
+
+    function initialize_mermaid() {
+        if (document.readyState === "loading") {
+            // Loading hasn't finished yet
+            document.addEventListener("DOMContentLoaded", render_mermaid);
+        } else {
+            // `DOMContentLoaded` has already fired
+            render_mermaid();
+        }
+    }
+
+    if (window.mermaid_script && window.mermaid) {
+        initialize_mermaid();
+    } else {
+        window.mermaid_script = document.createElement("script");
+        mermaid_script.onload = initialize_mermaid;
+        document.head.appendChild(mermaid_script);
+        mermaid_script.defer = true;
+        mermaid_script.id = 'mermaid-script';
+        mermaid_script.src = 'https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js';
+    }
+</script>
+
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/transport/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: transport">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/formula/units/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: units">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#reading-the-relationships" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading the relationships</a></li><li class="page-toc-item page-toc-level-2"><a href="#expanded-scientific-infrastructure-principles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Expanded scientific-infrastructure principles</a></li><li class="page-toc-item page-toc-level-2"><a href="#intellectual-and-methodological-lineages" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Intellectual and methodological lineages</a></li><li class="page-toc-item page-toc-level-2"><a href="#principle-to-implementation-evidence-map" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Principle-to-implementation evidence map</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#what-born-readable-does-and-does-not-mean-here" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What “born-readable” does and does not mean here</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#why-human-interpretation-still-matters" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Why human interpretation still matters</a></li><li class="page-toc-item page-toc-level-2"><a href="#scope-and-maintenance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Scope and maintenance</a></li><li class="page-toc-item page-toc-level-2"><a href="#foundational-references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Foundational references</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: units",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_units.md",
+            "ref": "_guide/Formula_reference_units.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Design_principles.md",
+        "mtime": "2026-10-25 09:00:00 +0900",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-11-26 18:17:53 +0900"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+<script src="/vaft/develop/assets/animations/loader.js"></script>
+<script src="/vaft/develop/assets/gitbook/adaptive.js"></script>
+</body>
+</html>

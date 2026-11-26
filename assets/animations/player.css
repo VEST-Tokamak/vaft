@@ -1,0 +1,23 @@
+.va-gallery-filters,.va-controls{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin:1rem 0}
+.va-gallery-filters label,.va-controls label{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;min-width:0}
+.va-gallery-filters input,.va-gallery-filters select,.va-controls select{max-width:100%;min-height:44px;font:inherit}
+.va-gallery-filters input{min-width:0;width:100%}
+.va-controls button,[data-activate],.va-enlarge-link{min-height:44px;padding:.4rem .8rem;border:1px solid #b5c4d8;border-radius:6px;background:#f5f8fc;color:#172337;font:inherit;cursor:pointer}
+.va-controls input[type=range]{max-width:100%;min-width:0;width:180px;min-height:44px}
+.va-controls button:focus-visible,[data-activate]:focus-visible,.va-controls input:focus-visible{outline:3px solid #1c67d2;outline-offset:2px}
+.va-animation{min-width:0;margin:1rem 0;padding:1rem;border:1px solid #d7e0eb;border-radius:8px;container-type:inline-size}
+.va-poster{display:block;max-width:100%;height:auto;max-height:340px;margin:auto}
+.va-stage{display:block;width:100%;height:auto;min-height:220px;max-height:550px;background:white}
+.va-readout{display:block;font:14px system-ui;overflow-wrap:anywhere;margin:.7rem 0}
+.va-trace{display:block;width:100%;max-height:140px}.va-trace-label{font-size:14px}
+.va-animation [data-animation-status]{font-size:14px;overflow-wrap:anywhere}
+.va-player.va-enlarged{position:fixed;inset:1rem;z-index:100;background:white;overflow:auto;padding:1rem;border:2px solid #1c67d2;border-radius:8px;box-shadow:0 0 0 2rem #0008;container-type:normal}
+.va-player.va-enlarged .va-stage{max-height:70vh}
+.va-animation-details{overflow-wrap:anywhere}.va-animation-details code{white-space:normal}
+@container(max-width:420px){.va-controls{align-items:stretch}.va-controls label{width:100%}.va-controls input[type=range]{flex:1}}
+[hidden]{display:none!important}
+@media(prefers-reduced-motion:reduce){.va-animation *{scroll-behavior:auto!important;transition:none!important}}
+
+.va-dialog{box-sizing:border-box;overflow:auto;width:min(1200px,96vw);max-width:96vw;max-height:94vh;padding:1rem;border:2px solid #1c67d2;border-radius:8px;background:white;color:#172337}
+.va-dialog::backdrop{background:#10253d88}
+.va-dialog .va-player.va-enlarged{position:static;inset:auto;padding:0;border:0;box-shadow:none;overflow:visible}

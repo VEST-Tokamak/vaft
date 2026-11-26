@@ -1,0 +1,11 @@
+{
+  "shot": 39915,
+  "namespace": "public",
+  "representation": "lazy OMAS",
+  "ids": [
+    "equilibrium"
+  ],
+  "time_slices": 8,
+  "first_time_s": 0.316,
+  "last_time_s": 0.327
+}
