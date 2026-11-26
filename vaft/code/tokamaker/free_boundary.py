@@ -58,13 +58,16 @@ from .runner import (
     _save_eqdsk,
     _wall_check,
 )
-from .topology import ScanTopology, TopologyReport, classify_boundary
+from .topology import D_R_SEP_CONVENTION, ScanTopology, TopologyReport, classify_boundary
 
 _log = logging.getLogger(__name__)
 
 SCAN_MANIFEST_NAME = "scan_manifest.json"
 CASE_MANIFEST_NAME = "case_manifest.json"
-SCAN_SCHEMA_VERSION = 1
+#: 2 (#2325): case topology reports carry ``d_r_sep_convention`` and their
+#: ``d_r_sep`` is lower minus upper.  Version-1 manifests hold upper minus
+#: lower and are re-classified on resume, never re-signed.
+SCAN_SCHEMA_VERSION = 2
 
 CONTROL_MODES = ("absolute_A", "offset_A", "scale")
 HOLDABLE = ("ip", "profile_shape", "pax", "axis_position")
@@ -587,6 +590,10 @@ class FreeBoundaryScan:
         ) or (
             contact_tolerance is not None
             and stored.get("contact_tolerance") != contact_tolerance
+        ) or (
+            # written before #2325: its d_r_sep is upper minus lower, the
+            # opposite of every report this scan writes now
+            stored and stored.get("d_r_sep_convention") != D_R_SEP_CONVENTION
         ):
             report = classify_boundary(reloaded.gfile, **self.classify_kwargs)
             if (
@@ -600,6 +607,17 @@ class FreeBoundaryScan:
                     "Re-classification of resumed case %s failed (%s); "
                     "keeping the stored topology", reloaded.case_id, report.reason,
                 )
+                if (
+                    stored.get("d_r_sep_convention") != D_R_SEP_CONVENTION
+                    and stored.get("d_r_sep") is not None
+                ):
+                    # an old-convention signed value cannot sit next to new
+                    # ones in one chain (a sign flip would read as a jump).
+                    # Keep it under an explicit name instead of re-signing it.
+                    stored["d_r_sep_upper_minus_lower"] = stored["d_r_sep"]
+                    stored["d_r_sep"] = None
+                    reloaded.topology = stored
+                    changed = True
             else:
                 reloaded.topology = report.to_dict()
                 reloaded.report = report
@@ -617,6 +635,10 @@ class FreeBoundaryScan:
                 return
             payload["topology"] = reloaded.topology
             payload["discontinuity"] = reloaded.discontinuity
+            if (reloaded.topology or {}).get("d_r_sep_convention") == D_R_SEP_CONVENTION:
+                # a quarantined pre-#2325 report keeps its old schema label:
+                # its topology and X-points still come from the old classifier
+                payload["schema_version"] = SCAN_SCHEMA_VERSION
             _write_json_atomic(reloaded.manifest, payload)
 
     # ----------------------------------------------------------------- #
