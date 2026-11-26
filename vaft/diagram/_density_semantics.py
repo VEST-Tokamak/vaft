@@ -1,4 +1,4 @@
-"""Electron density in four representations: measured, stored, flux-mapped, midplane-cut (#2253).
+"""Electron density in four representations: measured, stored, flux-mapped, midplane-cut.
 
 ``electron_density_semantics`` draws one time-matched sample -- by default
 the packaged VEST kinetic slice, shot 48224 at 300 ms -- as
@@ -328,7 +328,8 @@ def density_semantics(ods=None, *, time: float = SAMPLE_TIME, time_tolerance: fl
     profile_psi = None
     if grid_psi is not None and grid_psi.size == n_e.size:
         candidate = (grid_psi - psi_axis) / (psi_boundary - psi_axis)
-        # a grid.psi in another convention (Wb/rad against Wb, #278) normalizes off [0, 1]: not usable here
+        # a grid.psi in another convention (Wb/rad against Wb, a factor 2*pi apart)
+        # normalizes off [0, 1]: not usable here
         if np.nanmin(candidate) >= -0.05 and np.nanmax(candidate) <= 1.05:
             profile_psi, placed_by = candidate, "core_profiles grid.psi"
     if profile_psi is not None:

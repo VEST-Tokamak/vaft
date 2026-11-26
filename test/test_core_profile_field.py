@@ -186,7 +186,7 @@ def test_without_global_psi_the_map_is_normalised_by_the_profile_ends():
     assert _te_at_psi_n(ods, 0.25) == pytest.approx(75.0, abs=0.5)
 
 
-# --- issue #2253: the boundary outline decides what is plasma -----------------
+# --- the boundary outline decides what is plasma -------------------------------
 
 
 def test_the_packaged_kinetic_map_stays_inside_the_boundary_outline():

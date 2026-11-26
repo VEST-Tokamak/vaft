@@ -1,4 +1,4 @@
-"""Workflow specification against execution, and a verified IMAS/VAFT stage chain (#2150).
+"""Workflow specification against execution, and a verified IMAS/VAFT stage chain.
 
 ``workflow_specification_and_run``
     one workflow definition instantiated by an orchestrator into many runs,
@@ -26,7 +26,7 @@ PIPELINE = "workflow/automatic_pipeline_1_routine_data_processing"
 
 
 def workflow_specification_and_run(*, labels: bool = True) -> Diagram:
-    r"""A workflow specification instantiated into separate runs, each with its own artifact classes (#2150).
+    r"""A workflow specification instantiated into separate runs, each with its own artifact classes.
 
     The specification carries an identity and definition version, its
     components and dependencies (A -> B -> C), input and output expectations
@@ -133,7 +133,7 @@ PUBLISHED = (
 
 
 def imas_scientific_workflow_example(*, labels: bool = True) -> Diagram:
-    r"""The routine EFIT -> CHEASE -> MHD-stability chain as implemented: native files, IDS, digests (#2150).
+    r"""The routine EFIT -> CHEASE -> MHD-stability chain as implemented: native files, IDS, digests.
 
     Device data pass through machine-specific mapping and processing
     (diagnostics, eddy currents) into the scientific input IDSs: magnetics

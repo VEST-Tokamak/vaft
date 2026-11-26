@@ -343,7 +343,7 @@ def _grid_psi_only_ods(scale=1.0):
 
 @pytest.mark.parametrize("name", ["electron_temperature_profile", "electron_density_profile"])
 def test_a_core_profile_without_rho_pol_norm_takes_psi_norm_from_its_grid_psi(name):
-    """#2253: grid.psi against the time-matched equilibrium, not a sample index."""
+    """psi_N from grid.psi against the time-matched equilibrium, not a sample index."""
     ods, psi_n = _grid_psi_only_ods()
     model = build_model(name, normalize_entries(ods), time_slice=0, coordinate="psi_norm")
     assert model.coordinate_label == COORDINATE_LABELS["psi_norm"]
@@ -351,7 +351,7 @@ def test_a_core_profile_without_rho_pol_norm_takes_psi_norm_from_its_grid_psi(na
 
 
 def test_a_grid_psi_off_the_unit_interval_is_refused_with_a_warning():
-    ods, psi_n = _grid_psi_only_ods(scale=2.0 * np.pi)  # Wb against Wb/rad (#278)
+    ods, psi_n = _grid_psi_only_ods(scale=2.0 * np.pi)  # grid.psi in Wb against an equilibrium in Wb/rad
     with pytest.warns(UserWarning, match="not drawn as psi_N"):
         model = build_model("electron_density_profile", normalize_entries(ods), time_slice=0, coordinate="psi_norm")
     assert model.coordinate_label != COORDINATE_LABELS["psi_norm"]

@@ -1,4 +1,4 @@
-"""Licence-verified public equilibria: registry, adapters, failure stages (#2285).
+"""Licence-verified public equilibria: registry, adapters, failure stages.
 
 Offline: the DIII-D parquet record and the FAIR-MAST Zarr store are synthetic,
 written in the audited layouts; the g-file adapter reads the packaged VEST

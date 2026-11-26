@@ -120,7 +120,7 @@ OPERATION: Dict[str, Item] = {op.key: op for ops in OPERATIONS.values() for op i
 INPUTS: Dict[str, Tuple[Item, ...]] = {
     "mhd": (I("mhd_modes", "convention", "", ("dcon_in",), (r"mode numbers, wall model",)),
             I("mhd_drive", "prior", "", ("gpec_drive",), (r"3-D coil excitation",))),
-    # no v_phi: TGLF and CGYRO run with gamma_E = 0 and no rotation reaches them (tglf/inputs.py, #553)
+    # no v_phi: TGLF and CGYRO run with gamma_E = 0 and no rotation reaches them (tglf/inputs.py)
     "transport": (I("tr_kinetic", "measured", "", ("tr_profiles",), (r"$T_e$, $n_e$, $T_i$",)),
                   # T_i sits with the kinetic profiles; gamma_E is the general input, its value in each run's config
                   I("tr_closures", "prior", "", ("tr_closures", "sr_closures"), (r"$Z_{\mathrm{eff}}$, $\gamma_E$",))),

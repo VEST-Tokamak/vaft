@@ -465,7 +465,7 @@ def equilibrium_profile_ffprime(
 
 #: What a core profile on ``coordinate="psi_norm"`` reads when it stores no
 #: ``grid.rho_pol_norm``: its ``grid.psi``, normalised by the equilibrium slice
-#: at its time (#2253).
+#: at its time.
 _CORE_PSI_NORM_PATHS = (
     "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
     "core_profiles.profiles_1d.{i}.grid.psi",

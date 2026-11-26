@@ -303,7 +303,7 @@ def render_pdf(document: str, target: Path) -> None:
         (cwd / "diagram.tex").write_text(document.replace("\\def\\pgfsysdriver{pgfsys-dvisvgm.def}\n", "")
                                          .replace(_VAFTIMAGE_DVISVGM, _VAFTIMAGE_PDF), encoding="utf-8")
         _stage_images(document, cwd)
-        # a fixed epoch stamps the creation date and the trailer /ID, so one source gives one PDF (#2253)
+        # a fixed epoch stamps the creation date and the trailer /ID, so one source gives one PDF
         _run([pdflatex, "-interaction=nonstopmode", "-halt-on-error", "diagram.tex"], cwd, "pdflatex",
              env={"SOURCE_DATE_EPOCH": "0", "FORCE_SOURCE_DATE": "1"})
         shutil.copyfile(cwd / "diagram.pdf", target)

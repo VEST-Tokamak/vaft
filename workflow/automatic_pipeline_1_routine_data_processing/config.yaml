@@ -6,7 +6,7 @@ layout: filedb
 # Per-rule bookings for a run that shares a node (paths.resource_profile_args):
 #   resource_profile: {run_efit_reconstruction: {mem_mb: 2000}, run_chease: {mem_mb: 4000},
 #                      run_gpec_module: {mem_mb: 24000}}
-# Empty: Snakemake's defaults, the routine worker's behaviour since #58.
+# Empty: Snakemake's defaults, which is how the routine worker runs.
 resource_profile: {}
 # Per-stage validation PNGs (filedb layout only). false leaves them out of the
 # run and of the worker's verdict; every stage product, manifest and status is

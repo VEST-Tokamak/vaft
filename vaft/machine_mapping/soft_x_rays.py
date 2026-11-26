@@ -69,7 +69,7 @@ PACKAGED_TRIGGER_SETTINGS = "legacy/diagnostic-trigger-settings.yaml"
 # The 455xx SXR CSV campaign has no SXR entry in the legacy settings table.
 # It is allowed to inherit HXR timing because paired SXR/HXR records in the
 # later campaign have the same 285 ms trigger start. The shots are vest.yaml's
-# ``machine_history.soft_x_rays.hxr_trigger_fallback`` (issue #2267);
+# ``machine_history.soft_x_rays.hxr_trigger_fallback``;
 # ``HXR_FALLBACK_SHOT_RANGE`` is derived from it on access.
 
 

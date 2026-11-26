@@ -234,7 +234,7 @@ def test_an_animation_keeps_flagged_states_in_its_sequence(sample):
     assert movie.metadata["style"]["validity"] == "mask"
 
 
-# -- #2253: a channel profile carries the channels' stored uncertainty -----------------------
+# -- a channel profile carries the channels' stored uncertainty -----------------------------
 
 
 @pytest.mark.parametrize("quantity", ["n_e", "t_e"])

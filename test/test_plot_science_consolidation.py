@@ -1,5 +1,5 @@
-"""Issue #2270 P1: the plot layer's coordinate resolution and core-profile mapping
-now live in ``vaft.process``.
+"""The plot layer's coordinate resolution and core-profile mapping live in
+``vaft.process``.
 
 The views draw exactly what they drew before (frozen copies of the pre-move
 algorithms are compared bit for bit), the canonical functions are usable

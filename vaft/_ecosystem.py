@@ -235,7 +235,7 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
             "tf/b_field_tor_vacuum_r/data",            # required: R0 B0 from the TF coil current
             "magnetics/b_field_pol_probe(:)/field/data",
             "magnetics/flux_loop(:)/flux/data",
-            "magnetics/diamagnetic_flux(:)/data",      # optional (#993)
+            "magnetics/diamagnetic_flux(:)/data",      # optional
             "pf_active/coil(:)/current/data",
         ),
         note="Distributed by the EFIT-AI collaboration under the EFIT users agreement; "

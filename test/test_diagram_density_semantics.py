@@ -1,4 +1,4 @@
-"""The electron-density representation figure (#2253): one time-matched sample, four views.
+"""The electron-density representation figure: one time-matched sample, four views.
 
 The figure's claims are tested on its model and on the scene it draws:
 measured Thomson points carry ``data_error_upper`` as vertical bars in (a),

@@ -1,4 +1,4 @@
-# TGLF-NN training bounds (#2274, phase A)
+# TGLF-NN training bounds
 
 `export_training_bounds.jl` writes upstream's per-input training bounds (`xbounds`) of
 every TurbulentTransport.jl ONNX family next to a copy of that family. VAFT then tests

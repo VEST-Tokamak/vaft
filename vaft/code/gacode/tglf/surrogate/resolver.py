@@ -51,7 +51,7 @@ MODELS_COMPATIBILITY_ENVS = ("TURBULENTTRANSPORT_ROOT",)
 METADATA_FILES = ("xnames.txt", "ynames.txt", "xm.txt", "xsigma.txt", "ym.txt", "ysigma.txt")
 
 #: Read when present: the training min/max per input, exported from the Julia ``.bson``
-#: by ``workflow/tglf_nn/export_training_bounds.jl`` (#2274). It changes what the audit
+#: by ``workflow/tglf_nn/export_training_bounds.jl``. It changes what the audit
 #: concludes, so it is part of the model's digest.
 OPTIONAL_METADATA_FILES = ("xbounds.txt",)
 

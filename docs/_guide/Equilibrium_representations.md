@@ -441,7 +441,8 @@ packaged.
 
 `vaft.data.public.load_public_equilibrium(device)` fetches one audited third-party equilibrium,
 checks its SHA-256 against the pinned revision and returns an ODS with a provenance record
-(#2285). A source is listed only when the licence of its *data* was read at the level of the file
+(producer, licence, attribution obligations, revision, selection rule and convention evidence).
+A source is listed only when the licence of its *data* was read at the level of the file
 or Zarr group; a software licence or a readable URL does not count.
 
 | Device | Artefact | Data licence | What it carries |
