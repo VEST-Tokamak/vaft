@@ -40,6 +40,23 @@
 
   # Canonical raw-field-first diagnostic definitions.
   diagnostics:
+    camera_visible:
+      # Model documented by Jung et al., Nuclear Fusion 62 (2022) 126029.
+      # Manufacturer dimensions are horizontal/vertical, not BMP row/column.
+      hardware:
+        model: MEMRECAM GX-8
+        sensor_type: CMOS
+        active_pixels_horizontal: 1280
+        active_pixels_vertical: 1024
+        active_width_m: 0.02778
+        active_height_m: 0.02222
+        pixel_pitch_horizontal_m: 2.1703125e-5  # 27.78 mm / 1280
+        pixel_pitch_vertical_m: 2.169921875e-5   # 22.22 mm / 1024
+        source: https://www.nacinc.com/download/manuals/GX8_Operation_Manual.pdf
+        lens_focal_length_m: null  # actual lens unknown; not the fitted focal length in pixels
+        note: >-
+          Sensor specifications, not per-shot frame dimensions. BMP axis orientation
+          and the high-speed sensor ROI origin are unresolved (#821).
     plasma_current:
       source:
         field: 109

@@ -735,3 +735,28 @@ def test_camera_visible_reads_a_gx8_reexport_end_to_end(tmp_path):
     assert times == pytest.approx([0.296, 0.2964, 0.2968, 0.2972, 0.2976])
     assert ods["camera_visible.channel.0.detector.0.exposure_time"] == pytest.approx(5e-6)
     assert "Shutter_SRC_Speed" in ods["camera_visible.ids_properties.comment"]
+
+
+def test_camera_hardware_metadata_and_acquisition_are_distinct(tmp_path):
+    from vaft.machine_mapping.utils import resolve_vest_diagnostic
+
+    hardware = resolve_vest_diagnostic(SHOT, "camera_visible")["hardware"]
+    assert hardware["model"] == "MEMRECAM GX-8"
+    assert hardware["active_pixels_horizontal"] == 1280
+    assert hardware["active_pixels_vertical"] == 1024
+    assert hardware["pixel_pitch_horizontal_m"] == pytest.approx(0.02778 / 1280)
+    assert hardware["pixel_pitch_vertical_m"] == pytest.approx(0.02222 / 1024)
+    assert hardware["lens_focal_length_m"] is None
+
+    shot_dir = _write_shot(tmp_path, total_frames=9, bright_indices={3, 4, 5})
+    ods = camera_visible_from_frame_dir(SHOT, frame_dir=shot_dir, consistency_check=True)
+    assert ods["camera_visible.channel.0.detector.0.lines_n"] == IMAGE_SHAPE[0]
+    assert ods["camera_visible.channel.0.detector.0.columns_n"] == IMAGE_SHAPE[1]
+    assert ods["camera_visible.channel.0.aperture.0.centre.r"] == pytest.approx(0.803)
+    assert ods["camera_visible.channel.0.aperture.0.centre.z"] == pytest.approx(-0.0115)
+    assert ods["camera_visible.channel.0.aperture.0.centre.phi"] == pytest.approx(np.pi)
+    comment = ods["camera_visible.ids_properties.comment"]
+    assert "MEMRECAM GX-8" in comment
+    assert "1280 x 1024" in comment
+    assert "200 Hz" in comment  # 8 intervals over 40 ms, before frame selection
+    assert "lens focal length and sensor ROI origin are unknown" in comment

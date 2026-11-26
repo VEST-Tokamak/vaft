@@ -23,7 +23,7 @@ from typing import Any, Iterator, Sequence
 import numpy as np
 
 from .registry import port_phi
-from .utils import resolve_data_root, set_path
+from .utils import resolve_data_root, resolve_vest_diagnostic, set_path
 
 #: The donor's fixed near-black level. It is now used only when a caller passes
 #: it explicitly: frame selection derives its threshold from each shot's own
@@ -777,11 +777,22 @@ def vfit_camera_visible_static(
     channel_name: str = "Fast Camera",
     source: str | None = None,
     comment_extra: str = "",
+    shot: int = 0,
 ) -> None:
-    """Fill static `camera_visible` IDS metadata: channel/detector geometry-free facts."""
+    """Fill static camera metadata; sensor specifications are distinct from frame size."""
+    hardware = resolve_vest_diagnostic(shot, "camera_visible")["hardware"]
     comment = (
+        f"Camera model {hardware['model']}; manufacturer full sensor "
+        f"{hardware['active_pixels_horizontal']} x {hardware['active_pixels_vertical']} "
+        "pixels (horizontal x vertical), approximate pixel pitch "
+        f"{hardware['pixel_pitch_horizontal_m'] * 1e6:.2f} x "
+        f"{hardware['pixel_pitch_vertical_m'] * 1e6:.2f} um. "
+        f"Sensor source: {hardware['source']}. "
+        "Actual lens focal length and sensor ROI origin are unknown; "
+        "frame dimensions are per acquisition. Port 6MR; R/Z are provisional "
+        "model values, phi follows the VEST port clock to IMAS convention (#746). "
         "VEST FAST-camera raw grayscale frames; no radiometric calibration available "
-        "(frame_raw only, radiance/counts_to_radiance intentionally unset); no aperture, "
+        "(frame_raw only, radiance/counts_to_radiance intentionally unset); no aperture shape, "
         "optical_element, fibre_bundle, viewing_angle, or pixel_to_alpha/beta geometry "
         "available (intentionally unset)."
     )
@@ -927,6 +938,12 @@ def camera_visible(
 ) -> None:
     """Populate ``ods`` with VEST FAST-camera raw frames for ``shot``.
 
+    The GX-8 sensor specification is maintained in the ``camera_visible``
+    diagnostic config, accessible via :func:`resolve_vest_diagnostic`. The IDS
+    comment retains its source and limitations; detector dimensions describe
+    the actual frames, not the full sensor. The nominal rate in the comment is
+    inferred from the original header time span, before frame selection.
+
     Valid frames are selected from image content: frames outside the
     plasma-lit interval (padded by ``buffer_frames`` on each side) are
     discarded, and the retained frames are reindexed from 0. The rule
@@ -994,8 +1011,14 @@ def camera_visible(
     plasma_end_note = (
         "none" if selection.plasma_end_frame is None else str(selection.plasma_end_frame)
     )
+    duration_ms = header.end_time_ms - header.start_time_ms
+    if duration_ms > 0 and header.total_frames > 1:
+        rate_hz = (header.total_frames - 1) * 1000.0 / duration_ms
+        rate_note = f"Nominal acquisition rate from header time span: {rate_hz:.9g} Hz; "
+    else:
+        rate_note = "Nominal acquisition rate unavailable from header time span; "
     selection_note = (
-        f"Frames selected by image content "
+        f"{rate_note}Frames selected by image content "
         f"(rule={selection.rule}, threshold={selection.threshold:g}{rule_notes}, "
         f"percentage={selection.percentage:g}, buffer_frames={selection.buffer_frames}, "
         f"plasma_end_frame={plasma_end_note}); "
@@ -1012,6 +1035,7 @@ def camera_visible(
         channel_name=channel_name,
         source=str(resolved_header),
         comment_extra=selection_note,
+        shot=int(shot),
     )
     vfit_camera_visible_dynamic(ods, images=images, times_s=times_s)
 
