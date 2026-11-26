@@ -845,7 +845,7 @@ EQUILIBRIUM_FIELD_NAMES = tuple(EQUILIBRIUM_FIELDS)
 
 #: What a poloidal map may draw over the field: the machine's parts, plus the
 #: boundary and axis that belong to the equilibrium itself.
-POLOIDAL_OVERLAYS = ("coils", "passive", "wall", "boundary", "axis", "x_points")
+POLOIDAL_OVERLAYS = ("coils", "passive", "wall", "boundary", "axis", "x_points", "d_r_sep")
 
 #: The machine context every poloidal map carries unless the caller says
 #: otherwise; an equilibrium field adds its own boundary and axis to it.
@@ -10157,6 +10157,8 @@ def declares_option(name: str, option: str) -> bool:
         return name in VACUUM_BENCHMARK_PLOTS
     if option in KINETIC_STATE_OPTIONS:
         return name in KINETIC_STATE_PLOTS
+    if option in SEPARATRIX_BALANCE_OPTIONS:
+        return name in SEPARATRIX_BALANCE_PLOTS
     if sequence_declaration_for(name, option) is not None:
         return True
     return choice_options_for(name, option) is not None
@@ -11363,6 +11365,8 @@ def _poloidal_overlays(
             ))
     if "x_points" in names:
         layers.extend(_x_point_layers(ods, time_slice))
+    if "d_r_sep" in names:
+        layers.extend(_d_r_sep_layers(ods, time_slice))
     return layers
 
 
@@ -11405,6 +11409,32 @@ def _x_point_layers(ods: Any, time_slice: int) -> list[GeometryLayer]:
                 r=np.array([point.r for point in points]), z=np.array([point.z for point in points]),
                 kind="points", label=label, style=style, role=EQUILIBRIUM_ROLE,
             ))
+    return layers
+
+
+def _d_r_sep_layers(ods: Any, time_slice: int) -> list[GeometryLayer]:
+    """The separatrices, X-point roles and midplane crossings of the slice's dRsep.
+
+    Drawn by :func:`vaft.plot.equilibrium_section.separatrix_balance_layers`
+    from :func:`vaft.process.equilibrium.derive_boundary_representation`; the
+    plot adds no analysis of its own (#2270).
+    """
+    try:
+        from vaft.plot.equilibrium_section import separatrix_balance_layers
+        from vaft.process.equilibrium import as_equilibrium, derive_boundary_representation
+
+        equilibrium = as_equilibrium(ods, time_index=time_slice)
+        representation = derive_boundary_representation(equilibrium)
+    except Exception as exc:  # noqa: BLE001 -- the map is still worth drawing
+        warnings.warn(f"d_r_sep overlay: the slice could not be analysed ({exc})", stacklevel=3)
+        return []
+    layers = list(separatrix_balance_layers(representation, equilibrium))
+    if not layers:
+        warnings.warn(
+            f"d_r_sep overlay: no separatrix X-point on this slice ({representation.topology.value}; "
+            f"{representation.d_r_sep.reason or 'no reason recorded'})",
+            stacklevel=3,
+        )
     return layers
 
 
@@ -18115,6 +18145,235 @@ for _name in EDGE_Q_VIEWS:
             "start_configuration": ChoiceDeclaration(None, START_CONFIGURATIONS),
         },
     )
+
+# ---------------------------------------------------------------------------
+# Separatrix balance: signed dRsep against time (#2325)
+# ---------------------------------------------------------------------------
+
+#: The plots that read the separatrix-balance history, and the options only
+#: they declare: ``dn_tolerance`` (metres, an explicitly requested DN band)
+#: and ``native_overlay`` (the source code's own value beside the derived one).
+SEPARATRIX_BALANCE_PLOTS = frozenset({"equilibrium_time_d_r_sep"})
+SEPARATRIX_BALANCE_OPTIONS = frozenset({"dn_tolerance", "native_overlay"})
+
+#: Legend names of the traces, kept apart so a confirmed limited slice can
+#: never be read as a balanced double null at zero.
+D_R_SEP_CHANNEL = "dRsep"
+D_R_SEP_LIMITED_CHANNEL = "limited (no dRsep)"
+D_R_SEP_NATIVE_CHANNEL = "EFIT DRSEP (native)"
+
+#: What :func:`vaft.process.equilibrium.separatrix_balance_series` reads: one
+#: boundary analysis per slice (:func:`as_equilibrium`) and the a-file scalars.
+_D_R_SEP_READS = (
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.boundary.outline.r",
+    "equilibrium.time_slice.{i}.boundary.outline.z",
+    # as_equilibrium carries the flux functions along with the map.
+    "equilibrium.time_slice.{i}.profiles_1d.psi", "equilibrium.time_slice.{i}.profiles_1d.q",
+    "equilibrium.time_slice.{i}.profiles_1d.f", "equilibrium.time_slice.{i}.profiles_1d.pressure",
+    "equilibrium.time_slice.{i}.profiles_1d.dpressure_dpsi",
+    "equilibrium.time_slice.{i}.profiles_1d.f_df_dpsi",
+    "equilibrium.ids_properties.cocos",
+    "equilibrium.vacuum_toroidal_field.r0", "equilibrium.vacuum_toroidal_field.b0",
+    "wall.description_2d.0.limiter.unit.0.outline.r",
+    "wall.description_2d.0.limiter.unit.0.outline.z",
+    "equilibrium.code.parameters",
+    "dataset_description.data_entry.pulse",
+)
+
+
+def _d_r_sep_available(ods: Any) -> str | None:
+    """Why ``ods`` holds no equilibrium slice with a psi map to analyse."""
+    if not _count(ods, "equilibrium.time_slice"):
+        return "needs equilibrium.time_slice entries"
+    for index in range(_count(ods, "equilibrium.time_slice")):
+        if _array(ods, f"equilibrium.time_slice.{index}.profiles_2d.0.psi") is not None:
+            return None
+    return "needs an equilibrium slice with profiles_2d.0.psi"
+
+
+#: ``dn_tolerance=`` value that draws each slice's declared eps_DN
+#: (:attr:`SeparatrixBalanceSeries.double_null_tolerance`) instead of one width.
+DN_TOLERANCE_DECLARED = "declared"
+
+
+def _dn_tolerance_option(options: Mapping[str, Any]) -> float | str | None:
+    """The requested DN band: a half-width in metres, ``"declared"``, or ``None``."""
+    value = options.get("dn_tolerance")
+    if value is None:
+        return None
+    if isinstance(value, str):
+        if value != DN_TOLERANCE_DECLARED:
+            raise ValueError(
+                f"dn_tolerance must be a distance in metres or {DN_TOLERANCE_DECLARED!r}; got {value!r}")
+        return value
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, float, np.integer, np.floating)):
+        raise ValueError(f"dn_tolerance must be a distance in metres; got {value!r}")
+    tolerance = float(value)
+    if not (np.isfinite(tolerance) and tolerance > 0.0):
+        raise ValueError(f"dn_tolerance must be a positive distance in metres; got {value!r}")
+    return tolerance
+
+
+#: Half-width [s] given to the reference lines when every drawn slice sits at
+#: one time, so the zero line still has a length to be drawn over.
+_D_R_SEP_POINT_SPAN_S = 1e-3
+
+
+def _d_r_sep_slices(record: Any, window: tuple[float, float] | None) -> tuple[np.ndarray, ...]:
+    """``(time, state, d_r_sep, native, eps_DN)`` of one record, in drawing order.
+
+    Slices stay in stored order when their finite times already increase, so
+    a slice without a time remains in the trace as a NaN sample and still
+    breaks the line where it sits.  An unordered history is sorted by time,
+    and a slice without a time then has no place: it is dropped with a
+    warning.  Only a valid slice keeps a number.
+    """
+    time = np.asarray(record.time, dtype=float)
+    state = np.asarray(record.state, dtype=object)
+    finite = np.isfinite(time)
+    inside = np.ones(time.shape, dtype=bool) if window is None else (
+        ~finite | ((time >= window[0]) & (time <= window[1])))
+    if np.all(np.diff(time[finite]) >= 0.0):
+        order = np.flatnonzero(inside)
+    else:
+        if (~finite).any():
+            warnings.warn(
+                f"equilibrium_time_d_r_sep: {int((~finite).sum())} slice(s) without a time are dropped "
+                "from an unordered history", stacklevel=3)
+        kept = np.flatnonzero(inside & finite)
+        order = kept[np.argsort(time[kept], kind="stable")]
+    state = state[order]
+    # The record already holds NaN for every state but valid; the plot does
+    # not rely on that staying so.
+    values = np.where(state == "valid", np.asarray(record.d_r_sep, dtype=float)[order], np.nan)
+    return (time[order], state, values, np.asarray(record.native_d_r_sep, dtype=float)[order],
+            np.asarray(record.double_null_tolerance, dtype=float)[order])
+
+
+def _build_d_r_sep_time(entries: Sequence[tuple[str, Any]], **options: Any) -> LineSeries:
+    """Signed dRsep against time, every entry overlaid on its own time base.
+
+    Every number comes from :func:`vaft.process.equilibrium.separatrix_balance_series`;
+    nothing here locates a saddle or inverts a flux map (#2270), and the input
+    is never written.  A valid slice is drawn as its signed value; a confirmed
+    limited slice is an ``x`` at zero under its own legend entry -- a category
+    on the axis, not a sample, and absent from the dRsep trace itself; every
+    other state is a NaN in the trace, so no line joins across it.  The zero
+    line is drawn whenever there is a time to draw it over.
+    ``native_overlay=True`` adds the aligned EFIT ``DRSEP``; ``dn_tolerance=``
+    draws the band's limits about zero only when asked for: one half-width in
+    metres, or ``"declared"`` for each slice's own eps_DN = 0.005 a (the
+    width the topology classification uses).
+    """
+    from vaft.process.equilibrium import separatrix_balance_series
+
+    if options.get("smooth") is not None:
+        raise ValueError("equilibrium_time_d_r_sep takes no smooth=: a rolling window would bridge its gaps")
+    window = _range_option(options, "time_range")
+    tolerance = _dn_tolerance_option(options)
+    native = options.get("native_overlay", False)
+    if not isinstance(native, (bool, np.bool_)):
+        raise ValueError(f"native_overlay must be True or False; got {native!r}")
+    records = [(str(label), *_d_r_sep_slices(separatrix_balance_series(ods), window)) for label, ods in entries]
+    x_display = _resolve_axis_display(
+        "s", unit=options.get("xunit"), subject="equilibrium",
+        series_values=[time[np.isfinite(time)] for _, time, *_ in records],
+    )
+    y_display = _resolve_axis_display(
+        "m", unit=options.get("yunit"), subject="equilibrium",
+        series_values=[values[np.isfinite(values)] for _, _, _, values, *_ in records],
+    )
+    xs, ys = x_display.scale, y_display.scale
+    series: list[Series] = []
+    for position, (label, time, state, values, native_values, declared) in enumerate(records):
+        color = palette(position)
+        if np.isfinite(values).any():
+            series.append(Series(
+                x=time * xs, y=values * ys, entry=label, channel=D_R_SEP_CHANNEL,
+                # A marker on every sample: a valid slice between two gaps has
+                # no neighbour to draw a line to and would otherwise vanish.
+                style={"color": color, "marker": ".", "linewidth": 1.4},
+            ))
+        limited = state == "limited"
+        if limited.any():
+            series.append(Series(
+                x=time[limited] * xs, y=np.zeros(int(limited.sum())), entry=label,
+                channel=D_R_SEP_LIMITED_CHANNEL,
+                style={"color": color, "marker": "x", "linestyle": "none", "markersize": 7,
+                       "markeredgewidth": 1.5},
+            ))
+        if native and np.isfinite(native_values).any():
+            series.append(Series(
+                x=time * xs, y=native_values * ys, entry=label, channel=D_R_SEP_NATIVE_CHANNEL,
+                style={"color": color, "linestyle": "--", "marker": "+", "linewidth": 1.0, "alpha": 0.8},
+            ))
+        if tolerance == DN_TOLERANCE_DECLARED and np.isfinite(declared).any():
+            # eps_DN = 0.005 a changes with the minor radius, so the declared
+            # band follows its slices and has a gap where none was declared.
+            half = declared * ys
+            series.append(Series(
+                x=np.r_[time, np.nan, time] * xs, y=np.r_[half, np.nan, -half],
+                entry=label, channel="DN tolerance ±eps_DN (declared)",
+                # A tick at every slice keeps a lone declared value visible.
+                style={"color": color, "linestyle": ":", "linewidth": 1.0, "marker": "_", "markersize": 8},
+            ))
+    if window is not None:
+        span = (window[0], window[1])
+    else:
+        finite = np.concatenate([time[np.isfinite(time)] for _, time, *_ in records])
+        span = None if finite.size == 0 else (float(finite.min()), float(finite.max()))
+        if span is not None and span[1] == span[0]:
+            span = (span[0] - _D_R_SEP_POINT_SPAN_S, span[1] + _D_R_SEP_POINT_SPAN_S)
+    references: list[Series] = []
+    if span is not None:
+        span = (span[0] * xs, span[1] * xs)
+        if tolerance is not None and tolerance != DN_TOLERANCE_DECLARED:
+            # The limits of the band as lines, not a fill: a fill drawn
+            # through the uncertainty machinery would follow uncertainty=.
+            half = tolerance * ys
+            references.append(Series(
+                x=np.array([span[0], span[1], np.nan, span[0], span[1]]),
+                y=np.array([half, half, np.nan, -half, -half]),
+                label=f"DN tolerance ±{half:g} {y_display.unit}",
+                style={"color": "emphasis:medium", "linestyle": ":", "linewidth": 1.0},
+            ))
+        # The zero of the signed axis: balanced double null.
+        references.append(Series(x=np.array(span), y=np.zeros(2),
+                                 style={"color": "emphasis:strong", "linewidth": 0.8}))
+    heading = "Separatrix balance dRsep"
+    return LineSeries(
+        series=tuple(references + series),
+        x_label="Time", x_unit=x_display.unit,
+        y_label="dRsep = R_L - R_U", y_unit=y_display.unit,
+        title=options.get("title") or _decorated_title(heading, y_display.unit, entries),
+        x_limits=options.get("x_limits") or span,
+        display=y_display,
+    )
+
+
+RECIPES["equilibrium_time_d_r_sep"] = CallableRecipe(
+    builder=_build_d_r_sep_time,
+    description=(
+        "Signed outboard-midplane separatrix separation dRsep = R_L - R_U against time "
+        "(vaft.process.equilibrium.separatrix_balance_series): limited slices as categorical "
+        "markers, every other non-diverted slice a gap."
+    ),
+    available=_d_r_sep_available,
+    reads=_D_R_SEP_READS,
+    backend=OMAS_BOUND,
+    reason="vaft.process.equilibrium.separatrix_balance_series subscripts the equilibrium IDS",
+    multi_entry=True,
+    windowed=True,
+)
 
 # The non-graphical views (tables and text summaries) keep their builders in
 # their own module and register into RECIPES here, once every helper they share is defined.

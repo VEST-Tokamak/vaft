@@ -255,6 +255,9 @@ _QUANTITIES = (
     ),
     QuantityDisplay("velocity", "m/s", {"m/s": 1.0, "km/s": 1e-3}, "km/s"),
     QuantityDisplay("time", "s", {"s": 1.0, "ms": 1e3, "us": 1e6}, "s"),
+    # A length stays in metres unless asked: a separatrix separation of a few
+    # millimetres (#2325) reads in mm, a major radius in m.
+    QuantityDisplay("length", "m", {"m": 1.0, "cm": 1e2, "mm": 1e3}, "m"),
     # A dimensional profile gradient, -d ln f/dr.
     QuantityDisplay("inverse_length", "m^-1", {"m^-1": 1.0}, "m^-1"),
 )

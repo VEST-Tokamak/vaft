@@ -1125,6 +1125,77 @@ def equilibrium_time_major_radius(
     domain="equilibrium",
     subject="equilibrium",
     view="time",
+    quantity="d_r_sep",
+    model=LineSeries,
+    description=(
+        "Signed separatrix separation dRsep = R_L - R_U at the outboard midplane against time; "
+        "limited slices as categorical markers, other non-diverted slices as gaps (#2325)."
+    ),
+    # The wall decides whether a boundary is limited, so a selectively loaded
+    # shot without it would draw a different plot.
+    ids=("equilibrium", "wall"),
+    required_paths=(
+        "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+    ),
+    optional_paths=(
+        "equilibrium.time",
+        "equilibrium.time_slice.{i}.boundary.outline.r",
+        "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+        "wall.description_2d.0.limiter.unit.0.outline.r",
+        "equilibrium.code.parameters",
+    ),
+)
+def equilibrium_time_d_r_sep(
+    model: LineSeries,
+    *,
+    ax: Axes | None = None,
+    show: bool = False,
+    **style: Any,
+) -> tuple[Figure, Axes]:
+    """Signed outboard-midplane separatrix separation against time.
+
+    Interpretation
+    --------------
+    dRsep = R_out(psi_X,lower) - R_out(psi_X,upper), the radial distance at
+    the magnetic-axis height between the flux surfaces through the lower and
+    the upper X-point: negative for a lower single null, positive for an
+    upper single null, zero for a balanced double null (the DIII-D/EFIT
+    ``DRSEP`` sign).  Within a few SOL power widths of zero both divertors
+    share the exhaust.  The values come from
+    :func:`vaft.process.equilibrium.separatrix_balance_series`; the plot
+    computes nothing of its own.
+
+    A confirmed limited slice is drawn as an ``x`` at zero under its own legend
+    entry: a category placed on the axis, never a value, so it is not a
+    balanced double null.  A diverted slice without a resolvable secondary
+    separatrix, an ambiguous classification, a slice without plasma and a
+    failed analysis are gaps, and no line joins across them.  The DN tolerance
+    band appears only when requested: ``dn_tolerance=`` a half-width in
+    metres, or ``"declared"`` for each slice's eps_DN = 0.005 a, the width
+    that separates a double null from a single null in the classification;
+    ``native_overlay=True`` overlays EFIT's own ``DRSEP`` where it is a signed
+    separation (its 40 cm default and unsigned configurations are gaps).
+
+    Limitations
+    -----------
+    A value is only as resolved as the flux map: the per-slice resolution is
+    on :class:`vaft.data.equilibrium.SeparatrixBalanceSeries`, and a value
+    smaller than it cannot tell a double null from a near double null.  Each
+    slice costs one boundary analysis.
+
+    See Also
+    --------
+    equilibrium_field_psi : the flux map with ``overlay="d_r_sep"``, the
+        separatrices and midplane crossings one slice of this history is
+        computed from.
+    """
+    return render_line_series(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="time",
     quantity="diamagnetic_flux",
     model=LineSeries,
     description="Measured versus reconstructed diamagnetic-flux constraint.",
@@ -1570,6 +1641,7 @@ __all__ = [
     "equilibrium_time_diamagnetic_flux",
     "equilibrium_time_li",
     "equilibrium_time_major_radius",
+    "equilibrium_time_d_r_sep",
     "equilibrium_time_plasma_current",
     "equilibrium_time_q0",
     "equilibrium_time_q95",

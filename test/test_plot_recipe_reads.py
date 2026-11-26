@@ -91,6 +91,8 @@ OMAS_BOUND = frozenset({
     "equilibrium_field_psi_vacuum", "vacuum_field", "summary_time_power_balance",
     "summary_time_resistive_zeff",
     "summary_time_romero_balance",
+    # signed dRsep: separatrix_balance_series subscripts the equilibrium IDS (#2325).
+    "equilibrium_time_d_r_sep",
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
