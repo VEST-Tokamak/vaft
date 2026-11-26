@@ -1040,6 +1040,71 @@ vaft.diagram.divertor_heat_footprint(lambda_q=0.004, spreading=0.0015, target="o
 ```
 
 ![footprint]({{ '/assets/diagrams/divertor_heat_footprint.svg' | relative_url }})
+
+### Divertor topology and upper/lower separatrix balance
+
+Eight diagrams for the signed outboard-midplane separatrix separation
+$dR_\mathrm{sep} = R_\mathrm{out}(\psi_{X,\mathrm{lower}}) - R_\mathrm{out}(\psi_{X,\mathrm{upper}})$, taken at the
+magnetic-axis height (#2325). It is negative for a lower single null, zero for a balanced double null, and positive
+for an upper single null, the DIII-D/EFIT convention. The formulas are `vaft.formula.separatrix_radial_separation`,
+`xpoint_flux_imbalance` and `separatrix_separation_from_flux_imbalance`. In `vaft.formula.sol` they are
+`separatrix_imbalance_to_heat_flux_width` and `secondary_separatrix_exponential_factor`.
+
+All eight use one illustrative analytic flux map, $\psi = (R-1)^2 + Z^2 - Z^4/a^2 + sZ^3$ with $a = 0.65$ m, inside an
+octagonal vessel. The skew $s$ biases the two saddles: $s > 0$ gives a lower single null. It is not a VEST
+reconstruction. The topology, each X-point's `role` (primary or secondary) and `branch`, and $dR_\mathrm{sep}$ with its
+`quality` all come from `vaft.process.equilibrium.derive_boundary_representation`. The diagrams contour the flux and
+draw that output; they do not look for saddles themselves.
+
+Open field lines are traced by following their flux contour, which is the poloidal projection of an axisymmetric field
+line, until it meets the wall. Wall edges at $|Z| \geq 0.45$ m are the divertor targets. This is axisymmetric balance.
+The non-axisymmetric splitting in `separatrix_lobes` is a different effect.
+
+```python
+vaft.diagram.divertor_topology_classification()
+vaft.diagram.secondary_separatrix_balance(bias=0.08)
+vaft.diagram.sol_magnetic_connectivity(bias=0.15)
+vaft.diagram.separatrix_balance_transport_scale(lambda_q=0.003, d_r_sep=(-0.001, -0.003, -0.009))
+vaft.diagram.separatrix_balance_calculation(bias=0.01)
+vaft.diagram.limited_plasma_topology()
+vaft.diagram.lower_single_null_topology()
+vaft.diagram.double_null_topology()
+```
+
+One topology at a time, each element named by an arrow:
+
+![limited]({{ '/assets/diagrams/limited_plasma_topology.svg' | relative_url }})
+
+![lower single null]({{ '/assets/diagrams/lower_single_null_topology.svg' | relative_url }})
+
+![double null]({{ '/assets/diagrams/double_null_topology.svg' | relative_url }})
+
+Comparisons across topologies, the transport scale and the procedure:
+
+![topology classification]({{ '/assets/diagrams/divertor_topology_classification.svg' | relative_url }})
+
+![secondary separatrix balance]({{ '/assets/diagrams/secondary_separatrix_balance.svg' | relative_url }})
+
+![SOL connectivity]({{ '/assets/diagrams/sol_magnetic_connectivity.svg' | relative_url }})
+
+![transport scale]({{ '/assets/diagrams/separatrix_balance_transport_scale.svg' | relative_url }})
+
+![calculation]({{ '/assets/diagrams/separatrix_balance_calculation.svg' | relative_url }})
+
+| Diagram | Kind | Concept |
+| --- | --- | --- |
+| `divertor_topology_classification` | concept | LIMITED, LSN, near-DN, balanced DN and USN, each captioned with the process's topology and $dR_\mathrm{sep}$. Active X-points are dark, inactive ones grey; the secondary separatrix is dashed. The limited plasma rests on an inboard limiter tip with two external nulls, so its $dR_\mathrm{sep}$ is geometric only and not a diverted balance sample. Diverted panels are classified by the signed $dR_\mathrm{sep}$ against $\varepsilon_\mathrm{DN} = 0.005\,a$, printed under each: near-DN ($-3.0$ mm, $\varepsilon_\mathrm{DN} = 1.6$ mm) is therefore LSN. Two X-points alone do not make a double null |
+| `secondary_separatrix_balance` | concept | Lower-biased, balanced and upper-biased cases in three views: R-Z with the reference line $Z = Z_\mathrm{axis}$; flux, with $\psi_N$ of both X-points and $\Delta\psi_X = \psi_L - \psi_U$; and $\psi_N(R)$ on the outboard midplane with $R_L$, $R_U$ and $dR_\mathrm{sep} = R_L - R_U$. Under (c) the rule that classified it: $|dR_\mathrm{sep}| \le \varepsilon_\mathrm{DN} = 0.005\,a$ is DN, below $-\varepsilon_\mathrm{DN}$ LSN, above $+\varepsilon_\mathrm{DN}$ USN |
+| `sol_magnetic_connectivity` | concept | Shaded regions (`region_fills`: core, primary SOL, common SOL, private flux), named by arrows, and field lines traced to the wall and coloured by the targets they reach. The primary SOL, between the two separatrices, has both ends on the primary divertor. The common SOL, outside the secondary separatrix, links lower and upper outer targets on the outboard side and lower and upper inner targets on the inboard side. The private flux regions lie beyond each X-point. In a balanced DN the primary SOL has zero width, so inboard and outboard SOL are disconnected |
+| `separatrix_balance_transport_scale` | concept | The model profile $q_\parallel(x)/q_0 = e^{-x/\lambda_q}$ outside the primary separatrix, the secondary separatrix at $x = \lvert dR_\mathrm{sep}\rvert$, and $\chi = dR_\mathrm{sep}/\lambda_q$ on a signed axis. A formula box gives $\chi$ and $q(\lvert dR_\mathrm{sep}\rvert)/q_0 = e^{-\lvert\chi\rvert}$ from the formulas' own catalog entries; in this model $e^{-\lvert\chi\rvert}$ is also the common SOL's share of the upstream heat flux. Magnetic balance (geometry) is not power balance (transport): drifts, the inner/outer asymmetry, recycling, detachment and $\lambda_q$ itself move the split, so $e^{-\lvert\chi\rvert}$ is not the power fraction to the secondary divertor. The builder's docstring gives the full reading. Illustrative only |
+| `separatrix_balance_calculation` | procedure | Flux map, critical points ($\det H_\psi < 0$), midplane crossings $R_L$ and $R_U$, the signed $dR_\mathrm{sep}$ with its grid uncertainty $\pm\delta_R$, then the classification: $|dR_\mathrm{sep}| \le \varepsilon_\mathrm{DN} = 0.005\,a$ is DN, below LSN, above USN (the shaded band). $\delta_R$ never decides the class; when it exceeds $\varepsilon_\mathrm{DN}$ the result is flagged `topology_unresolved_on_grid`. Each box carries a small picture computed from a near-DN case; as a concept figure it states the rules, not the case's numbers. Four outcome boxes, the four classes LSN, DN, USN and LIMITED, each a small panel of a real case with the rule that selects it and what $dR_\mathrm{sep}$ means there: a diverted balance for LSN, DN and USN (a DN keeps its sign), geometric only for LIMITED. A missing X-point or axis gives `None` with a reason, never zero |
+| `limited_plasma_topology` | concept | One limited plasma: the LCFS through the inboard limiter tip, the two external nulls and their separatrices outside it, the limiter SOL, and $R_L$, $R_U$ kept as geometric only |
+| `lower_single_null_topology` | concept | One LSN: the active lower and inactive upper X-point, the LCFS as the closed part of the primary separatrix, the secondary separatrix, the primary SOL (lower divertor only), the common SOL, both private-flux regions, the strike points, and $dR_\mathrm{sep} < 0$ |
+| `double_null_topology` | concept | One balanced DN: both X-points active, one LCFS through both, $R_L = R_U$, no primary SOL, the outboard and inboard SOL disconnected, two private-flux regions and four strike points |
+
+The magnetic-balance references are Petrie et al. (DIII-D, 1999–2003) and Brunner et al., Nucl. Fusion 58 (2018) 076010
+(Alcator C-Mod power sharing). `vaft.diagram.divertor_heat_footprint` covers the target heat flux of a single null.
+
 ## Disruption physics: quench sequence, runaways and energy paths
 
 The chain from loss of confinement to a runaway plateau, each link a relation in the new
