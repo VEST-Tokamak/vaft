@@ -94,7 +94,8 @@ CACHE_DIR_ENV = "VAFT_CACHE_DIR"
 CONFIG_SECTION = "hsds"
 CONFIG_KEY = "cache_max"
 LOCK_NAME = ".lock"
-#: How long a Windows holder waits for another process to release the lock.
+#: Kept for compatibility only: the lock primitive is :func:`vaft.data.storage.file_lock`,
+#: and :data:`vaft.data.storage.LOCK_WAIT_S` is the wait that applies.
 LOCK_WAIT_S = 60.0
 MARKER_NAME = ".vaft-hsds-cache"
 #: An interrupted write's temporary older than this is debris.
@@ -163,12 +164,14 @@ def parse_age(value: str | float | int) -> float:
 
 # -- configuration ---------------------------------------------------------
 def cache_base(cache: str | os.PathLike = "auto") -> Path:
-    """The cache base directory for ``cache`` ("auto" or a path)."""
-    if cache != "auto":
-        return Path(cache).expanduser()
-    if os.environ.get(CACHE_DIR_ENV):
-        return Path(os.environ[CACHE_DIR_ENV]).expanduser() / "hsds"
-    return Path.home() / ".cache" / "vaft" / "hsds"
+    """The cache base directory for ``cache`` ("auto" or a path).
+
+    Resolved by :func:`vaft.data.storage.namespace_path` for the ``hsds`` namespace,
+    which keeps this module's historical precedence.
+    """
+    from vaft.data import storage
+
+    return storage.namespace_path("hsds", None if cache == "auto" else cache)
 
 
 def mark_owned(base: Path) -> None:
@@ -363,40 +366,13 @@ def set_cache_max(value: int | str, path: Path | None = None) -> Path:
 def cache_lock(base: Path, *, exclusive: bool) -> Iterator[None]:
     """Hold ``<base>/.lock`` shared (copying files) or exclusive (removing them).
 
-    On Windows ``msvcrt.locking`` locks one byte of the file; it knows no shared
-    mode, so a shared request is served exclusively there, and a lock held by
-    another process is waited for in short retries rather than the ten-second
-    sleep-and-fail ``LK_LOCK`` would do.
+    The primitive is :func:`vaft.data.storage.file_lock`, shared with the other
+    cache namespaces: on Windows every holder is exclusive.
     """
-    base.mkdir(parents=True, exist_ok=True)
-    try:
-        import fcntl
-    except ImportError:  # Windows
-        import msvcrt
+    from vaft.data import storage
 
-        with open(base / LOCK_NAME, "a+b") as handle:
-            handle.seek(0)  # lock and unlock the same byte: the first one
-            deadline = time.monotonic() + LOCK_WAIT_S
-            while True:
-                try:
-                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        raise
-                    time.sleep(0.05)
-            try:
-                yield
-            finally:
-                handle.seek(0)
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-        return
-    with open(base / LOCK_NAME, "a+b") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
-        try:
-            yield
-        finally:
-            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+    with storage.file_lock(base, exclusive=exclusive, name=LOCK_NAME):
+        yield
 
 
 # -- inspection ------------------------------------------------------------

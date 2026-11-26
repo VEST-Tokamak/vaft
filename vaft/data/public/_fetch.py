@@ -129,27 +129,107 @@ def cache_dir(override: str | os.PathLike[str] | None = None) -> Path:
     ----------
     override : path-like or None, optional
         Explicit directory; default ``None`` uses ``$VAFT_PUBLIC_DATA_DIR`` when
-        set, otherwise the per-user cache (``~/Library/Caches/vaft/public`` on
-        macOS, ``%LOCALAPPDATA%/vaft/public`` on Windows,
-        ``$XDG_CACHE_HOME/vaft/public`` elsewhere) [path].
+        set, then ``$VAFT_CACHE_DIR/public``, then the per-user cache
+        (``~/Library/Caches/vaft/public`` on macOS, ``%LOCALAPPDATA%/vaft/public``
+        on Windows, ``$XDG_CACHE_HOME/vaft/public`` elsewhere). An existing
+        per-user cache keeps being used while ``$VAFT_CACHE_DIR/public`` does not
+        exist, so setting ``VAFT_CACHE_DIR`` never re-downloads
+        (:func:`vaft.data.storage.namespace_path`) [path].
 
     Returns
     -------
     pathlib.Path
         The directory; it is not created here [path].
     """
-    if override is not None:
-        return Path(override).expanduser()
-    env = os.environ.get("VAFT_PUBLIC_DATA_DIR")
-    if env:
-        return Path(env).expanduser()
-    if os.name == "nt":
-        root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
-    elif sys.platform == "darwin":
-        root = Path.home() / "Library" / "Caches"
-    else:
-        root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
-    return root / "vaft" / "public"
+    from vaft.data import storage
+
+    return storage.namespace_path("public", override)
+
+
+def cached_sources(cache: str | os.PathLike[str] | None = None) -> list[dict]:
+    """Registered public files present in the cache, with their verification state.
+
+    Only files named in :data:`SOURCES` are VAFT's here; anything else in the
+    directory (``pr08/``, ``fair_mast/`` downloads, user files) is not listed.
+
+    Returns
+    -------
+    list of dict
+        ``key``, ``path``, ``bytes``, ``last_used`` (modification time, which
+        :func:`fetch` refreshes on every cache hit) and
+        ``verified`` (SHA-256 equals the registry) per present file [-].
+    """
+    directory = cache_dir(cache)
+    found = []
+    for key, source in sorted(SOURCES.items()):
+        path = directory / source.filename
+        if path.is_file() and not path.is_symlink():
+            stat = path.stat()
+            found.append(
+                {
+                    "key": key,
+                    "path": path,
+                    "bytes": stat.st_size,
+                    "last_used": stat.st_mtime,
+                    "verified": sha256_of(path) == source.sha256.lower(),
+                }
+            )
+    return found
+
+
+def remove_cached_sources(
+    keys: list[str] | None = None,
+    *,
+    older_than: float | None = None,
+    cache: str | os.PathLike[str] | None = None,
+    dry_run: bool = False,
+) -> tuple[list[str], int, list[str]]:
+    """Remove verified registered files from the public cache.
+
+    Parameters
+    ----------
+    keys : list of str or None, optional
+        Registry keys to remove; ``None`` means every registered file (subject
+        to ``older_than``) [-].
+    older_than : float or None, optional
+        Only files unused for at least this long [s].
+    cache : path-like or None, optional
+        Cache directory, default :func:`cache_dir` [path].
+    dry_run : bool, optional
+        Report without removing [-].
+
+    Returns
+    -------
+    tuple
+        Removed keys, freed bytes, and keys kept: their SHA-256 does not match
+        the registry (left for inspection, as :func:`fetch` does) or removing
+        them failed [-].
+    """
+    import time
+
+    if keys is not None:
+        unknown = sorted(set(keys) - set(SOURCES))
+        if unknown:
+            raise ValueError(f"unknown public source(s): {', '.join(unknown)}")
+    now = time.time()
+    removed, freed, kept = [], 0, []
+    for item in cached_sources(cache):
+        if keys is not None and item["key"] not in keys:
+            continue
+        if older_than is not None and now - item["last_used"] < older_than:
+            continue
+        if not item["verified"]:
+            kept.append(item["key"])
+            continue
+        if not dry_run:
+            try:
+                item["path"].unlink()
+            except OSError:
+                kept.append(item["key"])
+                continue
+        removed.append(item["key"])
+        freed += item["bytes"]
+    return removed, freed, kept
 
 
 def sha256_of(path: str | os.PathLike[str]) -> str:
@@ -258,6 +338,10 @@ def fetch(
             f"Cached {destination} has SHA-256 {actual}, expected {sha256}; "
             "delete it to re-download."
         )
+    try:  # a cache hit is a use: `vaft cache prune --older-than` keys on this
+        os.utime(destination)
+    except OSError:
+        pass
     return destination
 
 
