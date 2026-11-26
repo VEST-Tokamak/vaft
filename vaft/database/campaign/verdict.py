@@ -20,6 +20,14 @@ __all__ = ["ChunkVerdict", "chunk_verdict"]
 
 _WHOLE_RUN_MARKERS = (*_LOCK_MARKERS, "SyntaxError", "MissingInputException")
 _PER_SHOT_WORKFLOW_ERROR = "At least one job did not complete successfully"
+# Snakemake >= 8 runs a ``run:`` job in a spawned subprocess and logs that
+# job's failure as a traceback chain ending in this exception: one job failed,
+# not Snakemake.
+_PER_JOB_EXCEPTIONS = frozenset({"SpawnedJobError", "snakemake.exceptions.SpawnedJobError"})
+_CHAIN_LINKS = (
+    "During handling of the above exception, another exception occurred:",
+    "The above exception was the direct cause of the following exception:",
+)
 
 
 @dataclass(frozen=True)
@@ -29,6 +37,48 @@ class ChunkVerdict:
     done: bool
     failed_rules: tuple[str, ...] = ()
     reason: str = ""
+
+
+def _whole_run_traceback(log: str) -> bool:
+    """Whether ``log`` holds a traceback chain that is not one job's failure.
+
+    A chain is consecutive tracebacks joined by Python's "During handling" or
+    "direct cause" lines; it is judged by the exception that ends it.
+    """
+    lines = log.splitlines()
+    index = 0
+    while index < len(lines):
+        if not lines[index].startswith("Traceback"):
+            index += 1
+            continue
+        final = ""
+        while index < len(lines):
+            # One traceback: up to its first unindented line, the exception.
+            index += 1
+            while index < len(lines) and (
+                not lines[index].strip() or lines[index][0].isspace()
+            ):
+                index += 1
+            if index >= len(lines):
+                break
+            final = lines[index].partition(":")[0].strip()
+            # Does a chained traceback follow?
+            ahead = index + 1
+            while ahead < len(lines) and (
+                not lines[ahead].strip() or lines[ahead][0].isspace()
+                or lines[ahead].strip() in _CHAIN_LINKS
+            ):
+                ahead += 1
+            linked = any(
+                lines[k].strip() in _CHAIN_LINKS for k in range(index + 1, ahead)
+            )
+            if not (linked and ahead < len(lines) and lines[ahead].startswith("Traceback")):
+                break
+            index = ahead
+        if final not in _PER_JOB_EXCEPTIONS:
+            return True
+        index += 1
+    return False
 
 
 def chunk_verdict(
@@ -55,7 +105,7 @@ def chunk_verdict(
     for marker in _WHOLE_RUN_MARKERS:
         if marker in log:
             return ChunkVerdict(False, failed, f"whole-run failure: {marker}")
-    if re.search(r"^Traceback", log, flags=re.MULTILINE):
+    if _whole_run_traceback(log):
         return ChunkVerdict(False, failed, "whole-run failure: a traceback in Snakemake itself")
     scoped = sorted(set(failed) & set(run_scoped_rules))
     if scoped:

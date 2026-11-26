@@ -443,3 +443,17 @@ def test_a_failed_prefetch_read_raises_and_replaces_nothing(monkeypatch):
     assert not any(isinstance(d, np.ndarray) for d in store._aos_shape_datasets["pf_active"].values())
     monkeypatch.setattr(FakeDataset, "__getitem__", original)
     assert ods.prefetch("pf_active.coil") == 4
+
+
+def test_the_equilibrium_branch_probe_sees_unfetched_lazy_branches(fake_hsds):
+    """An unfetched branch of a lazy ODS holds data in its store, not in omas_data."""
+    from vaft.process._equilibrium_parametric import _ods_get
+
+    ods, _store = make_ods(fake_hsds)
+    absent = object()
+    for path in (
+        "equilibrium.time_slice",
+        "equilibrium.time_slice.0.global_quantities",
+        "equilibrium.time_slice.0.boundary.outline",
+    ):
+        assert _ods_get(ods, path, absent) is not absent, path
