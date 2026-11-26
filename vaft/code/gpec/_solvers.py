@@ -260,6 +260,61 @@ def _check_matching_output(run_dir: Path, filename: str) -> tuple[bool, str]:
     return ok, reason
 
 
+#: DCON's own last words when ``termbycross_flag`` stops the ODE integration
+#: at a zero crossing of the energy determinant (``dcon/ode.f``): the
+#: equilibrium is ideally unstable to this ``n`` inside the plasma.  It is
+#: written by a run that otherwise exits 0, before ``dcon_output_n<n>.nc``
+#: exists and possibly after ``euler.bin`` has been partly written.
+DCON_ZERO_CROSSING_STOP = re.compile(r"PROGRAM STOP\s*=>\s*Terminated by zero crossing", re.IGNORECASE)
+
+#: DCON's progress lines, ``psi = 7.365E-01, q =  3.000``, one per rational
+#: surface crossed; the last one before the stop brackets where it happened.
+_DCON_PROGRESS = re.compile(r"psi\s*=\s*([-+0-9.Ee]+)\s*,\s*q\s*=\s*([-+0-9.Ee]+)")
+
+
+def dcon_zero_crossing(run_dir: Path | str) -> dict | None:
+    """Whether DCON stopped at a zero crossing in *run_dir*, and where.
+
+    Reads ``dcon.log`` (the suite's capture of DCON's terminal output) and
+    falls back to ``dcon.out``.  Returns ``None`` when neither says so, else
+    ``{"log": <file>, "psi": <last psi reached>, "q": <q there>}``; ``psi``
+    and ``q`` are ``None`` when no progress line was written.  The location is
+    a lower bound: DCON reports rational surfaces as it passes them, not the
+    crossing itself.
+    """
+    run_dir = Path(run_dir)
+    for name in ("dcon.log", "dcon.out"):
+        path = run_dir / name
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        stop = DCON_ZERO_CROSSING_STOP.search(text)
+        if stop is None:
+            continue
+        progress = _DCON_PROGRESS.findall(text[: stop.start()])
+        psi = q = None
+        if progress:
+            try:
+                psi, q = (float(value) for value in progress[-1])
+            except ValueError:
+                psi = q = None
+        return {"log": name, "psi": psi, "q": q}
+    return None
+
+
+def zero_crossing_reason(crossing: dict) -> str:
+    """One sentence for a run record, from :func:`dcon_zero_crossing`."""
+    where = ""
+    if crossing.get("psi") is not None:
+        where = f" after psi_n = {crossing['psi']:.4g} (q = {crossing['q']:.4g})"
+    return (
+        f"DCON terminated by zero crossing{where} ({crossing['log']}): the "
+        "equilibrium is ideally unstable to this n, so there is no stable "
+        "response for ideal GPEC to compute"
+    )
+
+
 class DCONSolver:
     name = "dcon"
 
