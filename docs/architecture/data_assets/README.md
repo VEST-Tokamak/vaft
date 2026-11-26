@@ -1,3 +1,9 @@
+---
+layout: post
+title: VAFT data-asset audit
+permalink: /architecture/data_assets/
+---
+
 # VAFT data-asset audit (#2307)
 
 This folder holds the evidence and the policy that the data-distribution work under #2304 builds on.
