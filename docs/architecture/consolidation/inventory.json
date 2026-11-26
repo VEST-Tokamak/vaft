@@ -8436,8 +8436,7 @@
    ],
    "callers": [
     "vaft.plot.soft_x_rays.plot_soft_x_ray_pattern",
-    "vaft.plot.soft_x_rays.plot_soft_x_ray_signal",
-    "vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram"
+    "vaft.plot.soft_x_rays.plot_soft_x_ray_signal"
    ],
    "classification": "intentional_specialization",
    "configuration_source": "caller arguments / module literals (not curated)",
@@ -10612,7 +10611,7 @@
   {
    "algorithm_semantics": "calls numpy.gradient (not curated)",
    "assets": [],
-   "audit_scope": "derived_numerics_not_triaged",
+   "audit_scope": "preprocessing",
    "call_sites": [
     {
      "call": "numpy.gradient",
@@ -10645,9 +10644,9 @@
    "primitives": [
     "numpy.gradient"
    ],
-   "production_reachability": "not_statically_reached",
+   "production_reachability": "pipeline1,pipeline2",
    "production_reachability_note": "",
-   "recommended_action": "outside the #2147 measured-signal consolidation; not triaged in Phase A.",
+   "recommended_action": "triage in the owning B3/C slice",
    "related_issue": "",
    "resolved_by": "",
    "scientific_risk": "unassessed",

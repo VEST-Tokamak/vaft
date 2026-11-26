@@ -10,7 +10,7 @@ import numpy as np
 
 from vaft.machine_mapping.magnetics import vfit_magnetics_for_shot
 from vaft.machine_mapping.utils import get_path, path_exists, set_path
-from vaft.plot.mirnov import mirnov_signal, mirnov_spectrogram, toroidal_mode_spectrum, toroidal_phase_mode_fit
+from vaft.plot.mirnov import mirnov_signal, toroidal_mode_spectrum, toroidal_phase_mode_fit
 from vaft.process.magnetics import mirnov_spectrogram as compute_mirnov_spectrogram
 from vaft.process.magnetics import VestEquilibriumMagneticsResult, toroidal_mode_analysis, toroidal_phase_fit_at_time
 
@@ -232,17 +232,6 @@ def test_mirnov_plot_helpers_return_figures(monkeypatch, tmp_path):
 
     fig, ax = mirnov_signal(ods, channels=[0, 1], show=False)
     assert len(ax.lines) == 2
-    plt.close(fig)
-
-    fig, ax = mirnov_spectrogram(
-        ods,
-        channel=0,
-        preprocess=False,
-        window_size=256,
-        time_resolution=8,
-        show=False,
-    )
-    assert ax.collections
     plt.close(fig)
 
     fig, axes = toroidal_mode_spectrum(

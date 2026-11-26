@@ -10,7 +10,6 @@ import numpy as np
 
 from vaft.ods_access import path_count, path_value
 from vaft.process.soft_x_rays import sxr_offset_baseline
-from scipy.signal import spectrogram as scipy_spectrogram
 
 _ARRAY_COLORS = {
     "horizontal": "tab:blue",
@@ -139,13 +138,6 @@ def _baseline_correct(
     if baseline_range is None:
         return np.asarray(signal, dtype=float).copy()
     return sxr_offset_baseline(signal, _time_mask(time, baseline_range), skip_nan=True, on_empty="keep")
-
-
-def _sample_rate_from_time(time: np.ndarray) -> float:
-    dt = np.nanmedian(np.diff(time))
-    if not np.isfinite(dt) or dt <= 0:
-        raise ValueError("Cannot infer sample rate from non-monotonic or degenerate time array.")
-    return float(1.0 / dt)
 
 
 def _line_of_sight_points(ods: Any, channel: int) -> tuple[tuple[float, float], tuple[float, float], float] | None:
@@ -298,65 +290,6 @@ def plot_soft_x_ray_signal(
     return fig, ax
 
 
-def plot_soft_x_ray_spectrogram(
-    ods: Any,
-    channel: int = 0,
-    time_range: tuple[float, float] | None = None,
-    baseline_range: tuple[float, float] | None = None,
-    nperseg: int = 1024,
-    noverlap: int | None = None,
-    max_frequency: float | None = 90_000.0,
-    log_power: bool = True,
-    ax: Any | None = None,
-    title: str | None = None,
-    show: bool = True,
-):
-    """Plot a single-channel SXR spectrogram."""
-    time, signal = _channel_time_and_signal(ods, int(channel))
-    signal = _baseline_correct(time, signal, baseline_range)
-    mask = _time_mask(time, time_range)
-    time_window = time[mask]
-    signal_window = signal[mask]
-    if signal_window.size < 4:
-        raise ValueError("Selected time window is too short for spectrogram.")
-
-    fs = _sample_rate_from_time(time_window)
-    nperseg = int(min(nperseg, signal_window.size))
-    if noverlap is None:
-        noverlap = nperseg // 2
-    noverlap = int(min(noverlap, max(nperseg - 1, 0)))
-    frequencies, segment_time, power = scipy_spectrogram(
-        signal_window,
-        fs=fs,
-        nperseg=nperseg,
-        noverlap=noverlap,
-        detrend="constant",
-        scaling="density",
-        mode="psd",
-    )
-    segment_time = segment_time + float(time_window[0])
-    if max_frequency is not None:
-        freq_mask = frequencies <= float(max_frequency)
-        frequencies = frequencies[freq_mask]
-        power = power[freq_mask]
-
-    image_data = 10.0 * np.log10(power + np.finfo(float).eps) if log_power else power
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(7.0, 3.2))
-    else:
-        fig = ax.figure
-    mesh = ax.pcolormesh(segment_time, frequencies / 1e3, image_data, shading="auto", cmap="turbo")
-    label = "PSD [dB]" if log_power else "PSD"
-    fig.colorbar(mesh, ax=ax, label=label)
-    ax.set_xlabel("Time [s]")
-    ax.set_ylabel("Frequency [kHz]")
-    ax.set_title(title or f"SXR Spectrogram - {_channel_name(ods, int(channel))}")
-    fig.tight_layout()
-    if show:
-        plt.show()
-    return fig, ax
-
-
 def plot_soft_x_ray_pattern(
     ods: Any,
     channels: Sequence[int] | int | None = None,
@@ -440,14 +373,16 @@ def plot_soft_x_ray_overview(
         ax=axs[0, 1],
         show=False,
     )
-    plot_soft_x_ray_spectrogram(
-        ods,
-        channel=spectrogram_channel,
-        time_range=time_range,
-        baseline_range=baseline_range,
-        ax=axs[1, 0],
-        show=False,
-    )
+    # The spectrogram panel is the canonical soft_x_rays_spectrogram (issue
+    # #2270): this module's own scipy PSD copy is retired.  ``baseline_range``
+    # does not reach it -- a constant offset is removed by the transform's
+    # per-segment detrend anyway.
+    from vaft.omas import plot_soft_x_rays_spectrogram
+
+    spectrogram_options = {"channel": spectrogram_channel}
+    if time_range is not None:
+        spectrogram_options["time_range"] = time_range
+    plot_soft_x_rays_spectrogram(ods, ax=axs[1, 0], show=False, **spectrogram_options)
     plot_soft_x_ray_pattern(
         ods,
         channels=pattern_channels,
@@ -467,20 +402,17 @@ def plot_soft_x_ray_overview(
 soft_x_rays_los = plot_soft_x_ray_los
 soft_x_rays_time = plot_soft_x_ray_signal
 soft_x_rays_signal = plot_soft_x_ray_signal
-soft_x_rays_spectrogram = plot_soft_x_ray_spectrogram
 soft_x_rays_pattern = plot_soft_x_ray_pattern
 soft_x_rays_overview = plot_soft_x_ray_overview
 
 __all__ = [
     "plot_soft_x_ray_los",
     "plot_soft_x_ray_signal",
-    "plot_soft_x_ray_spectrogram",
     "plot_soft_x_ray_pattern",
     "plot_soft_x_ray_overview",
     "soft_x_rays_los",
     "soft_x_rays_time",
     "soft_x_rays_signal",
-    "soft_x_rays_spectrogram",
     "soft_x_rays_pattern",
     "soft_x_rays_overview",
 ]

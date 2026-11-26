@@ -2759,10 +2759,12 @@ def time_power_balance(ods, figsize=(6, 6.5)):
     from vaft.omas.formula_wrapper import compute_power_balance, compute_bremsstrahlung_power
 
     def _match_time_index(ref_times, target_time, atol):
-        if ref_times.size == 0:
+        # A slice without a stored time is NaN and never matches (#2270).
+        distance = np.abs(ref_times - target_time)
+        if not np.any(np.isfinite(distance)):
             return None
-        idx = int(np.argmin(np.abs(ref_times - target_time)))
-        if np.abs(ref_times[idx] - target_time) <= atol:
+        idx = int(np.nanargmin(distance))
+        if distance[idx] <= atol:
             return idx
         return None
     
@@ -2779,7 +2781,7 @@ def time_power_balance(ods, figsize=(6, 6.5)):
             [
                 float(ods['equilibrium.time_slice'][i]['time'])
                 if 'time' in ods['equilibrium.time_slice'][i]
-                else float(i)
+                else np.nan
                 for i in range(eq_count)
             ],
             dtype=float,
@@ -2822,7 +2824,7 @@ def time_power_balance(ods, figsize=(6, 6.5)):
         P_loss = np.asarray(power_balance.get('P_loss_total', P_rad + P_trans), dtype=float)
 
         # Radiation decomposition terms
-        P_line = np.asarray(power_balance.get('P_rad_line', np.zeros_like(P_rad)), dtype=float)
+        P_line = np.asarray(power_balance.get('P_rad_line', np.full_like(P_rad, np.nan)), dtype=float)
         P_Br = np.asarray(power_balance.get('P_Br', np.full_like(P_rad, np.nan)), dtype=float)
         if np.all(~np.isfinite(P_Br)):
             # Backward compatibility with older compute_power_balance outputs.
@@ -2833,7 +2835,7 @@ def time_power_balance(ods, figsize=(6, 6.5)):
                     [
                         float(ods['core_profiles.profiles_1d'][i]['time'])
                         if 'time' in ods['core_profiles.profiles_1d'][i]
-                        else float(i)
+                        else np.nan
                         for i in range(cp_count)
                     ],
                     dtype=float,
@@ -2852,7 +2854,8 @@ def time_power_balance(ods, figsize=(6, 6.5)):
         P_sync = np.asarray(power_balance.get('P_sync', np.full_like(P_rad, np.nan)), dtype=float)
         if np.all(~np.isfinite(P_sync)):
             # No direct synchrotron model in this pipeline yet; use residual term.
-            P_sync = P_rad - P_line - np.nan_to_num(P_Br, nan=0.0)
+            # An unknown P_Br or P_line leaves the residual unknown (#2270).
+            P_sync = P_rad - P_line - P_Br
     except Exception as e:
         print(f"Error computing power balance: {e}")
         return

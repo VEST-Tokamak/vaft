@@ -902,7 +902,10 @@ def compute_bremsstrahlung_power(
     elif 'core_profiles.time' in ods and cp_idx < len(ods['core_profiles.time']):
         cp_time = float(ods['core_profiles.time'][cp_idx])
     else:
-        cp_time = float(cp_idx)
+        raise KeyError(
+            f"core_profiles.profiles_1d[{cp_idx}] has no time, so no equilibrium slice "
+            "can be matched to it (its index is not a time, issue #2270)"
+        )
     
     # Find matching equilibrium time slice
     equil_times = []
@@ -913,10 +916,12 @@ def compute_bremsstrahlung_power(
         elif 'equilibrium.time' in ods and idx < len(ods['equilibrium.time']):
             equil_times.append(float(ods['equilibrium.time'][idx]))
         else:
-            equil_times.append(float(idx))
-    
+            equil_times.append(np.nan)  # untimed: matches nothing (#2270)
+
     equil_times = np.asarray(equil_times)
-    equil_idx = np.argmin(np.abs(equil_times - cp_time))
+    if not np.any(np.isfinite(equil_times)):
+        raise KeyError("no equilibrium time slice has a time to match core_profiles against")
+    equil_idx = int(np.nanargmin(np.abs(equil_times - cp_time)))
     eq_ts = ods['equilibrium.time_slice'][equil_idx]
     
     # Get core profile data: T_e, n_e, and rho_tor_norm
@@ -1287,7 +1292,9 @@ def compute_power_balance(
         [
             float(ods['equilibrium.time_slice'][i]['time'])
             if 'time' in ods['equilibrium.time_slice'][i]
-            else float(i)
+            # never the index as seconds: an untimed slice is NaN, has no
+            # dW/dt and matches nothing (issue #2270)
+            else np.nan
             for i in idxs
         ],
         dtype=float,
@@ -1310,7 +1317,7 @@ def compute_power_balance(
             [
                 float(ods["core_profiles.profiles_1d"][j]["time"])
                 if "time" in ods["core_profiles.profiles_1d"][j]
-                else float(j)
+                else np.nan  # untimed: matches nothing (#2270)
                 for j in range(len(ods["core_profiles.profiles_1d"]))
             ],
             dtype=float,
@@ -1479,6 +1486,8 @@ def compute_power_balance(
             common_mask = np.ones_like(t, dtype=bool)
     else:
         common_mask = np.ones_like(t, dtype=bool)
+    # An untimed equilibrium slice has no place on a time axis (#2270).
+    common_mask &= np.isfinite(t)
 
     return {
         'time': t[common_mask],

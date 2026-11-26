@@ -56,8 +56,8 @@ Presence of NumPy/SciPy calls is not a criterion.
 | 24 | `_equilibrium_coordinate_values` (~9555) | every `ProfileRecipe` | sqrt_phi_norm, rho_tor via q, r_minor | `data._derived.rho_tor_profile`, `formula.equilibrium.rho_tor_from_phi` | partial delegation | later: route through `equilibrium_rho_tor_norm_table` |
 | 25 | `_build_profile_gradient` grid prep (~16830) | `*_profile_gradient` | grid normalisation and rho_tor verification | `process.profile_gradients.profile_gradient` (derivative only) | delegation + reusable preprocessing | later |
 | 26 | `_rolling_median` (~9180) | `smooth=` on line recipes | display smoothing | `process.onset.median_smooth` | view | keep |
-| 27 | `vaft/plot/soft_x_rays.py` spectrogram (328) | `vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram` | local `scipy.signal.spectrogram(mode="psd")` | `process.fluctuation.compute_spectrogram` | reusable (re-implemented) | P3: delegate or retire |
-| 28 | `vaft/plot/mirnov.py` spectrogram path (120-290) | legacy `vaft.plot.mirnov.*` | gain division, preprocessing, resampling, fs fallback 250 kHz | `process.magnetics.*` | delegation with diverging policy | P3: align with the recipe path or retire |
+| 27 | `vaft/plot/soft_x_rays.py` spectrogram (328) | `vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram` | local `scipy.signal.spectrogram(mode="psd")` | `process.fluctuation.compute_spectrogram` | reusable (re-implemented) | **retired (P4)**: deleted; the overview's panel is the canonical `soft_x_rays_spectrogram` |
+| 28 | `vaft/plot/mirnov.py` spectrogram path (120-290) | legacy `vaft.plot.mirnov.*` | gain division, preprocessing, resampling, fs fallback 250 kHz | `process.magnetics.*` | delegation with diverging policy | **retired (P4)**: `mirnov_spectrogram` deleted (canonical `vaft.plot.mirnov_spectrogram`); the 250 kHz fs guess now raises |
 | 29 | other plot-module physics: `plot/time.py` V_loop, `plot/profile.py` p from beta_tor, `kinetic_state` p_e and error propagation, `plot/history.py` regression metrics | respective plots | as named | `formula.equilibrium.loop_voltage_from_total_flux`, `electron_pressure`, `formula.statistics.*` | reusable (duplicates) | later |
 
 Already delegating, no action: rational surfaces (`process.equilibrium.rational_surfaces`),
@@ -136,10 +136,56 @@ on purpose (#484), so a method switch keeps the caller's resolution.  The
 interferometer warns when a positive trend high-pass cannot be applied.
 Kept by design: item 2 (the ridge is an overlay of the drawn map, so it
 searches the drawn band), item 3 (a crop of the full-band Fourier map equals
-the band's own map), item 7.  Items 27-28 (the legacy `vaft.plot.soft_x_rays`
-and `vaft.plot.mirnov` spectrogram paths) are left for a retirement decision.
+the band's own map), item 7.
+
+**Done in P4.** Items 27-28 are retired: `vaft.plot.soft_x_rays.plot_soft_x_ray_spectrogram`
+(a local `scipy.signal.spectrogram(mode="psd")`) and `vaft.plot.mirnov.mirnov_spectrogram`
+are deleted, so every spectrogram goes through the recipe path.
+`plot_soft_x_ray_overview` draws the canonical `soft_x_rays_spectrogram` in its
+panel (`baseline_range` does not reach it: the per-segment constant detrend
+removes an offset anyway).  The remaining legacy Mirnov helpers no longer guess
+250 kHz for a record without a usable time base; they ask for `sample_rate=`.
 
 ## Other defects found by the sweep
+
+All four fixed in P4, each pinned by `test/test_plot_science_consolidation_p4.py`:
+
+* `impa_profile_field` with no `time=` takes the middle sample, as every other
+  `time=` plot does, and the title names it; the TF model takes the current at
+  that same time.
+* The power balance (the recipe and `vaft.plot.time.time_power_balance`) and
+  `update_core_profiles_global_quantities_volume_average` treat a slice without
+  a stored time as matching nothing; the matchers use `nanargmin`, so one
+  untimed slice no longer hides every real match.  A missing P_Br or P_line
+  leaves the synchrotron residual NaN.
+* The equilibrium 2-D maps (`_mapped_field_values`) now decide containment by
+  the boundary outline with `vaft.process.equilibrium.plasma_cell_weights`
+  (`>= 0.5`), the rule #2253 gave the core-profile maps.  On the packaged
+  39915 slice 0 the flux threshold alone admitted ~1,660 cells in the exterior
+  regions near the coils (|Z| > 1.1 m) where psi_N turns back below one.
+* The volume average uses the stored `rho_tor_norm` when it is authentic and
+  the `q`-derived radius of `equilibrium_rho_tor_norm_table` when it is missing
+  or the stand-in.
+
+The power balance's upstream `compute_power_balance` and
+`compute_bremsstrahlung_power` drop the same index-as-seconds fallback: an
+untimed equilibrium slice leaves the time axis, an untimed core slice matches
+nothing.
+
+Still unresolved (need a numerical or physics decision, not a code fix): the
+`m = round(n q)` sign for negative q (B4) and the coil sector-angle weighting
+(item 19).
+
+Same defect class, outside the plot layer and left for a follow-up: the
+index-as-seconds fallback in `formula_wrapper` (two more readers),
+`general.find_matching_time_indices`, `process_wrapper.compute_core_profile_psi`
+/ `compute_core_profile_2d` and `efit_quality`; the 250 kHz default of
+`vaft.process.magnetics._sample_rate_from_time` behind the public
+`mirnov_spectrogram` and `toroidal_phase_fit_at_time`.  The psi_N 2-D map
+still tests cell centres against the outline rather than
+`plasma_cell_weights >= 0.5`.
+
+As found:
 
 * `impa_profile_field` in voltage mode with no `time=` samples index 0 after
   subtracting `trace[0]`, so every plotted value is 0 and no model is drawn.

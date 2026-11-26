@@ -65,6 +65,7 @@ __all__ = [
     "LEGACY",
     "RENAMED",
     "RENAMED_IN",
+    "RETIRED_IMPLEMENTATIONS",
     "RENAMED_REMOVAL_RELEASE",
     "RELOCATED",
     "REMOVAL_RELEASE",
@@ -395,7 +396,6 @@ for _module, _names in {
         "plot_soft_x_ray_overview",
         "plot_soft_x_ray_pattern",
         "plot_soft_x_ray_signal",
-        "plot_soft_x_ray_spectrogram",
         "soft_x_rays_los",
         "soft_x_rays_pattern",
         "soft_x_rays_signal",
@@ -425,9 +425,14 @@ for _module, _names in {
         LEGACY_MODULES[_legacy_name] = _module
 del _module, _names, _legacy_name
 
+#: Legacy names whose old implementation was deleted, not just unexported: the
+#: pre-redesign spectrogram copies retired by issue #2270.  They have no module.
+RETIRED_IMPLEMENTATIONS = frozenset({"plot_soft_x_ray_spectrogram"})
+
 # Anything left is a time-series renderer that still lives in vaft.plot.time.
 for _legacy_name in DEPRECATED:
-    LEGACY_MODULES.setdefault(_legacy_name, "time")
+    if _legacy_name not in RETIRED_IMPLEMENTATIONS:
+        LEGACY_MODULES.setdefault(_legacy_name, "time")
 del _legacy_name
 
 
