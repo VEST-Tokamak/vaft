@@ -104,6 +104,16 @@ Seeing the plasma-current trace completes the credential-free first workflow. Co
 [experimental interpretation]({{ site.baseurl }}/workflows/experimental-interpretation/) or configure
 the public database below.
 
+### Find your way around
+
+`vaft help` (or `vaft.help()` in Python) is the capability map: the topics, how they fit together,
+the defaults and the setup status, with `vaft help <topic>` for one topic. `vaft --help` lists the
+commands in four groups — scientific analysis; data access and interoperability; research
+interfaces and environment; VEST infrastructure and operations — and `vaft <command> --help`
+gives one command's syntax. VEST is the reference implementation: the database, export and
+summary commands read the VEST HSDS database, and the last group handles VEST's own raw-data
+archives and pipelines.
+
 ## 3. Configure read-only public HSDS access
 
 Run `vaft hsds configure` and enter the endpoint plus credentials supplied by the VEST team. Credentials stay

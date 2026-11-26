@@ -113,6 +113,16 @@ def test_the_help_command_imports_no_subsystem_before_parsing():
     )
 
 
+
+def test_the_top_level_help_imports_no_subsystem():
+    _run(
+        "import contextlib, io, sys, vaft.cli._main as m\n"
+        "with contextlib.redirect_stdout(io.StringIO()):\n"
+        "    assert m.main(['--help']) == 0\n"
+        f"loaded = {_loaded(SUBSYSTEMS)}; assert not loaded, loaded"
+    )
+
+
 def test_help_stays_out_of_star_imports_but_is_listed():
     assert "help" not in vaft.__all__
     assert "help" in dir(vaft)
@@ -319,7 +329,7 @@ def test_help_command(capsys):
     assert cli_main(["help", "cli", "--format", "json"]) == 0
     data = json.loads(capsys.readouterr().out)
     assert data["topic"] == "cli"
-    assert any(row[0] == "vaft help" for row in data["sections"][0]["rows"])
+    assert any(row[0] == "vaft help" for section in data["sections"] for row in section["rows"])
     assert cli_main(["help", "validation", "no.such.check"]) == 2
     assert "no.such.check" in capsys.readouterr().err
     assert cli_main(["help", "Validation"]) == 0
@@ -347,3 +357,47 @@ def test_argparse_help_is_unchanged_and_lists_help(capsys):
         cli_main(["help", "--help"])
     assert raised.value.code == 0
     assert "topics: overview" in capsys.readouterr().out
+
+
+def test_every_entry_point_names_vaft_the_way_the_package_metadata_does(capsys):
+    from importlib.metadata import metadata
+
+    from vaft._help._registry import NAME, TAGLINE, TOPICS
+    from vaft.mcp.server import INSTRUCTIONS
+
+    assert NAME == f"VAFT — {metadata('vaft')['Summary']}"
+    assert cli_main(["--help"]) == 0
+    surfaces = {
+        "vaft.help()": str(vaft_help()),
+        "vaft --help": capsys.readouterr().out,
+        "MCP instructions": INSTRUCTIONS,
+    }
+    for surface, text in surfaces.items():
+        assert NAME in text and TAGLINE in text, surface
+        assert "toolkit" not in text.lower(), surface
+    assert not any("toolkit" in t.summary.lower() for t in TOPICS.values())
+
+
+def test_the_overview_maps_the_framework_onto_existing_topics_only():
+    page = vaft_help().as_dict()
+    titles = [section["title"] for section in page["sections"]]
+    assert "Topics" in titles  # get_capabilities reads its summaries from this section
+    framework = next(s for s in page["sections"] if s["title"] == "How the topics fit together")
+    named = {word.strip() for _layer, value in framework["rows"] for word in value.split("(")[0].split(",")}
+    assert named <= set(topics()) and set(topics()) - {"overview"} <= named
+    assert "vaft.machine_mapping" in framework["note"]
+
+
+def test_cli_help_lists_every_command_once_under_its_group(capsys):
+    from vaft.cli._main import _COMMANDS, _GROUPS
+
+    assert vaft_cli_help_json(capsys)["sections"] == [
+        {"title": title, "rows": [[f"vaft {n}", _COMMANDS[n][1]] for n in names], "note": note}
+        for (title, names), note in zip(_GROUPS, [""] * (len(_GROUPS) - 1) + ["syntax: vaft <command> --help"])
+    ]
+    assert "group: VEST infrastructure and operations" in str(vaft_help("cli", "pipeline-worker"))
+
+
+def vaft_cli_help_json(capsys) -> dict:
+    assert cli_main(["help", "cli", "--format", "json"]) == 0
+    return json.loads(capsys.readouterr().out)

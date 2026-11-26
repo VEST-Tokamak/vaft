@@ -23,10 +23,12 @@ import traceback
 import typing
 from typing import Any
 
+from vaft._help._registry import NAME, REFERENCE_MACHINE, TAGLINE
+
 __all__ = ["INSTRUCTIONS", "build_server", "main"]
 
 INSTRUCTIONS = (
-    "Read-only access to VAFT, the VEST tokamak analysis toolkit. Start with "
+    f"Read-only access to {NAME}. {TAGLINE} {REFERENCE_MACHINE} Start with "
     "get_capabilities. Formulas, processes, validation checks, plots and boundaries "
     "each have a search/list tool and a describe tool; get_plot_requirements gives "
     "the data paths a plot reads; extract_plot_data returns bounded numbers from a "

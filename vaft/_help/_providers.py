@@ -51,15 +51,26 @@ def _sentence(text: str) -> str:
 
 
 # -- overview ----------------------------------------------------------------
+#: The overview's map from VAFT's layers to the topics that describe them.
+#: Every topic named here is a key of ``TOPICS``; the tests hold it to that.
+_FRAMEWORK = (
+    ("scientific knowledge", "formula, process, validation"),
+    ("data and representations", "database, data, omas, imas"),
+    ("analysis and presentation", "plot"),
+    ("external physics codes", "code"),
+    ("interfaces", "cli  (also vaft mcp for MCP clients, vaft gui in a browser)"),
+)
+
 def overview(topic, *, probe: bool = False) -> dict:
     from ..version import __version__
-    from ._registry import TOPICS
+    from ._registry import REFERENCE_MACHINE, TOPICS
 
     rows = tuple((name, t.summary) for name, t in TOPICS.items() if name != "overview")
     return {
         "sections": (
             Section("Version", (("vaft", __version__),)),
             Section("Topics", rows, note="vaft.help('<topic>')  |  vaft help <topic>"),
+            Section("How the topics fit together", _FRAMEWORK, note=REFERENCE_MACHINE),
             Section(
                 "Kinds of default",
                 (
@@ -430,15 +441,27 @@ def imas_item(query: str):
 
 # -- cli ---------------------------------------------------------------------
 def cli(topic, *, probe: bool = False) -> dict:
-    from vaft.cli._main import _COMMANDS
+    from vaft.cli._main import _COMMANDS, _GROUPS
 
-    rows = tuple((f"vaft {name}", description) for name, (_module, description) in _COMMANDS.items())
-    return {"sections": (Section("Commands", rows, note="syntax: vaft <command> --help"),)}
+    last = len(_GROUPS) - 1
+    sections = tuple(
+        Section(
+            title,
+            tuple((f"vaft {name}", _COMMANDS[name][1]) for name in names),
+            note="syntax: vaft <command> --help" if index == last else "",
+        )
+        for index, (title, names) in enumerate(_GROUPS)
+    )
+    return {"sections": sections}
 
 
 def cli_item(command: str) -> str:
-    from vaft.cli._main import _COMMANDS
+    from vaft.cli._main import _COMMANDS, command_group
 
     if command not in _COMMANDS:
         raise KeyError(f"unknown command {command!r}; choose from: {', '.join(_COMMANDS)}")
-    return f"vaft {command}: {_COMMANDS[command][1]}\nsyntax and arguments: vaft {command} --help"
+    return (
+        f"vaft {command}: {_COMMANDS[command][1]}\n"
+        f"group: {command_group(command)}\n"
+        f"syntax and arguments: vaft {command} --help"
+    )

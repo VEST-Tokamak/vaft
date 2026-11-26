@@ -166,3 +166,27 @@ def test_the_plot_listing_survives_a_locale_console(tmp_path, handler):
     listing = completed.stdout.decode("cp1252", "replace")
     assert "mirnov" in listing and "UnicodeEncodeError" not in listing
 
+
+
+def test_command_groups_partition_the_commands():
+    from vaft.cli._main import _COMMANDS, _GROUPS, command_group
+
+    listed = [name for _title, names in _GROUPS for name in names]
+    assert sorted(listed) == sorted(_COMMANDS)
+    assert command_group("plot") == "Scientific analysis"
+    with pytest.raises(KeyError, match="unknown command"):
+        command_group("nope")
+
+
+def test_top_level_help_shows_each_command_under_its_group(capsys):
+    from vaft.cli._main import _COMMANDS, _GROUPS
+
+    assert cli_main(["--help"]) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("usage: vaft ")
+    for title, names in _GROUPS:
+        block = out.split(f"\n{title}:\n", 1)[1].split("\n\n", 1)[0]
+        assert [line.split()[0] for line in block.splitlines()] == list(names)
+        for name in names:
+            assert _COMMANDS[name][1] in block
+    assert out.index("Scientific analysis:") < out.index("VEST infrastructure and operations:")
