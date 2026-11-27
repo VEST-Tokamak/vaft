@@ -52,12 +52,15 @@ def _onnxruntime():
     return onnxruntime
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=1024)
 def _session(path: str):
     """A cached inference session for one ensemble member.
 
     Keyed by path: a session is expensive to build and an ensemble of twenty is rebuilt
-    on every radius otherwise. Keyed by path *only*, so a model file replaced in place
+    on every radius otherwise. Sized for every public family at once (14 x 20 members):
+    a population pass cycles through all of them per surface, and a cache smaller than
+    that evicts each session before its next use (measured: 64 entries made a 12-family
+    pass ~100x slower). Keyed by path *only*, so a model file replaced in place
     within one process keeps serving the old graph -- acceptable for read-only upstream
     artifacts, and the reason resolution records a SHA-256 of what it actually read.
     """
